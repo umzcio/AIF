@@ -6,7 +6,7 @@ import { navigate } from "../hooks/useHashRouter.js";
 import { useToast } from "./Toast.jsx";
 import { useAuth } from "../hooks/useAuth.jsx";
 
-const statusColors = { active: TRACK_COLORS[1], approved: TRACK_COLORS[1], in_progress: TRACK_COLORS[3], under_review: TRACK_COLORS[2], changes_requested: TRACK_COLORS[2], pending: TRACK_COLORS[2], suspended: TRACK_COLORS[4], draft: C.textMid };
+const statusColors = { active: TRACK_COLORS[1], approved: TRACK_COLORS[1], in_progress: TRACK_COLORS[3], under_review: TRACK_COLORS[2], changes_requested: TRACK_COLORS[2], pending: TRACK_COLORS[2], suspended: TRACK_COLORS[4], draft: C.textDim };
 const statusLabels = { active: "Active", approved: "Approved", in_progress: "In Progress", under_review: "In Review", changes_requested: "Changes Req.", pending: "Pending", suspended: "Suspended", draft: "Draft", retired: "Retired" };
 
 export default function Registry() {
@@ -84,9 +84,10 @@ export default function Registry() {
             <span>Tool Name</span><span>Track</span><span>Owner</span><span>Type</span><span>Status</span><span>Date</span>
           </div>
           {filtered.map((item, i) => (
-            <div key={item.id} className="registry-table-row"
+            <div key={item.id} className="registry-table-row" role="button" tabIndex={0}
               style={{ background: i % 2 === 0 ? "transparent" : C.surface }}
               onClick={() => navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`)}
+              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`); }}}
               onMouseEnter={e => e.currentTarget.style.background = C.surfaceHover}
               onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface}>
               <span style={{ fontWeight: 600 }}>{item.name}</span>

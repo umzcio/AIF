@@ -1,5 +1,10 @@
 # AI-Built Tool Code Intake Framework (AIF)
 
+![GitHub release](https://img.shields.io/github/v/release/umzcio/AIF)
+![GitHub stars](https://img.shields.io/github/stars/umzcio/AIF)
+![GitHub contributors](https://img.shields.io/github/contributors/umzcio/AIF)
+![WCAG 2.2 AA](https://img.shields.io/badge/WCAG-2.2_AA-blue.svg)
+
 A risk-tiered governance framework and review portal for moving AI-assisted tools from prototype to production at the University of Montana.
 
 Builders submit tools via a 21-question intake form → the system scores them on 7 weighted dimensions → routes them to a Track (1–4) → runs a uniform 5-model agent pipeline → produces structured reports with findings, HECVAT assessment, and auto-generated documentation.
