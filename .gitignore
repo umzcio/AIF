@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+frontend/dist/
+
+# Pipeline output
+output/
+
+# Environment
+backend/.env
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Prototypes (kept locally, not shipped)
+ai-tool-intake-platform.jsx
+code_proto.jsx
+FRAMEWORK_REPLICA.jsx
+files.json
+
+# opencode working dirs
+opencode/

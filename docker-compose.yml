@@ -1,0 +1,47 @@
+services:
+  app:
+    build: .
+    container_name: aif-app
+    ports: ["3300:3000"]
+    env_file: backend/.env
+    environment:
+      - DATABASE_URL=postgresql://aif:${DB_PASSWORD:-aifdev}@db:5432/aif
+      - BASE_PATH=/aif
+      - OUTPUT_DIR=/data/output
+      - CODEBASES_DIR=/data/codebases
+      - HECVAT_TEMPLATE_PATH=/app/hecvat415.xlsx
+      - AUTH_BYPASS=${AUTH_BYPASS:-false}
+      - JWT_SECRET=${JWT_SECRET:-aif-dev-secret-change-in-prod}
+      - ADMIN_NETIDS=${ADMIN_NETIDS:-}
+      - CAS_SERVICE_URL=${CAS_SERVICE_URL:-https://umzcaio.ito.umt.edu/aif/api/auth/callback}
+      - FRONTEND_URL=${FRONTEND_URL:-https://umzcaio.ito.umt.edu/aif/}
+    volumes:
+      - aif_output:/data/output
+      - aif_codebases:/data/codebases
+      - /projects:/projects:ro
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [aif-network]
+
+  db:
+    image: postgres:16-alpine
+    container_name: aif-db
+    volumes: [aif_pgdata:/var/lib/postgresql/data]
+    environment:
+      POSTGRES_DB: aif
+      POSTGRES_USER: aif
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-aifdev}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aif"]
+      interval: 5s
+      retries: 5
+    networks: [aif-network]
+
+volumes:
+  aif_pgdata:
+  aif_output:
+  aif_codebases:
+
+networks:
+  aif-network:
+    driver: bridge
