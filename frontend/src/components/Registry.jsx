@@ -1,0 +1,108 @@
+import { useEffect, useMemo, useState } from "react";
+import { C, STATUS_META, TRACK_COLORS, TRACK_LABELS } from "../constants.js";
+import { Btn, EmptyState, ErrorBanner, TrackBadge, Skeleton, relativeTime } from "./primitives.jsx";
+import { getTools, deleteDraft } from "../api.js";
+import { navigate } from "../hooks/useHashRouter.js";
+import { useToast } from "./Toast.jsx";
+
+const statusColors = { active: TRACK_COLORS[1], in_progress: TRACK_COLORS[3], under_review: TRACK_COLORS[2], pending: TRACK_COLORS[2], suspended: TRACK_COLORS[4], draft: C.textMid };
+const statusLabels = { active: "Active", in_progress: "In Progress", under_review: "In Review", pending: "Pending", suspended: "Suspended", draft: "Draft", retired: "Retired" };
+
+export default function Registry() {
+  const { toast, confirm } = useToast();
+  const [filter, setFilter] = useState("all");
+  const [tools, setTools] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    getTools({})
+      .then(data => { setTools(data.tools || []); })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [refreshKey]);
+
+  const filtered = useMemo(() => {
+    if (filter === "all") return tools;
+    return tools.filter(t => t.status === filter);
+  }, [filter, tools]);
+
+  const trackCounts = useMemo(() => {
+    const counts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    tools.forEach(t => { if (t.track) counts[t.track] = (counts[t.track] || 0) + 1; });
+    return counts;
+  }, [tools]);
+
+  const activeCount = tools.filter(t => t.status === "active").length;
+
+  if (loading) return <div style={{ padding: 20 }}><Skeleton height={300} /></div>;
+  if (error) return <div style={{ padding: 20 }}><ErrorBanner message={error} onRetry={() => setRefreshKey(v => v + 1)} /></div>;
+
+  return (
+    <div>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Tool Registry</h3>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: C.textMid }}>{tools.length} tools registered · {activeCount} active</p>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[["all","All"],["active","Active"],["in_progress","In Progress"],["under_review","In Review"],["pending","Pending"]].map(([v,l]) => (
+            <button key={v} onClick={() => setFilter(v)}
+              style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${filter === v ? C.accent : C.border}`,
+                background: filter === v ? C.accentSoft : "transparent", color: filter === v ? C.accent : C.textMid,
+                fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Table */}
+      {filtered.length === 0 ? (
+        <EmptyState heading="No tools found" body="Adjust filters or submit a new tool." action={<Btn onClick={() => navigate("/intake")}>Submit tool</Btn>} />
+      ) : (
+        <div style={{ borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+          {/* Header */}
+          <div className="registry-table-header">
+            <span>Tool Name</span><span>Track</span><span>Owner</span><span>Type</span><span>Status</span><span>Date</span>
+          </div>
+          {filtered.map((item, i) => (
+            <div key={item.id} className="registry-table-row"
+              style={{ background: i % 2 === 0 ? "transparent" : C.surface }}
+              onClick={() => navigate(item.status === "in_progress" || item.status === "under_review" ? `/upload/${item.id}` : `/tool/${item.id}`)}
+              onMouseEnter={e => e.currentTarget.style.background = C.surfaceHover}
+              onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface}>
+              <span style={{ fontWeight: 600 }}>{item.name}</span>
+              <span>{item.track ? <TrackBadge track={item.track} /> : <span style={{ color: C.textDim }}>—</span>}</span>
+              <span style={{ color: C.textMid }}>{item.owner_name || item.owner_netid || "—"}</span>
+              <span style={{ color: C.textMid }}>{item.artifact_type || "—"}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusColors[item.status] || C.textDim,
+                  ...(item.status === "in_progress" ? { animation: "pulse 1.5s infinite" } : {}) }} />
+                <span style={{ fontSize: 12, color: statusColors[item.status] || C.textDim, fontWeight: 600 }}>{statusLabels[item.status] || item.status}</span>
+              </span>
+              <span className="mono" style={{ fontSize: 12, color: C.textMid }}>
+                {item.created_at ? new Date(item.created_at).toLocaleDateString() : "—"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Track stats row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 24 }}>
+        {[1,2,3,4].map(t => (
+          <div key={t} style={{ padding: 16, borderRadius: 10, background: C.surface, border: `1px solid ${C.border}`, textAlign: "center" }}>
+            <TrackBadge track={t} />
+            <div className="mono" style={{ fontSize: 28, fontWeight: 700, marginTop: 8, color: TRACK_COLORS[t] }}>{trackCounts[t]}</div>
+            <div style={{ fontSize: 11, color: C.textMid }}>tools</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

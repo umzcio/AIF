@@ -1,0 +1,594 @@
+import { useState } from "react";
+import { Shield, Eye, ClipboardCheck, FileText, GitBranch, ExternalLink, Cpu, Layers, ChevronRight, Zap, Users, Terminal, Brain } from "lucide-react";
+import { C } from "../constants.js";
+
+const AGENT_DETAILS = [
+  {
+    id: "code-security",
+    num: 1,
+    name: "Code & Security Analysis",
+    Icon: Shield,
+    color: "#D35C1A",
+    type: "Multi-model (5 passes + synthesis)",
+    desc: "Performs a comprehensive 10-section security and code quality audit of the entire codebase. Each of 5 AI models independently reviews the code using the same evaluation rubric, then Claude synthesizes their findings with dispute resolution.",
+    sections: [
+      "Technology inventory (languages, frameworks, packages)",
+      "External services and API integrations",
+      "Data operations and classification (PII, FERPA, HIPAA)",
+      "Authentication and SSO analysis",
+      "Secrets and credential detection",
+      "AI/ML usage patterns and data transmission",
+      "MCP server security and agentic patterns",
+      "Escalation signal detection (7 conditions)",
+      "7-dimension scoring signals (0-3 each)",
+      "Prioritized findings with file:line evidence",
+    ],
+    tools: [
+      { name: "Snyk Agent Scan", desc: "Automated MCP config and SKILL.md security scanning", url: "https://github.com/snyk/snyk-agent-scan" },
+    ],
+    inspirations: [
+      { name: "Shannon", desc: "AI-powered security analysis agent by Keygraph", url: "https://github.com/KeygraphHQ/shannon" },
+      { name: "Semgrep", desc: "Static analysis patterns and OWASP rule design", url: "https://github.com/semgrep/semgrep" },
+      { name: "TruffleHog", desc: "Secrets detection methodology", url: "https://github.com/trufflesecurity/trufflehog" },
+      { name: "Scorecard", desc: "Supply chain security checks for open source projects", url: "https://github.com/ossf/scorecard" },
+      { name: "Bearer", desc: "Code security and data flow analysis patterns", url: "https://github.com/Bearer/bearer" },
+    ],
+  },
+  {
+    id: "accessibility",
+    num: 2,
+    name: "Accessibility Audit",
+    Icon: Eye,
+    color: "#7C3AED",
+    type: "Multi-model (5 passes + synthesis)",
+    desc: "Performs a comprehensive WCAG 2.2 Level AA audit across the entire frontend codebase. Five models independently evaluate every component, template, and stylesheet against accessibility criteria, then Claude synthesizes with dispute resolution.",
+    sections: [
+      "Semantic HTML structure and landmarks",
+      "ARIA roles, states, and properties",
+      "Keyboard navigation and focus management",
+      "Color contrast ratios (text and non-text)",
+      "Form labeling and error handling",
+      "Image and media alternatives",
+      "Dynamic content and live regions",
+      "Modal and dialog accessibility",
+      "Responsive design and reflow",
+      "Estimated WCAG conformance level",
+    ],
+    tools: [],
+    inspirations: [
+      { name: "accessibility-agents", desc: "Community Access multi-agent accessibility review", url: "https://github.com/Community-Access/accessibility-agents" },
+      { name: "ai-agent-a11y-reviewer", desc: "AI agent for automated accessibility auditing", url: "https://github.com/guillempuche/ai-agent-a11y-accessibility-reviewer" },
+      { name: "axe-core", desc: "WCAG rule definitions and testing methodology", url: "https://github.com/dequelabs/axe-core" },
+      { name: "Pa11y", desc: "Automated accessibility testing patterns", url: "https://github.com/pa11y/pa11y" },
+      { name: "Lighthouse", desc: "Accessibility audit scoring approach", url: "https://github.com/GoogleChrome/lighthouse" },
+      { name: "WCAG 2.2 Specification", desc: "W3C Web Content Accessibility Guidelines", url: "https://www.w3.org/TR/WCAG22/" },
+    ],
+  },
+  {
+    id: "hecvat",
+    num: 3,
+    name: "HECVAT 4 Lite Self-Assessment",
+    Icon: ClipboardCheck,
+    color: "#06B6D4",
+    type: "Single pass (Claude, reads Agent 1+2 output)",
+    desc: "Pre-populates a HECVAT 4.15 Lite self-assessment by reading the codebase and prior agent reports. Answers 87 Critical Importance questions across 23 categories, filling the official EDUCAUSE HECVAT Excel template. About 60% of questions are answerable from code; the rest are flagged for human input.",
+    sections: [
+      "23 HECVAT categories (DOCU through QUAL)",
+      "87 Critical Importance questions pre-filled",
+      "Non-negotiable failure detection",
+      "High-risk finding identification",
+      "Code evidence with file:line references",
+      "Human-input flags for policy questions",
+      "XLSX export to official HECVAT 4.15 template",
+    ],
+    tools: [
+      { name: "ExcelJS", desc: "HECVAT template XLSX manipulation", url: "https://github.com/exceljs/exceljs" },
+    ],
+    inspirations: [
+      { name: "EDUCAUSE HECVAT", desc: "Higher Education Community Vendor Assessment Toolkit", url: "https://library.educause.edu/resources/2020/4/higher-education-community-vendor-assessment-toolkit" },
+      { name: "HECVAT 4.15 Template", desc: "Official HECVAT Lite questionnaire template", url: "https://www.educause.edu/hecvat" },
+      { name: "Cloud Broker Project", desc: "HECVAT automation and vendor assessment workflows", url: "https://github.com/nickolaev/cloudbroker" },
+    ],
+  },
+  {
+    id: "documentation",
+    num: 4,
+    name: "Documentation Generation",
+    Icon: FileText,
+    color: "#22C55E",
+    type: "Single pass (Claude, reads Agent 1-3 output)",
+    desc: "Reads the codebase and all prior agent outputs to generate three production-ready documents: a User Guide, an Admin/Deployment Guide, and a Compliance Summary. Outputs are converted from Markdown to .docx via Pandoc.",
+    sections: [
+      "USER_GUIDE.md / .docx — end-user documentation",
+      "ADMIN_GUIDE.md / .docx — deployment, configuration, operations",
+      "COMPLIANCE_SUMMARY.md / .docx — security posture, WCAG status, HECVAT readiness",
+      "TODO markers for missing information",
+      "Cross-references to agent findings",
+    ],
+    tools: [
+      { name: "Pandoc", desc: "Markdown to DOCX conversion", url: "https://github.com/jgm/pandoc" },
+      { name: "Notion API", desc: "User Guide and Admin Guide auto-published to IT knowledge base", url: "https://developers.notion.com" },
+    ],
+    inspirations: [
+      { name: "ai-doc-gen", desc: "Multi-agent concurrent documentation generation", url: "https://github.com/divar-ir/ai-doc-gen" },
+      { name: "awesome-claude-code-subagents", desc: "Claude Code subagent patterns for doc generation", url: "https://github.com/VoltAgent/awesome-claude-code-subagents" },
+      { name: "readme-ai", desc: "Automated README generation from codebases", url: "https://github.com/eli64s/readme-ai" },
+      { name: "JSDoc", desc: "JavaScript API documentation extraction", url: "https://github.com/jsdoc/jsdoc" },
+      { name: "pdoc", desc: "Python API documentation auto-generation", url: "https://github.com/mitmproxy/pdoc" },
+    ],
+  },
+];
+
+const CLI_TOOLS = [
+  { name: "Codex CLI", model: "GPT-5.4", provider: "OpenAI", desc: "Full filesystem access, sandbox mode, autonomous code exploration", url: "https://github.com/openai/codex",
+    rationale: "Strongest at structured reasoning and step-by-step code analysis. Excels at identifying logical vulnerabilities and complex data flows." },
+  { name: "Gemini CLI", model: "Gemini 2.5 Pro", provider: "Google", desc: "Multimodal analysis with filesystem access", url: "https://github.com/google-gemini/gemini-cli",
+    rationale: "Largest context window (1M tokens) handles entire codebases without chunking. Strong at cross-file dependency analysis and architectural patterns." },
+  { name: "opencode", model: "Grok 3 Fast", provider: "xAI via OpenRouter", desc: "Fast execution with structured JSON output", url: "https://github.com/nicholasq/opencode",
+    rationale: "Fastest pass in the roster (~30s). Trained on different data sources than GPT/Gemini, catches patterns others miss — particularly in unconventional code structures." },
+  { name: "opencode", model: "Kimi K2", provider: "Moonshot via OpenRouter", desc: "Mixture-of-experts architecture with agentic coding", url: "https://github.com/nicholasq/opencode",
+    rationale: "1T-parameter MoE architecture provides a fundamentally different analytical lens. Strong at identifying edge cases in authentication and data handling." },
+  { name: "QwenCode", model: "Qwen3 Coder", provider: "Alibaba via OpenRouter", desc: "Code-specialized model with full approval mode", url: "https://github.com/nicholasq/opencode",
+    rationale: "Purpose-built for code analysis with specialized tokenization. Trained on the largest open-source code corpus — catches dependency and supply chain issues others overlook." },
+  { name: "Claude Code", model: "Claude Opus 4.6", provider: "Anthropic", role: "synthesis", desc: "Dispute resolution, filesystem access for re-checking evidence", url: "https://github.com/anthropics/claude-code",
+    rationale: "Never runs a pass — only synthesizes. Re-reads disputed files to resolve disagreements between models. Selected for strongest reasoning and nuanced judgment." },
+];
+
+const FRAMEWORKS = [
+  { name: "NIST AI RMF", desc: "AI Risk Management Framework", url: "https://www.nist.gov/artificial-intelligence/ai-risk-management-framework" },
+  { name: "NIST CSF 2.0", desc: "Cybersecurity Framework", url: "https://www.nist.gov/cyberframework" },
+  { name: "WCAG 2.2", desc: "Web Content Accessibility Guidelines (W3C)", url: "https://www.w3.org/TR/WCAG22/" },
+  { name: "OWASP Top 10", desc: "Web Application Security Risks", url: "https://owasp.org/www-project-top-ten/" },
+  { name: "EDUCAUSE HECVAT", desc: "Higher Ed Vendor Assessment Toolkit", url: "https://www.educause.edu/hecvat" },
+  { name: "ITIL 4", desc: "Change Management framework", url: "https://www.axelos.com/certifications/itil-service-management" },
+];
+
+const TOC = [
+  { id: "overview", label: "Overview" },
+  { id: "convergence", label: "Multi-Model Convergence" },
+  { id: "agent-1", label: "Agent 1: Code & Security" },
+  { id: "agent-2", label: "Agent 2: Accessibility" },
+  { id: "agent-3", label: "Agent 3: HECVAT" },
+  { id: "agent-4", label: "Agent 4: Documentation" },
+  { id: "why-models", label: "Why These Models" },
+  { id: "cli-tools", label: "CLI Tools" },
+  { id: "standards", label: "Standards & Frameworks" },
+];
+
+function ExtLink({ href, children }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer"
+      style={{ color: C.accent, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}
+      onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
+      onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}>
+      {children} <ExternalLink size={11} />
+    </a>
+  );
+}
+
+function PipelineDiagram({ onScrollTo }) {
+  const models = [
+    { label: "Pass 1", name: "GPT-5.4" },
+    { label: "Pass 2", name: "Gemini 2.5" },
+    { label: "Pass 3", name: "Grok 3" },
+    { label: "Pass 4", name: "Kimi K2" },
+    { label: "Pass 5", name: "Qwen3" },
+  ];
+
+  const arrow = (label) => (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "2px 0" }}>
+      <div style={{ width: 2, height: label ? 10 : 14, background: C.border }} />
+      {label && (
+        <div style={{ fontSize: 9, color: C.textDim, fontFamily: "'JetBrains Mono', monospace",
+          padding: "2px 10px", margin: "3px 0", background: C.surface,
+          borderRadius: 4, border: `1px solid ${C.border}` }}>{label}</div>
+      )}
+      <div style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent",
+        borderTop: `5px solid ${C.textDim}` }} />
+    </div>
+  );
+
+  const nodeBase = {
+    background: C.bg, borderRadius: 12,
+    padding: "14px 20px", width: "100%", maxWidth: 540,
+  };
+
+  const modelChips = (
+    <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+      {models.map((m, i) => (
+        <div key={i} style={{ flex: 1, padding: "5px 2px", borderRadius: 6, background: C.surface,
+          border: `1px solid ${C.border}`, textAlign: "center" }}>
+          <div style={{ fontSize: 8, color: C.textDim, fontFamily: "'JetBrains Mono', monospace" }}>{m.label}</div>
+          <div style={{ fontSize: 9, color: C.text, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", marginTop: 1 }}>{m.name}</div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const synthBar = (detail) => (
+    <>
+      <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${C.border}, transparent)`, margin: "6px 0" }} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.accent }} />
+        <span style={{ fontSize: 10, color: C.accent, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>Claude Synthesis</span>
+        <span style={{ fontSize: 9, color: C.textDim }}>&middot; {detail}</span>
+      </div>
+    </>
+  );
+
+  const typeBadge = (label) => (
+    <span style={{ fontSize: 9, color: C.textDim, fontFamily: "'JetBrains Mono', monospace", marginLeft: "auto",
+      padding: "2px 6px", border: `1px solid ${C.border}`, borderRadius: 4 }}>{label}</span>
+  );
+
+  function agentNode(num, name, color, type, children) {
+    return (
+      <div onClick={() => onScrollTo(`agent-${num}`)} style={{ ...nodeBase, cursor: "pointer",
+        border: `1px solid ${C.border}`, borderLeft: `3px solid ${color}`, transition: "background .15s" }}
+        onMouseEnter={e => e.currentTarget.style.background = C.surfaceHover}
+        onMouseLeave={e => e.currentTarget.style.background = C.bg}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: children ? 10 : 6 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+            color, background: `${color}15`, padding: "2px 8px", borderRadius: 4 }}>AGENT {num}</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{name}</span>
+          {typeBadge(type)}
+        </div>
+        {children}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      background: C.surfaceAlt, border: `1px solid ${C.border}`,
+      borderRadius: 16, padding: "28px 24px", marginBottom: 32,
+    }}>
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: 1.5,
+          textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace", marginBottom: 4 }}>
+          Pipeline Architecture
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: C.text, letterSpacing: -0.3 }}>
+          How Your Code Gets Reviewed
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        {/* Upload */}
+        <div style={{ ...nodeBase, textAlign: "center", border: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Codebase Submission</div>
+          <div style={{ fontSize: 11, color: C.textMid, marginTop: 2 }}>ZIP upload &middot; extracted &amp; staged for analysis</div>
+        </div>
+
+        {arrow()}
+
+        {/* Agent 1 */}
+        {agentNode(1, "Code & Security", "#D35C1A", "MULTI-MODEL", <>
+          {modelChips}
+          {synthBar("3+ agree = confirmed \u00b7 1\u20132 = potential")}
+        </>)}
+
+        {arrow()}
+
+        {/* Agent 2 */}
+        {agentNode(2, "Accessibility Audit", "#7C3AED", "MULTI-MODEL", <>
+          {modelChips}
+          {synthBar("WCAG 2.2 AA conformance assessment")}
+        </>)}
+
+        {arrow("Agent 1 + 2 findings")}
+
+        {/* Agent 3 */}
+        {agentNode(3, "HECVAT 4 Lite", "#06B6D4", "SINGLE PASS",
+          <div style={{ fontSize: 11, color: C.textMid, lineHeight: 1.5 }}>
+            87 critical questions &middot; 23 categories &middot; ~60% pre-filled from code
+          </div>
+        )}
+
+        {arrow("Agent 1\u20133 output")}
+
+        {/* Agent 4 */}
+        {agentNode(4, "Documentation", "#22C55E", "SINGLE PASS",
+          <div style={{ fontSize: 11, color: C.textMid, lineHeight: 1.5 }}>
+            User Guide &middot; Admin Guide &middot; Compliance Summary &rarr; .docx via Pandoc
+          </div>
+        )}
+
+        {arrow()}
+
+        {/* Report */}
+        <div style={{ ...nodeBase, textAlign: "center", border: `1px solid ${C.accent40}`,
+          background: C.accentSoft }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.accent, marginBottom: 8 }}>Final Report &amp; Artifacts</div>
+          <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
+            {["Security Findings", "A11y Audit", "HECVAT XLSX", "User Guide", "Admin Guide", "Compliance"].map(a => (
+              <span key={a} style={{ padding: "3px 8px", borderRadius: 4, background: C.successBg,
+                border: `1px solid ${C.accent25}`, fontSize: 9, color: C.accent,
+                fontFamily: "'JetBrains Mono', monospace" }}>{a}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom note */}
+      <div style={{ textAlign: "center", marginTop: 16, fontSize: 10, color: C.textDim, fontFamily: "'JetBrains Mono', monospace" }}>
+        All tracks run the same pipeline &middot; Track determines governance, not analysis depth
+      </div>
+    </div>
+  );
+}
+
+function AgentCard({ agent }) {
+  return (
+    <div id={`ap-agent-${agent.num}`} style={{ padding: 28, borderRadius: 12, background: C.surface, border: `1px solid ${C.border}`,
+      borderLeft: `4px solid ${agent.color}`, marginBottom: 20 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
+          background: `${agent.color}15` }}>
+          <agent.Icon size={22} color={agent.color} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+              color: agent.color, background: `${agent.color}12`, padding: "2px 8px", borderRadius: 4 }}>
+              AGENT {agent.num}
+            </span>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: C.text, margin: 0 }}>{agent.name}</h2>
+          </div>
+          <div style={{ fontSize: 12, color: C.textMid, marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
+            {agent.type}
+          </div>
+        </div>
+      </div>
+
+      {/* Description */}
+      <p style={{ fontSize: 14, color: C.textMid, lineHeight: 1.65, margin: "0 0 20px" }}>{agent.desc}</p>
+
+      {/* Analysis sections */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase",
+          fontFamily: "'JetBrains Mono', monospace", marginBottom: 10 }}>
+          Analysis Sections
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 20px" }}>
+          {agent.sections.map((s, i) => (
+            <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+              <ChevronRight size={11} color={agent.color} style={{ marginTop: 4, flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>{s}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tools used */}
+      {agent.tools.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase",
+            fontFamily: "'JetBrains Mono', monospace", marginBottom: 10 }}>
+            Integrated Tools
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {agent.tools.map((t, i) => (
+              <div key={i} style={{ padding: "8px 14px", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`,
+                display: "flex", alignItems: "center", gap: 8 }}>
+                <Zap size={12} color={agent.color} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}><ExtLink href={t.url}>{t.name}</ExtLink></span>
+                <span style={{ fontSize: 12, color: C.textMid }}>{t.desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Inspirations */}
+      {agent.inspirations.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase",
+            fontFamily: "'JetBrains Mono', monospace", marginBottom: 10 }}>
+            Inspired By
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {agent.inspirations.map((r, i) => (
+              <div key={i} style={{ padding: "8px 14px", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`,
+                display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <GitBranch size={12} color={C.textDim} />
+                <ExtLink href={r.url}>{r.name}</ExtLink>
+                <span style={{ fontSize: 12, color: C.textDim }}>&mdash; {r.desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function AgentsPage() {
+  const [activeSection, setActiveSection] = useState("overview");
+
+  function scrollTo(id) {
+    setActiveSection(id);
+    document.getElementById(`ap-${id}`)?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  return (
+    <div style={{ display: "flex", gap: 32 }}>
+      {/* Sidebar nav */}
+      <div style={{ width: 200, flexShrink: 0 }}>
+        <div style={{ position: "sticky", top: 16 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase",
+            marginBottom: 12, fontFamily: "'JetBrains Mono', monospace" }}>
+            On This Page
+          </div>
+          {TOC.map(s => (
+            <a key={s.id} href={`#ap-${s.id}`}
+              onClick={e => { e.preventDefault(); scrollTo(s.id); }}
+              style={{ display: "block", padding: "6px 12px", marginBottom: 2, borderRadius: 6, fontSize: 12, fontWeight: 500,
+                color: activeSection === s.id ? C.accent : C.textMid,
+                background: activeSection === s.id ? C.accentSoft : "transparent",
+                textDecoration: "none", cursor: "pointer",
+                borderLeft: `2px solid ${activeSection === s.id ? C.accent : "transparent"}`,
+                transition: "all .15s" }}>
+              {s.label}
+            </a>
+          ))}
+          <div style={{ marginTop: 20, padding: "10px 12px", borderRadius: 8, background: C.surface, border: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 10, color: C.textDim, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>PIPELINE</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginTop: 2 }}>4 Agents</div>
+            <div style={{ fontSize: 11, color: C.textMid, marginTop: 4 }}>5 models per multi-model agent</div>
+            <div style={{ fontSize: 11, color: C.textMid }}>Claude synthesis + dispute resolution</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Header */}
+        <div id="ap-overview" style={{ marginBottom: 32 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 700, color: C.text, margin: "0 0 6px", letterSpacing: -0.5 }}>Agent Pipeline</h1>
+          <p style={{ fontSize: 15, color: C.textMid, margin: "0 0 4px" }}>
+            Four AI agents review every codebase submission with multi-model convergence.
+          </p>
+          <p style={{ fontSize: 12, color: C.textDim, margin: 0 }}>University of Montana &middot; Enterprise IT &middot; 2026</p>
+        </div>
+
+        {/* Pipeline architecture diagram */}
+        <PipelineDiagram onScrollTo={scrollTo} />
+
+        {/* Multi-model explainer */}
+        <div id="ap-convergence" style={{ padding: 20, borderRadius: 10, background: C.surfaceAlt, border: `1px solid ${C.border}`, marginBottom: 32 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <Layers size={16} color={C.accent} />
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Multi-Model Convergence</span>
+          </div>
+          <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, margin: "0 0 12px" }}>
+            Agents 1 and 2 use a convergence-based approach: five different AI models receive the <strong>same prompt</strong> and
+            independently analyze the entire codebase. A finding is <strong>confirmed</strong> if 3+ models flag it,
+            <strong> potential</strong> if 1-2 models flag it, and <strong>clean</strong> if zero models flag it. Claude synthesizes
+            the results and can re-read source files to resolve disputes between models.
+          </p>
+          <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, margin: 0 }}>
+            All tracks run the same 5-model pipeline. Track determines governance requirements, not analysis depth.
+            No model reviews its own work. Claude only synthesizes &mdash; it never runs a pass.
+          </p>
+        </div>
+
+        {/* Agent Cards */}
+        {AGENT_DETAILS.map(agent => (
+          <AgentCard key={agent.id} agent={agent} />
+        ))}
+
+        {/* Why These Models */}
+        <div id="ap-why-models" style={{ marginTop: 40, marginBottom: 32 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <Brain size={16} color={C.accent} />
+            <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Why These Models</span>
+          </div>
+          <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, marginTop: 0, marginBottom: 8 }}>
+            The pipeline deliberately selects models from <strong>different providers, training corpora, and architectures</strong>.
+            A single model — no matter how capable — has systematic blind spots shaped by its training data.
+            Five independent models trained on different data catch different things. When 3+ independently agree on a finding,
+            the signal is far more reliable than any single model&rsquo;s output.
+          </p>
+          <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, marginTop: 0, marginBottom: 20 }}>
+            Selection criteria: <strong>agentic CLI tool</strong> (filesystem access, not API-only),
+            <strong> structured JSON output</strong> (parseable findings),
+            <strong> provider diversity</strong> (no two models from the same training pipeline),
+            and <strong>US-accessible API</strong> (institutional compliance).
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {CLI_TOOLS.map((tool, i) => (
+              <div key={i} style={{ padding: "14px 18px", borderRadius: 10, background: C.surface, border: `1px solid ${C.border}`,
+                display: "flex", gap: 16, alignItems: "flex-start",
+                borderLeft: tool.role === "synthesis" ? `3px solid ${C.accent}` : `3px solid ${C.border}` }}>
+                <div style={{ minWidth: 100 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
+                    <ExtLink href={tool.url}>{tool.name}</ExtLink>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.accent, fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>
+                    {tool.model}
+                  </div>
+                  <div style={{ fontSize: 10, color: C.textDim, marginTop: 2 }}>{tool.provider}</div>
+                  {tool.role === "synthesis" && (
+                    <span style={{ fontSize: 9, fontWeight: 700, color: C.accent, background: C.accentSoft,
+                      padding: "1px 6px", borderRadius: 3, marginTop: 4, display: "inline-block",
+                      fontFamily: "'JetBrains Mono', monospace" }}>SYNTHESIS ONLY</span>
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.55, marginBottom: 4 }}>{tool.rationale}</div>
+                  <div style={{ fontSize: 11, color: C.textDim, fontStyle: "italic" }}>{tool.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CLI Tools */}
+        <div id="ap-cli-tools" style={{ marginBottom: 32 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <Terminal size={16} color={C.accent} />
+            <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>CLI Tools</span>
+          </div>
+          <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, marginTop: 0, marginBottom: 16 }}>
+            The uploaded codebase is extracted into an isolated Docker container. The CLI tools run inside that container
+            with full filesystem access to the codebase &mdash; no chunking, no file sampling, every file is reviewable.
+            Docker provides <strong>security isolation</strong> (untrusted code never touches the host),
+            <strong> reproducible environments</strong> (consistent analysis regardless of codebase),
+            and <strong>clean teardown</strong> (container is destroyed after analysis, no artifacts persist).
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+            {[
+              { name: "Codex CLI", by: "OpenAI", desc: "Sandboxed execution, autonomous exploration, structured output", url: "https://github.com/openai/codex" },
+              { name: "Gemini CLI", by: "Google", desc: "1M token context, multimodal analysis, filesystem access", url: "https://github.com/google-gemini/gemini-cli" },
+              { name: "opencode", by: "SST", desc: "Multi-provider CLI supporting OpenRouter backends (Grok, Kimi)", url: "https://github.com/nicholasq/opencode" },
+              { name: "QwenCode", by: "via opencode", desc: "Agentic coding mode with auto-approval for pipeline use", url: "https://github.com/nicholasq/opencode" },
+              { name: "Claude Code", by: "Anthropic", desc: "Synthesis-only — filesystem access for dispute resolution", url: "https://github.com/anthropics/claude-code" },
+            ].map((t, i) => (
+              <div key={i} style={{ padding: 14, borderRadius: 10, background: C.surface, border: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2 }}>
+                  <ExtLink href={t.url}>{t.name}</ExtLink>
+                </div>
+                <div style={{ fontSize: 10, color: C.textDim, marginBottom: 6 }}>{t.by}</div>
+                <div style={{ fontSize: 11, color: C.textMid, lineHeight: 1.5 }}>{t.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Standards & Frameworks */}
+        <div id="ap-standards" style={{ marginBottom: 32 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <Users size={16} color={C.accent} />
+            <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Standards & Frameworks Referenced</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+            {FRAMEWORKS.map((fw, i) => (
+              <div key={i} style={{ padding: 14, borderRadius: 8, background: C.surface, border: `1px solid ${C.border}`,
+                display: "flex", alignItems: "center", gap: 10 }}>
+                <Users size={14} color={C.textDim} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
+                    <ExtLink href={fw.url}>{fw.name}</ExtLink>
+                  </div>
+                  <div style={{ fontSize: 11, color: C.textMid }}>{fw.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: 20, borderRadius: 10, background: C.surfaceAlt, border: `1px solid ${C.border}`, textAlign: "center" }}>
+          <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.6, margin: 0, maxWidth: 640, marginLeft: "auto", marginRight: "auto" }}>
+            The agent pipeline is open-source infrastructure built at the University of Montana.
+            It stands on the shoulders of the open-source community &mdash; the tools, frameworks, and projects listed above
+            made this possible.
+          </p>
+          <p style={{ fontSize: 12, color: C.textDim, margin: "8px 0 0" }}>Office of the CIO &middot; Enterprise IT &middot; Last updated March 7, 2026</p>
+        </div>
+      </div>
+    </div>
+  );
+}
