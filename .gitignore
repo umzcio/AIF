@@ -32,9 +32,10 @@ opencode/
 ARCHITECTURE.md
 CLAUDE.md
 
-# Office documents
+# Office documents (except hecvat template needed by build)
 *.docx
 *.xlsx
+!hecvat415.xlsx
 
 # UM standards reference files
 um-standards/
