@@ -6,17 +6,17 @@ import { join } from "path";
 import pool from "../db/pool.js";
 import { enqueue } from "../pipeline/queue.js";
 import { onProgress } from "../pipeline/events.js";
+import { requireOwnerOrRole } from "../auth/middleware.js";
 
 const CODEBASES_DIR = process.env.CODEBASES_DIR || "/data/codebases";
 const upload = multer({ dest: "/tmp/aif-uploads", limits: { fileSize: 500 * 1024 * 1024 } });
 const router = Router();
 
-// Upload codebase for a tool
-router.post("/:toolId/upload", upload.single("codebase"), async (req, res) => {
-  const { toolId } = req.params;
-  const { rows: [tool] } = await pool.query("SELECT * FROM tools WHERE id = $1", [toolId]);
-  if (!tool) return res.status(404).json({ error: "Tool not found" });
+// Upload codebase for a tool (owner or admin)
+router.post("/:toolId/upload", requireOwnerOrRole("admin"), upload.single("codebase"), async (req, res) => {
+  const tool = req.tool;
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+  const toolId = req.params.toolId;
 
   const destDir = join(CODEBASES_DIR, toolId);
   mkdirSync(destDir, { recursive: true });
@@ -47,12 +47,10 @@ router.post("/:toolId/upload", upload.single("codebase"), async (req, res) => {
   }
 });
 
-router.post("/:toolId/run", async (req, res) => {
+router.post("/:toolId/run", requireOwnerOrRole("admin"), async (req, res) => {
   const { toolId } = req.params;
   const { track } = req.body;
-
-  const { rows: [tool] } = await pool.query("SELECT * FROM tools WHERE id = $1", [toolId]);
-  if (!tool) return res.status(404).json({ error: "Tool not found" });
+  const tool = req.tool;
 
   try {
     const run = await enqueue(toolId, track);

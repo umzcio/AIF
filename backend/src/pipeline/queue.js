@@ -115,9 +115,14 @@ async function processNext() {
       `UPDATE pipeline_runs SET status = 'completed', output_dir = $1, summary = $2, completed_at = NOW() WHERE id = $3`,
       [result.outputDir, JSON.stringify(result.agents), runId]
     );
+
+    // Track-based auto-status on pipeline completion:
+    // Track 1: auto-activate (skip review)
+    // Track 2-4: set to under_review
+    const newStatus = next.track === 1 ? "active" : "under_review";
     await pool.query(
-      `UPDATE tools SET status = 'under_review', updated_at = NOW() WHERE id = $1`,
-      [next.tool_id]
+      `UPDATE tools SET status = $1, updated_at = NOW() WHERE id = $2`,
+      [newStatus, next.tool_id]
     );
     emitProgress(runId, { type: "status", status: "completed" });
   } catch (err) {

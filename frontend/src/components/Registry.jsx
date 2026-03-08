@@ -4,11 +4,13 @@ import { Btn, EmptyState, ErrorBanner, TrackBadge, Skeleton, relativeTime } from
 import { getTools, deleteDraft } from "../api.js";
 import { navigate } from "../hooks/useHashRouter.js";
 import { useToast } from "./Toast.jsx";
+import { useAuth } from "../hooks/useAuth.jsx";
 
-const statusColors = { active: TRACK_COLORS[1], in_progress: TRACK_COLORS[3], under_review: TRACK_COLORS[2], pending: TRACK_COLORS[2], suspended: TRACK_COLORS[4], draft: C.textMid };
-const statusLabels = { active: "Active", in_progress: "In Progress", under_review: "In Review", pending: "Pending", suspended: "Suspended", draft: "Draft", retired: "Retired" };
+const statusColors = { active: TRACK_COLORS[1], approved: TRACK_COLORS[1], in_progress: TRACK_COLORS[3], under_review: TRACK_COLORS[2], changes_requested: TRACK_COLORS[2], pending: TRACK_COLORS[2], suspended: TRACK_COLORS[4], draft: C.textMid };
+const statusLabels = { active: "Active", approved: "Approved", in_progress: "In Progress", under_review: "In Review", changes_requested: "Changes Req.", pending: "Pending", suspended: "Suspended", draft: "Draft", retired: "Retired" };
 
 export default function Registry() {
+  const { user } = useAuth();
   const { toast, confirm } = useToast();
   const [filter, setFilter] = useState("all");
   const [tools, setTools] = useState([]);
@@ -27,6 +29,7 @@ export default function Registry() {
 
   const filtered = useMemo(() => {
     if (filter === "all") return tools;
+    if (filter === "needs_review") return tools.filter(t => t.status === "under_review" || t.status === "changes_requested");
     return tools.filter(t => t.status === filter);
   }, [filter, tools]);
 
@@ -37,6 +40,8 @@ export default function Registry() {
   }, [tools]);
 
   const activeCount = tools.filter(t => t.status === "active").length;
+  const reviewCount = tools.filter(t => t.status === "under_review" || t.status === "changes_requested").length;
+  const isReviewerOrAdmin = user && (user.role === "reviewer" || user.role === "admin");
 
   if (loading) return <div style={{ padding: 20 }}><Skeleton height={300} /></div>;
   if (error) return <div style={{ padding: 20 }}><ErrorBanner message={error} onRetry={() => setRefreshKey(v => v + 1)} /></div>;
@@ -50,10 +55,18 @@ export default function Registry() {
           <p style={{ margin: "4px 0 0", fontSize: 13, color: C.textMid }}>{tools.length} tools registered · {activeCount} active</p>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
-          {[["all","All"],["active","Active"],["in_progress","In Progress"],["under_review","In Review"],["pending","Pending"]].map(([v,l]) => (
+          {[
+            ["all", "All"],
+            ...(isReviewerOrAdmin ? [["needs_review", `Needs Review (${reviewCount})`]] : []),
+            ["active", "Active"],
+            ["in_progress", "In Progress"],
+            ["pending", "Pending"],
+          ].map(([v, l]) => (
             <button key={v} onClick={() => setFilter(v)}
-              style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${filter === v ? C.accent : C.border}`,
-                background: filter === v ? C.accentSoft : "transparent", color: filter === v ? C.accent : C.textMid,
+              style={{ padding: "6px 14px", borderRadius: 6,
+                border: `1px solid ${filter === v ? (v === "needs_review" ? C.warning : C.accent) : C.border}`,
+                background: filter === v ? (v === "needs_review" ? "rgba(192,141,26,0.08)" : C.accentSoft) : "transparent",
+                color: filter === v ? (v === "needs_review" ? C.warning : C.accent) : C.textMid,
                 fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
               {l}
             </button>
@@ -73,7 +86,7 @@ export default function Registry() {
           {filtered.map((item, i) => (
             <div key={item.id} className="registry-table-row"
               style={{ background: i % 2 === 0 ? "transparent" : C.surface }}
-              onClick={() => navigate(item.status === "in_progress" || item.status === "under_review" ? `/upload/${item.id}` : `/tool/${item.id}`)}
+              onClick={() => navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`)}
               onMouseEnter={e => e.currentTarget.style.background = C.surfaceHover}
               onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface}>
               <span style={{ fontWeight: 600 }}>{item.name}</span>

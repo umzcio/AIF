@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { getAuthStatus, logout as apiLogout } from "../api.js";
+import { refreshAuth, logout as apiLogout } from "../api.js";
 
 const AuthContext = createContext(null);
 
@@ -8,7 +8,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getAuthStatus()
+    refreshAuth()
       .then((data) => {
         if (data.authenticated) setUser(data.user);
       })

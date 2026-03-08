@@ -12,6 +12,9 @@ import Report from "./components/Report.jsx";
 import FrameworkDoc from "./components/FrameworkDoc.jsx";
 import AgentsPage from "./components/AgentsPage.jsx";
 import Welcome from "./components/Welcome.jsx";
+import AdminDashboard from "./components/AdminDashboard.jsx";
+import UserManagement from "./components/UserManagement.jsx";
+import AuditLog from "./components/AuditLog.jsx";
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -35,7 +38,7 @@ export default function App() {
   }
 
   // Routes that require authentication
-  const AUTH_REQUIRED = ["intake", "intake-edit", "upload", "pipeline"];
+  const AUTH_REQUIRED = ["intake", "intake-edit", "upload", "pipeline", "admin", "admin-users", "admin-audit"];
   const needsAuth = AUTH_REQUIRED.includes(route);
 
   if (needsAuth && !user) {
@@ -61,6 +64,15 @@ export default function App() {
         return <Pipeline toolId={params.toolId} runId={params.runId} />;
       case "report":
         return <Report toolId={params.toolId} runId={params.runId} />;
+      case "admin":
+        if (user?.role !== "admin") return <Welcome />;
+        return <AdminDashboard />;
+      case "admin-users":
+        if (user?.role !== "admin") return <Welcome />;
+        return <UserManagement />;
+      case "admin-audit":
+        if (user?.role !== "admin") return <Welcome />;
+        return <AuditLog />;
       case "agents":
         return <AgentsPage />;
       case "framework":
