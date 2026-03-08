@@ -1,10 +1,5 @@
 # AI-Built Tool Code Intake Framework (AIF)
 
-![GitHub release](https://img.shields.io/github/v/release/umzcio/AIF)
-![GitHub stars](https://img.shields.io/github/stars/umzcio/AIF)
-![GitHub contributors](https://img.shields.io/github/contributors/umzcio/AIF)
-![WCAG 2.2 AA](https://img.shields.io/badge/WCAG-2.2_AA-blue.svg)
-
 A risk-tiered governance framework and review portal for moving AI-assisted tools from prototype to production at the University of Montana.
 
 Builders submit tools via a 21-question intake form → the system scores them on 7 weighted dimensions → routes them to a Track (1–4) → runs a uniform 5-model agent pipeline → produces structured reports with findings, HECVAT assessment, and auto-generated documentation.
@@ -20,14 +15,14 @@ Builders submit tools via a 21-question intake form → the system scores them o
 │  Security (0-3)          ─┐                                      │
 │  Accessibility (0-3)     ─┤                                      │
 │  Data Sensitivity (0-3)  ─┤                                      │
-│  Blast Radius (0-3)      ─┤─→ Weighted % ─→ Track 1-4           │
+│  Blast Radius (0-3)      ─┤─→ Weighted % ─→ Track 1-4            │
 │  Autonomy (0-3)          ─┤   (by artifact type)                 │
 │  Comprehension (0-3)     ─┤   + escalation override              │
 │  Maintenance (0-3)       ─┘                                      │
 │                                                                  │
-│  <22% → Track 1    22-42% → Track 2    42-65% → Track 3         │
+│  <22% → Track 1    22-42% → Track 2    42-65% → Track 3          │
 │  Register & Go     Self-Certify        IT Review                 │
-│                                                 ≥65% → Track 4  │
+│                                                 ≥65% → Track 4   │
 │                                                 Formal Project   │
 └────────────────────────────┬─────────────────────────────────────┘
                              │
@@ -37,23 +32,23 @@ Builders submit tools via a 21-question intake form → the system scores them o
 │                                                                  │
 │  All tracks run the same pipeline — uniform 5-model analysis     │
 │                                                                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐         │
-│  │ Agent 1  │  │ Agent 2  │  │ Agent 3  │  │ Agent 4  │         │
-│  │ Code &   │  │ Access-  │  │ HECVAT   │  │  Docs    │         │
-│  │ Security │  │ ibility  │  │ 4 Lite   │  │Generation│         │
-│  │          │  │          │  │          │  │          │         │
-│  │ 5 models │  │ 5 models │  │ 1 Claude │  │ 1 Claude │         │
-│  │+synthesis│  │+synthesis│  │  pass    │  │  pass    │         │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘         │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
+│  │ Agent 1  │  │ Agent 2  │  │ Agent 3  │  │ Agent 4  │          │
+│  │ Code &   │  │ Access-  │  │ HECVAT   │  │  Docs    │          │
+│  │ Security │  │ ibility  │  │ 4 Lite   │  │Generation│          │
+│  │          │  │          │  │          │  │          │          │
+│  │ 5 models │  │ 5 models │  │ 1 Claude │  │ 1 Claude │          │
+│  │+synthesis│  │+synthesis│  │  pass    │  │  pass    │          │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘          │
 │       │             │             │              │               │
-│       └──────┬──────┘      reads 1+2      reads 1-3             │
+│       └──────┬──────┘      reads 1+2      reads 1-3              │
 │              │                                                   │
 │              ▼                                                   │
 │  ┌────────────────────────────────────────────────────────┐      │
 │  │  Claude Synthesis + Dispute Resolution                 │      │
-│  │  3+ models agree → confirmed                          │      │
-│  │  1-2 models → potential                               │      │
-│  │  0 models → clean                                     │      │
+│  │  3+ models agree → confirmed                           │      │
+│  │  1-2 models → potential                                │      │
+│  │  0 models → clean                                      │      │
 │  └────────────────────────────────────────────────────────┘      │
 └────────────────────────────┬─────────────────────────────────────┘
                              │
