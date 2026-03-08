@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Home, LayoutGrid, PenLine, Cpu, BookOpen, Bot, LogIn, LogOut, Moon, Sun, ClipboardCheck, Settings } from "lucide-react";
+import { Home, LayoutGrid, PenLine, Cpu, BookOpen, Bot, LogIn, LogOut, Moon, Sun, Settings } from "lucide-react";
 import { C } from "../constants.js";
 import { useAuth } from "../hooks/useAuth.jsx";
 import { navigate } from "../hooks/useHashRouter.js";
@@ -11,7 +11,7 @@ function activeTab(route) {
   if (["upload", "pipeline", "report"].includes(route)) return "pipeline";
   if (route === "agents") return "agents";
   if (route === "framework") return "framework";
-  if (["admin", "admin-users", "admin-audit"].includes(route)) return "admin";
+  if (route === "admin") return "admin";
   return "welcome";
 }
 
@@ -81,8 +81,6 @@ function UserMenu({ user, logout }) {
           {user.role === "admin" && (
             <div style={{ borderTop: `1px solid ${C.border}` }}>
               <MenuLink icon={<Settings size={14} />} label="Admin Dashboard" onClick={() => { setOpen(false); navigate("/admin"); }} />
-              <MenuLink icon={<ClipboardCheck size={14} />} label="User Management" onClick={() => { setOpen(false); navigate("/admin/users"); }} />
-              <MenuLink icon={<Settings size={14} />} label="Audit Log" onClick={() => { setOpen(false); navigate("/admin/audit"); }} />
             </div>
           )}
 
