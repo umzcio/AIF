@@ -107,11 +107,14 @@ router.post("/draft", upload.single("codebase"), async (req, res) => {
   res.status(201).json({ tool, track: computed?.track ?? null });
 });
 
-// Update draft
+// Update draft (owner only)
 router.put("/draft/:id", upload.single("codebase"), async (req, res) => {
   const { rows: [existing] } = await pool.query("SELECT * FROM tools WHERE id = $1", [req.params.id]);
   if (!existing) return res.status(404).json({ error: "Tool not found" });
   if (existing.status !== "draft") return res.status(400).json({ error: "Only drafts can be edited" });
+  if (req.user && existing.owner_id && existing.owner_id !== req.user.userId && req.user.role !== "admin") {
+    return res.status(403).json({ error: "You can only edit your own drafts" });
+  }
 
   const { name, description, submissionType, artifactType, intakeAnswers, codebaseUrl } = parseBody(req.body);
   const computed = computeFromAnswers(intakeAnswers, artifactType);
@@ -244,11 +247,14 @@ router.post("/", upload.single("codebase"), async (req, res) => {
   res.status(201).json({ tool, track: computed.track });
 });
 
-// Delete draft
+// Delete draft (owner only)
 router.delete("/draft/:id", async (req, res) => {
   const { rows: [existing] } = await pool.query("SELECT * FROM tools WHERE id = $1", [req.params.id]);
   if (!existing) return res.status(404).json({ error: "Tool not found" });
   if (existing.status !== "draft") return res.status(400).json({ error: "Only drafts can be deleted" });
+  if (req.user && existing.owner_id && existing.owner_id !== req.user.userId && req.user.role !== "admin") {
+    return res.status(403).json({ error: "You can only delete your own drafts" });
+  }
 
   await pool.query("DELETE FROM tools WHERE id = $1", [req.params.id]);
   res.json({ ok: true });

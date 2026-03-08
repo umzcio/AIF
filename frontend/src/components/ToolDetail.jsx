@@ -4,7 +4,9 @@ import { Btn, Card, EmptyState, ErrorBanner, PageHeader, Skeleton, StatusBadge, 
 import { deleteTool, getTool, startPipelineRun } from "../api.js";
 import { navigate } from "../hooks/useHashRouter.js";
 import { useToast } from "./Toast.jsx";
+import { useAuth } from "../hooks/useAuth.jsx";
 import Breadcrumb from "./Breadcrumb.jsx";
+import ReviewPanel from "./ReviewPanel.jsx";
 
 const SCORE_KEYS = [
   ["score_security", "security"],
@@ -41,6 +43,7 @@ const Q_LABELS = {
 };
 
 export default function ToolDetail({ toolId }) {
+  const { user } = useAuth();
   const { toast, confirm } = useToast();
   const [tool, setTool] = useState(null);
   const [runs, setRuns] = useState([]);
@@ -159,6 +162,11 @@ export default function ToolDetail({ toolId }) {
         </div>
 
         <div className="sticky-column">
+          {/* Review panel for reviewers/admins or tool owner */}
+          {user && (user.role === "reviewer" || user.role === "admin" || tool.owner_id === user.userId) && (
+            <ReviewPanel tool={tool} onUpdate={(updated) => setTool(prev => ({ ...prev, ...updated }))} />
+          )}
+
           <section className="action-card">
             <div className="card-header"><div><h2>Actions</h2></div></div>
             <div className="section-stack">
@@ -174,7 +182,20 @@ export default function ToolDetail({ toolId }) {
                 <div className="info-banner"><div><strong>Pipeline running.</strong> You can leave and come back anytime.</div></div>
                 <Btn onClick={() => navigate(`/upload/${toolId}`)}>View progress</Btn>
               </>}
-              {latestRun?.status === "completed" && <>
+              {tool.status === "changes_requested" && !isRunning && <>
+                <div className="info-banner" style={{ borderColor: C.warning }}>
+                  <div><strong style={{ color: C.warning }}>Changes requested.</strong> Address the feedback, then re-submit.</div>
+                </div>
+                {latestRun?.status === "completed" && <Btn onClick={() => navigate(`/tool/${toolId}/report/${latestRun.id}`)}>View report</Btn>}
+                <Btn variant="ghost" onClick={() => navigate(`/upload/${toolId}`)}>Re-run pipeline</Btn>
+              </>}
+              {tool.status === "approved" && <>
+                <div className="info-banner" style={{ borderColor: C.success }}>
+                  <div><strong style={{ color: C.success }}>Approved.</strong> A reviewer can now activate this tool.</div>
+                </div>
+                {latestRun?.status === "completed" && <Btn variant="ghost" onClick={() => navigate(`/tool/${toolId}/report/${latestRun.id}`)}>View report</Btn>}
+              </>}
+              {!["draft", "pending", "changes_requested", "approved"].includes(tool.status) && latestRun?.status === "completed" && !isRunning && <>
                 <Btn onClick={() => navigate(`/tool/${toolId}/report/${latestRun.id}`)}>Latest report</Btn>
                 <Btn variant="ghost" onClick={() => navigate(`/upload/${toolId}`)}>Re-run</Btn>
               </>}

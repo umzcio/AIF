@@ -11,6 +11,9 @@ const routes = [
   { pattern: /^#\/agents$/, name: "agents", params: [] },
   { pattern: /^#\/framework$/, name: "framework", params: [] },
   { pattern: /^#\/registry$/, name: "registry", params: [] },
+  { pattern: /^#\/admin$/, name: "admin", params: [] },
+  { pattern: /^#\/admin\/users$/, name: "admin-users", params: [] },
+  { pattern: /^#\/admin\/audit$/, name: "admin-audit", params: [] },
 ];
 
 function parseHash(hash) {

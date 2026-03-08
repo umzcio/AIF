@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Home, LayoutGrid, PenLine, Cpu, BookOpen, Bot, LogIn, LogOut, Moon, Sun } from "lucide-react";
+import { Home, LayoutGrid, PenLine, Cpu, BookOpen, Bot, LogIn, LogOut, Moon, Sun, ClipboardCheck, Settings } from "lucide-react";
 import { C } from "../constants.js";
 import { useAuth } from "../hooks/useAuth.jsx";
 import { navigate } from "../hooks/useHashRouter.js";
@@ -11,6 +11,7 @@ function activeTab(route) {
   if (["upload", "pipeline", "report"].includes(route)) return "pipeline";
   if (route === "agents") return "agents";
   if (route === "framework") return "framework";
+  if (["admin", "admin-users", "admin-audit"].includes(route)) return "admin";
   return "welcome";
 }
 
@@ -76,6 +77,15 @@ function UserMenu({ user, logout }) {
             {darkMode ? "Light Mode" : "Dark Mode"}
           </button>
 
+          {/* Admin links */}
+          {user.role === "admin" && (
+            <div style={{ borderTop: `1px solid ${C.border}` }}>
+              <MenuLink icon={<Settings size={14} />} label="Admin Dashboard" onClick={() => { setOpen(false); navigate("/admin"); }} />
+              <MenuLink icon={<ClipboardCheck size={14} />} label="User Management" onClick={() => { setOpen(false); navigate("/admin/users"); }} />
+              <MenuLink icon={<Settings size={14} />} label="Audit Log" onClick={() => { setOpen(false); navigate("/admin/audit"); }} />
+            </div>
+          )}
+
           {/* Sign out */}
           <button type="button" onClick={() => { setOpen(false); logout(); }}
             style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
@@ -88,6 +98,19 @@ function UserMenu({ user, logout }) {
         </div>
       )}
     </div>
+  );
+}
+
+function MenuLink({ icon, label, onClick }) {
+  return (
+    <button type="button" onClick={onClick}
+      style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+        border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: C.text,
+        fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}
+      onMouseEnter={e => e.currentTarget.style.background = C.surface}
+      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+      <span style={{ color: C.textMid, display: "flex" }}>{icon}</span> {label}
+    </button>
   );
 }
 

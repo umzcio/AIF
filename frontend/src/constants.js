@@ -150,6 +150,8 @@ export const STATUS_META = {
   in_progress: { label: "In Progress", color: "#D35C1A", bg: "rgba(211,92,26,0.08)" },
   active: { label: "Active", color: "#16864E", bg: "rgba(22,134,78,0.08)" },
   under_review: { label: "Under Review", color: "#C08D1A", bg: "rgba(192,141,26,0.08)" },
+  approved: { label: "Approved", color: "#16864E", bg: "rgba(22,134,78,0.08)" },
+  changes_requested: { label: "Changes Requested", color: "#C08D1A", bg: "rgba(192,141,26,0.08)" },
   suspended: { label: "Suspended", color: "#C9302C", bg: "rgba(201,48,44,0.08)" },
   retired: { label: "Retired", color: "#5F6B7A", bg: "rgba(95,107,122,0.06)" },
   running: { label: "Running", color: "#1A6B4B", bg: "rgba(26,107,75,0.08)" },
@@ -208,6 +210,26 @@ export const ROUTE_META = {
     label: "Upload",
     title: "Code Upload",
     description: "Upload code and run the review pipeline.",
+  },
+  review: {
+    label: "Review Queue",
+    title: "Review Queue",
+    description: "Tools awaiting reviewer action.",
+  },
+  admin: {
+    label: "Admin",
+    title: "Admin Dashboard",
+    description: "System overview and management.",
+  },
+  "admin-users": {
+    label: "User Management",
+    title: "User Management",
+    description: "Manage user roles and access.",
+  },
+  "admin-audit": {
+    label: "Audit Log",
+    title: "Audit Log",
+    description: "View system activity log.",
   },
 };
 

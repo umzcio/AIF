@@ -10,6 +10,8 @@ import intakeRoutes from "./routes/intake.js";
 import registryRoutes from "./routes/registry.js";
 import pipelineRoutes from "./routes/pipeline.js";
 import reportRoutes from "./routes/reports.js";
+import reviewRoutes from "./routes/review.js";
+import adminRoutes from "./routes/admin.js";
 import { recoverOnStartup } from "./pipeline/queue.js";
 
 loadEnv();
@@ -33,6 +35,8 @@ api.use("/intake", intakeRoutes);
 api.use("/registry", registryRoutes);
 api.use("/pipeline", pipelineRoutes);
 api.use("/reports", reportRoutes);
+api.use("/review", reviewRoutes);
+api.use("/admin", adminRoutes);
 app.use(`${BASE_PATH}/api`, api);
 
 // Serve frontend static files (built Vite output)

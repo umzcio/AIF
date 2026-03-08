@@ -91,4 +91,31 @@ router.get("/status", async (req, res) => {
   }
 });
 
+// Refresh — re-reads user from DB and issues fresh JWT so role changes take effect
+router.get("/refresh", async (req, res) => {
+  const token = req.cookies?.[COOKIE_NAME];
+  if (!token) return res.status(401).json({ authenticated: false });
+
+  try {
+    const payload = await verifyToken(token);
+    const { rows: [user] } = await pool.query("SELECT * FROM users WHERE id = $1", [payload.userId]);
+    if (!user || !user.is_active) {
+      res.clearCookie(COOKIE_NAME, { path: BASE_PATH });
+      return res.status(401).json({ authenticated: false });
+    }
+
+    const freshToken = await generateToken(user);
+    res.cookie(COOKIE_NAME, freshToken, {
+      httpOnly: true, secure: true, sameSite: "lax",
+      path: BASE_PATH, maxAge: 86400 * 1000,
+    });
+    res.json({
+      authenticated: true,
+      user: { netid: user.netid, role: user.role, userId: user.id, displayName: user.display_name },
+    });
+  } catch {
+    res.status(401).json({ authenticated: false });
+  }
+});
+
 export default router;

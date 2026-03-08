@@ -159,3 +159,95 @@ export function getDocDownloadUrl(runId, docName) {
   const baseName = docName.replace(/\.(md|docx)$/, "");
   return `${BASE}/reports/${runId}/docs/${baseName}.docx`;
 }
+
+// Auth
+export async function refreshAuth() {
+  const res = await fetch(`${BASE}/auth/refresh`, { credentials: "same-origin" });
+  if (!res.ok) return { authenticated: false };
+  return res.json();
+}
+
+// Review
+export async function getReviewQueue() {
+  const res = await request("/review/queue");
+  return res.json();
+}
+
+export async function getReviewNotes(toolId) {
+  const res = await request(`/review/${toolId}/notes`);
+  return res.json();
+}
+
+export async function addReviewNote(toolId, body) {
+  const res = await request(`/review/${toolId}/notes`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+  return res.json();
+}
+
+export async function submitReviewDecision(toolId, decision, notes) {
+  const res = await request(`/review/${toolId}/decision`, {
+    method: "POST",
+    body: JSON.stringify({ decision, notes }),
+  });
+  return res.json();
+}
+
+export async function overrideTrack(toolId, newTrack, reason) {
+  const res = await request(`/review/${toolId}/track-override`, {
+    method: "POST",
+    body: JSON.stringify({ newTrack, reason }),
+  });
+  return res.json();
+}
+
+export async function selfCertify(toolId) {
+  const res = await request(`/review/${toolId}/self-certify`, { method: "POST" });
+  return res.json();
+}
+
+export async function activateTool(toolId) {
+  const res = await request(`/review/${toolId}/activate`, { method: "POST" });
+  return res.json();
+}
+
+// Admin
+export async function getAdminDashboard() {
+  const res = await request("/admin/dashboard");
+  return res.json();
+}
+
+export async function getUsers() {
+  const res = await request("/admin/users");
+  return res.json();
+}
+
+export async function updateUserRole(userId, role) {
+  const res = await request(`/admin/users/${userId}/role`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+  });
+  return res.json();
+}
+
+export async function toggleUserActive(userId, active) {
+  const res = await request(`/admin/users/${userId}/active`, {
+    method: "PATCH",
+    body: JSON.stringify({ active }),
+  });
+  return res.json();
+}
+
+export async function getAuditLog(params = {}) {
+  const qs = new URLSearchParams();
+  if (params.actor) qs.set("actor", params.actor);
+  if (params.entityType) qs.set("entityType", params.entityType);
+  if (params.action) qs.set("action", params.action);
+  if (params.from) qs.set("from", params.from);
+  if (params.to) qs.set("to", params.to);
+  if (params.limit) qs.set("limit", params.limit);
+  if (params.offset) qs.set("offset", params.offset);
+  const res = await request(`/admin/audit?${qs}`);
+  return res.json();
+}

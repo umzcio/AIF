@@ -1,10 +1,11 @@
 import { verifyToken } from "./jwt.js";
+import pool from "../db/pool.js";
 
 const AUTH_BYPASS = process.env.AUTH_BYPASS === "true";
 const COOKIE_NAME = "aif_token";
 
 // Routes that require authentication (write operations)
-const PROTECTED_PREFIXES = ["/intake", "/pipeline"];
+const PROTECTED_PREFIXES = ["/intake", "/pipeline", "/review", "/admin"];
 const PROTECTED_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
 
 function isProtectedRoute(req) {
@@ -20,12 +21,46 @@ function isProtectedRoute(req) {
   return false;
 }
 
+export function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: "Authentication required" });
+    if (!roles.includes(req.user.role)) return res.status(403).json({ error: "Insufficient permissions" });
+    next();
+  };
+}
+
+export function requireOwnerOrRole(...roles) {
+  return async (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: "Authentication required" });
+    const toolId = req.params.id || req.params.toolId;
+    if (!toolId) return res.status(400).json({ error: "Missing tool ID" });
+
+    const { rows: [tool] } = await pool.query("SELECT * FROM tools WHERE id = $1", [toolId]);
+    if (!tool) return res.status(404).json({ error: "Tool not found" });
+
+    if (tool.owner_id === req.user.userId || roles.includes(req.user.role)) {
+      req.tool = tool;
+      return next();
+    }
+    return res.status(403).json({ error: "Insufficient permissions" });
+  };
+}
+
 export default async function authMiddleware(req, res, next) {
   // Auth routes always pass through
   if (req.path.startsWith("/auth/")) return next();
 
   if (AUTH_BYPASS) {
-    req.user = { netid: "dev", role: "admin", userId: 0, displayName: "Dev User" };
+    if (!authMiddleware._devUser) {
+      const { rows: [user] } = await pool.query(
+        `INSERT INTO users (netid, display_name, role, last_login)
+         VALUES ('dev', 'Dev User', 'admin', NOW())
+         ON CONFLICT (netid) DO UPDATE SET last_login = NOW()
+         RETURNING *`
+      );
+      authMiddleware._devUser = { netid: user.netid, role: user.role, userId: user.id, displayName: user.display_name };
+    }
+    req.user = authMiddleware._devUser;
     return next();
   }
 

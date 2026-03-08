@@ -27,3 +27,14 @@ files.json
 
 # opencode working dirs
 opencode/
+
+# Architecture and project docs (local reference only)
+ARCHITECTURE.md
+CLAUDE.md
+
+# Office documents
+*.docx
+*.xlsx
+
+# UM standards reference files
+um-standards/
