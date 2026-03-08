@@ -145,7 +145,7 @@ export default function IntakeForm({ draftId }) {
             ].map(([v,l]) => <CheckOption key={v} value={v} label={l} checked={(a.q3||[]).includes(v)} onChange={x=>tm("q3",x)} />)}
           </Q>
           <Q n={4} label="Describe what this tool does and what problem it solves." req>
-            <textarea className="text-area" value={a.q4 || ""} onChange={e=>s("q4",e.target.value)} placeholder="3-5 sentences..." style={{ minHeight: 80 }} />
+            <textarea className="text-area" value={a.q4 || ""} onChange={e=>s("q4",e.target.value)} placeholder="3-5 sentences..." style={{ minHeight: 80 }} aria-label="Describe what this tool does" />
           </Q>
 
           <SectionDivider num="2" title="Deployment and Access" sub="How and where the tool will run." />
@@ -189,7 +189,7 @@ export default function IntakeForm({ draftId }) {
               ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q12===v} onClick={x=>s("q12",x)} />)}
             </Q>
             <Q n={13} label="AI model provider and model?" routing="Used to assess model drift risk.">
-              <textarea className="text-area" value={a.q13 || ""} onChange={e=>s("q13",e.target.value)} placeholder="e.g., Anthropic Claude Sonnet via API..." style={{ minHeight: 60 }} />
+              <textarea className="text-area" value={a.q13 || ""} onChange={e=>s("q13",e.target.value)} placeholder="e.g., Anthropic Claude Sonnet via API..." style={{ minHeight: 60 }} aria-label="AI model provider and model" />
             </Q>
           </>}
 
@@ -218,10 +218,10 @@ export default function IntakeForm({ draftId }) {
           {showAI && <>
             <SectionDivider num="5" title="AI-Specific Questions" sub="Your tool uses AI or sends data to an external AI model." />
             <Q n={19} label="Explain in plain language what the tool does and what happens when it fails." req routing="Builder Comprehension check.">
-              <textarea className="text-area" value={a.q19 || ""} onChange={e=>s("q19",e.target.value)} placeholder="Walk a non-technical reviewer through the tool..." style={{ minHeight: 100 }} />
+              <textarea className="text-area" value={a.q19 || ""} onChange={e=>s("q19",e.target.value)} placeholder="Walk a non-technical reviewer through the tool..." style={{ minHeight: 100 }} aria-label="Explain what the tool does and what happens when it fails" />
             </Q>
             <Q n={20} label="What decisions does this tool make or influence? Human reviewer at decision point?" req>
-              <textarea className="text-area" value={a.q20 || ""} onChange={e=>s("q20",e.target.value)} placeholder="Describe decisions and human oversight..." style={{ minHeight: 80 }} />
+              <textarea className="text-area" value={a.q20 || ""} onChange={e=>s("q20",e.target.value)} placeholder="Describe decisions and human oversight..." style={{ minHeight: 80 }} aria-label="What decisions does this tool make or influence" />
             </Q>
             <Q n={21} label="Will users know they're interacting with AI?" req esc={a.q21==="no"?"Users unaware of AI — pedagogy escalation":null}>
               {[["yes","Yes — clearly disclosed"],["no","No — users won't know"],["partial","Partially"],["na","N/A — no direct interaction"]

@@ -126,12 +126,12 @@ export default function Report({ toolId, runId }) {
           <div className="card-header"><div><h2>Agent findings</h2></div></div>
           <div className="tab-row" role="tablist">
             {availableTabs.map(tab => (
-              <button key={tab.key} type="button" className={activeTab === tab.key ? "is-active" : ""} onClick={() => setActiveTab(tab.key)} role="tab" aria-selected={activeTab === tab.key}>
+              <button key={tab.key} id={`tab-${tab.key}`} type="button" className={activeTab === tab.key ? "is-active" : ""} onClick={() => setActiveTab(tab.key)} role="tab" aria-selected={activeTab === tab.key} aria-controls={`panel-${tab.key}`}>
                 {tab.label}
               </button>
             ))}
           </div>
-          <div style={{ marginTop: 16 }}>
+          <div id={`panel-${activeTab}`} role="tabpanel" aria-labelledby={`tab-${activeTab}`} style={{ marginTop: 16 }}>
             <AgentFindings data={report.agents[activeTab]} />
           </div>
         </section>

@@ -103,10 +103,11 @@ export default function AuditLog() {
 }
 
 function FilterInput({ label, value, onChange, placeholder, type = "text" }) {
+  const id = `audit-filter-${label.toLowerCase().replace(/\s+/g, "-")}`;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <label style={{ fontSize: 10, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)}
+      <label htmlFor={id} style={{ fontSize: 10, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</label>
+      <input id={id} type={type} value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         style={{ padding: "5px 8px", borderRadius: 6, border: `1px solid ${C.border}`,
           background: C.surface, color: C.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif",

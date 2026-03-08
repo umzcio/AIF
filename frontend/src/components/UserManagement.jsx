@@ -79,7 +79,7 @@ export default function UserManagement() {
               <span style={{ fontWeight: 600 }}>{u.display_name || "—"}</span>
               <span className="mono" style={{ fontSize: 12, color: C.textMid }}>{u.netid}</span>
               <span>
-                <select value={u.role}
+                <select value={u.role} aria-label={`Role for ${u.netid}`}
                   onChange={e => handleRoleChange(u.id, e.target.value, u.netid)}
                   disabled={isSelf}
                   style={{ padding: "3px 6px", borderRadius: 4, border: `1px solid ${C.border}`,
@@ -93,7 +93,7 @@ export default function UserManagement() {
               </span>
               <span className="mono" style={{ fontSize: 12, textAlign: "center" }}>{u.tool_count}</span>
               <span style={{ textAlign: "center" }}>
-                <button type="button"
+                <button type="button" aria-label={`${u.is_active ? "Deactivate" : "Activate"} ${u.netid}`}
                   onClick={() => !isSelf && handleToggleActive(u.id, u.is_active, u.netid)}
                   disabled={isSelf}
                   style={{ width: 36, height: 20, borderRadius: 10, border: "none", cursor: isSelf ? "not-allowed" : "pointer",

@@ -103,7 +103,7 @@ export default function Pipeline({ toolId, runId }) {
       {failed && <div className="error-banner"><div><strong>Pipeline failed.</strong> Check logs or retry.</div><Btn variant="ghost" onClick={() => navigate(`/tool/${toolId}`)}>Back to tool</Btn></div>}
 
       <div className="report-grid">
-        <section className="section-card">
+        <section className="section-card" aria-live="polite" aria-atomic="false">
           <div className="card-header"><div><h2>Agent progress</h2></div></div>
           <div className="data-list">
             {PIPELINE_AGENTS.map((agent, index) => {
