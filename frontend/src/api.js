@@ -168,11 +168,6 @@ export async function refreshAuth() {
 }
 
 // Review
-export async function getReviewQueue() {
-  const res = await request("/review/queue");
-  return res.json();
-}
-
 export async function getReviewNotes(toolId) {
   const res = await request(`/review/${toolId}/notes`);
   return res.json();

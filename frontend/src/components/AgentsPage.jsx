@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Shield, Eye, ClipboardCheck, FileText, GitBranch, ExternalLink, Cpu, Layers, ChevronRight, Zap, Users, Terminal, Brain } from "lucide-react";
+import { Shield, Eye, ClipboardCheck, FileText, GitBranch, ExternalLink, Cpu, Layers, ChevronRight, Zap, Users, Terminal, Brain, Github } from "lucide-react";
 import { C } from "../constants.js";
 
 const AGENT_DETAILS = [
@@ -586,7 +586,15 @@ export default function AgentsPage() {
             It stands on the shoulders of the open-source community &mdash; the tools, frameworks, and projects listed above
             made this possible.
           </p>
-          <p style={{ fontSize: 12, color: C.textDim, margin: "8px 0 0" }}>Office of the CIO &middot; Enterprise IT &middot; Last updated March 7, 2026</p>
+          <a href="https://github.com/umzcio/AIF" target="_blank" rel="noopener noreferrer"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12, padding: "6px 14px",
+              borderRadius: 6, background: C.surface, border: `1px solid ${C.border}`, color: C.text,
+              fontSize: 12, fontWeight: 600, textDecoration: "none", transition: "background .15s" }}
+            onMouseEnter={e => e.currentTarget.style.background = C.surfaceHover}
+            onMouseLeave={e => e.currentTarget.style.background = C.surface}>
+            <Github size={14} /> View on GitHub
+          </a>
+          <p style={{ fontSize: 12, color: C.textDim, margin: "10px 0 0" }}>Office of the CIO &middot; Enterprise IT &middot; Last updated March 7, 2026</p>
         </div>
       </div>
     </div>
