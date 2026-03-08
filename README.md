@@ -54,6 +54,17 @@ Builders submit tools via a 21-question intake form → the system scores them o
                              │
                              ▼
 ┌──────────────────────────────────────────────────────────────────┐
+│                      REVIEW WORKFLOW                              │
+│                                                                  │
+│  Track 1 → auto-activate on pipeline completion                  │
+│  Track 2 → builder self-certifies                                │
+│  Track 3-4 → reviewer approves / requests changes                │
+│                                                                  │
+│  Admins: dashboard, user management, audit log, track override   │
+└────────────────────────────┬─────────────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────────────┐
 │                         OUTPUT                                   │
 │  Security findings · A11y audit · HECVAT XLSX                    │
 │  User Guide · Admin Guide · Compliance Summary (.docx)           │
@@ -119,7 +130,7 @@ Single Claude pass (reads Agent 1+2 output). Pre-populates 87 Critical Importanc
 
 ### Agent 4: Documentation Generation
 
-Single Claude pass (reads Agent 1-3 output). Generates three documents: User Guide, Admin Guide, Compliance Summary. Output as Markdown and .docx (via Pandoc). User Guide and Admin Guide auto-published to Notion knowledge base.
+Single Claude pass (reads Agent 1-3 output). Generates three documents: User Guide, Admin Guide, Compliance Summary. Output as Markdown and .docx (via Pandoc).
 
 ### Multi-Model Convergence
 
@@ -136,13 +147,37 @@ Five different AI models receive the **same prompt** and independently analyze t
 
 No model reviews its own work. Claude only synthesizes — it never runs a pass. The codebase is extracted into an isolated Docker container for security.
 
+## Review Workflow & RBAC
+
+Three roles: **builder**, **reviewer**, **admin**.
+
+| Role | Capabilities |
+|------|-------------|
+| Builder | Submit intake, upload code, view own tools, self-certify (Track 2) |
+| Reviewer | Everything builder can do + review any tool, approve/reject, track override |
+| Admin | Everything reviewer can do + user management, audit log, system dashboard |
+
+### Status Flow
+
+```
+draft → pending → in_progress → under_review → approved → active
+                                     ↓
+                              changes_requested → under_review (resubmit)
+```
+
+- **Track 1**: Auto-activates on pipeline completion (no review needed)
+- **Track 2**: Builder self-certifies after reviewing findings
+- **Track 3–4**: Reviewer approves or requests changes
+- **Track override**: Reviewers/admins can escalate or de-escalate with documented reason
+- All status changes and decisions are recorded in the audit log
+
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React + Vite, CSS design system, dark mode |
+| Frontend | React + Vite, CSS design system (light + dark mode), WCAG 2.2 AA |
 | Backend | Node.js (ESM), Express, PostgreSQL |
-| Auth | CAS via login.umt.edu, JWT cookies |
+| Auth | CAS via login.umt.edu, JWT cookies, RBAC (builder/reviewer/admin) |
 | AI Models | 5 models via CLI tools + Claude synthesis |
 | APIs | OpenAI, Google, xAI direct; Kimi + Qwen via OpenRouter |
 | Infrastructure | Docker (multi-stage build + docker-compose) |
@@ -151,16 +186,16 @@ No model reviews its own work. Claude only synthesizes — it never runs a pass.
 
 ```
 AIF/
-├── CLAUDE.md                       ← Claude Code project instructions
-├── ARCHITECTURE.md                 ← Full architecture spec
-├── um-ai-built-tool-intake.docx    ← Framework policy document (v1.0)
-├── Dockerfile                      ← Multi-stage build (frontend + backend)
-├── docker-compose.yml              ← App + PostgreSQL
+├── Dockerfile                       ← Multi-stage build (frontend + backend)
+├── docker-compose.yml               ← App + PostgreSQL
+├── hecvat415.xlsx                   ← HECVAT 4.15 template
 ├── backend/
+│   ├── migrations/                  ← SQL schema (init, RBAC, review)
 │   ├── src/
 │   │   ├── index.js                ← CLI entry point
 │   │   ├── server.js               ← Express HTTP API
 │   │   ├── scoring.js              ← Shared scoring module (7 dimensions, weights, tracks)
+│   │   ├── audit.js                ← Audit logging helper
 │   │   ├── orchestrator/index.js   ← Pipeline orchestration (4 agents, uniform 5-model)
 │   │   ├── pipeline/
 │   │   │   ├── queue.js            ← Job queue with SSE progress streaming
@@ -171,33 +206,46 @@ AIF/
 │   │   │   ├── accessibility/      ← Agent 2 (prompts + runner)
 │   │   │   ├── hecvat/             ← Agent 3 (prompts + runner + XLSX export)
 │   │   │   └── documentation/      ← Agent 4 (prompts + runner)
-│   │   ├── routes/                 ← API routes (auth, intake, pipeline, registry, reports)
-│   │   ├── auth/                   ← CAS auth, JWT, middleware
-│   │   └── db/                     ← PostgreSQL pool + migrations
-│   └── migrations/                 ← SQL schema
+│   │   ├── routes/
+│   │   │   ├── auth.js             ← CAS login, JWT, refresh
+│   │   │   ├── intake.js           ← Draft/submit, score computation
+│   │   │   ├── pipeline.js         ← Start run, SSE stream
+│   │   │   ├── registry.js         ← Role-scoped listing, status transitions
+│   │   │   ├── reports.js          ← Agent results, report download
+│   │   │   ├── review.js           ← Review decisions, notes, self-certify
+│   │   │   └── admin.js            ← Dashboard stats, user management, audit log
+│   │   ├── auth/                   ← CAS auth, JWT, RBAC middleware
+│   │   └── db/                     ← PostgreSQL pool + migration runner
 ├── frontend/
+│   ├── vite.config.js
 │   ├── src/
-│   │   ├── App.jsx                 ← Root shell, routing
+│   │   ├── App.jsx                 ← Root shell, routing, role guards
 │   │   ├── constants.js            ← Scoring engine, color palette, metadata
 │   │   ├── styles.css              ← CSS design system (light + dark themes)
-│   │   ├── api.js                  ← API client
-│   │   ├── components/
-│   │   │   ├── TopBar.jsx          ← Navigation + user menu
-│   │   │   ├── Welcome.jsx         ← Landing page
-│   │   │   ├── IntakeForm.jsx      ← 21-question form with live scoring
-│   │   │   ├── CodeUpload.jsx      ← File upload + pipeline trigger
-│   │   │   ├── Registry.jsx        ← Tool registry with filters
-│   │   │   ├── Pipeline.jsx        ← Agent progress (SSE streaming)
-│   │   │   ├── Report.jsx          ← Findings report
-│   │   │   ├── ToolDetail.jsx      ← Tool detail page
-│   │   │   ├── FrameworkDoc.jsx    ← 12-section framework reference
-│   │   │   └── AgentsPage.jsx      ← Pipeline architecture + model rationale
-│   │   └── hooks/                  ← useAuth, useHashRouter, useSSE
-│   └── vite.config.js
-├── um-standards/
-│   ├── SKILL.md                    ← Claude skill for UM AI standards
-│   └── references/                 ← Role-specific reference docs
-└── hecvat415.xlsx                  ← HECVAT 4.15 template
+│   │   ├── api.js                  ← API client (auth, intake, pipeline, review, admin)
+│   │   ├── hooks/
+│   │   │   ├── useAuth.jsx         ← Auth context + JWT refresh
+│   │   │   ├── useHashRouter.js    ← Client-side hash routing
+│   │   │   └── useSSE.js           ← SSE hook for pipeline streaming
+│   │   └── components/
+│   │       ├── TopBar.jsx          ← Navigation + user menu + admin link
+│   │       ├── Welcome.jsx         ← Landing page
+│   │       ├── IntakeForm.jsx      ← 21-question form with live scoring sidebar
+│   │       ├── CodeUpload.jsx      ← Drag-and-drop upload + pipeline trigger
+│   │       ├── Registry.jsx        ← Tool registry with track/status/review filters
+│   │       ├── ToolDetail.jsx      ← Tool detail + review panel
+│   │       ├── ReviewPanel.jsx     ← Review decisions, notes, track override, self-certify
+│   │       ├── Pipeline.jsx        ← Agent progress (SSE streaming)
+│   │       ├── Report.jsx          ← Structured findings report
+│   │       ├── AdminDashboard.jsx  ← Tabbed admin (overview, users, audit log)
+│   │       ├── AgentsPage.jsx      ← Pipeline architecture + model rationale
+│   │       ├── FrameworkDoc.jsx    ← 12-section framework reference
+│   │       ├── Toast.jsx           ← Toast notifications + confirm dialogs
+│   │       ├── Breadcrumb.jsx      ← Breadcrumb navigation
+│   │       └── primitives.jsx      ← Shared UI primitives (Btn, Badge, Skeleton, etc.)
+└── um-standards/
+    ├── SKILL.md                    ← Claude skill for UM AI standards
+    └── references/                 ← Role-specific reference docs
 ```
 
 ## Running
@@ -209,7 +257,7 @@ cp backend/.env.example backend/.env
 # Fill in API keys
 
 docker compose up -d
-# App at http://localhost:3000/aif
+# App at http://localhost:3300/aif
 ```
 
 ### Development
@@ -251,14 +299,16 @@ CAS_SERVICE_URL=...                # CAS callback URL
 | Framework document (v1.0) | Done |
 | Scoring model (7 dimensions, weight profiles, track routing) | Done |
 | Frontend portal (intake, registry, pipeline, report, framework, agents) | Done |
-| Dark mode | Done |
-| Backend API (auth, intake, pipeline, registry) | Done |
+| Dark mode + WCAG 2.2 AA compliance | Done |
+| Backend API (auth, intake, pipeline, registry, review, admin) | Done |
 | Agent 1: Code & Security (5-model + Snyk) | Done |
 | Agent 2: Accessibility / WCAG 2.2 AA (5-model) | Done |
 | Agent 3: HECVAT 4 Lite (87 questions + XLSX export) | Done |
-| Agent 4: Documentation (3 docs + Pandoc + Notion) | Done |
+| Agent 4: Documentation (3 docs + Pandoc) | Done |
 | Docker deployment | Done |
-| Admin/reviewer views | Planned |
+| RBAC (builder/reviewer/admin) | Done |
+| Review workflow (approve/reject, self-certify, track override) | Done |
+| Admin dashboard (stats, user management, audit log) | Done |
 | MCP connectors (repo, project tracker, docs) | Planned |
 
 ---

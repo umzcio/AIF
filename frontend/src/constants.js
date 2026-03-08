@@ -221,16 +221,6 @@ export const ROUTE_META = {
     title: "Admin Dashboard",
     description: "System overview and management.",
   },
-  "admin-users": {
-    label: "User Management",
-    title: "User Management",
-    description: "Manage user roles and access.",
-  },
-  "admin-audit": {
-    label: "Audit Log",
-    title: "Audit Log",
-    description: "View system activity log.",
-  },
 };
 
 export function parsePossiblyStringArray(value) {
