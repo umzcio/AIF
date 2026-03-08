@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, AlertTriangle } from "lucide-react";
+import { ChevronRight, AlertTriangle, Github } from "lucide-react";
 import { C, TRACK_COLORS, TRACK_LABELS } from "../constants.js";
 import { TrackBadge } from "./primitives.jsx";
 
@@ -292,7 +292,13 @@ export default function FrameworkDoc() {
 
         <div id="fw-adopting" style={sectionStyle}>
           <h2 style={h2Style}>Adopting This Framework</h2>
-          <p style={pStyle}>Designed to be adapted, not just adopted. The structure is portable across higher education institutions.</p>
+          <p style={pStyle}>Designed to be adapted, not just adopted. The structure is portable across higher education institutions. The source code and framework documents are available on{" "}
+            <a href="https://github.com/umzcio/AIF" target="_blank" rel="noopener noreferrer"
+              style={{ color: C.accent, textDecoration: "none", fontWeight: 600 }}
+              onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
+              onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}>
+              <Github size={12} style={{ verticalAlign: "-1px", marginRight: 3 }} />GitHub</a>.
+          </p>
           {["Calibrate the weight matrix against your tool landscape. Run intake against 5-10 existing tools.",
             "Map escalation conditions to your enterprise systems and data governance policies.",
             "Build the Self-Assessment reflecting local data governance and AI tool prevalence.",
