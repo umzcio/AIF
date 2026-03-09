@@ -64,7 +64,7 @@ router.post("/:toolId/decision", requireRole("reviewer", "admin"), validate(revi
   notify({
     userId: updated.owner_id, toolId, type: notifType,
     title: notifTitle, body: notes || null,
-    link: `#/detail/${toolId}`,
+    link: `#/tool/${toolId}`,
   }).catch(() => {});
 
   res.json({ tool: updated });
@@ -104,7 +104,7 @@ router.post("/:toolId/track-override", requireRole("reviewer", "admin"), validat
   notify({
     userId: result.updated.owner_id, toolId, type: "track_override",
     title: `Track changed for "${result.updated.name}": Track ${result.oldTrack} → Track ${newTrack}`,
-    body: reason, link: `#/detail/${toolId}`,
+    body: reason, link: `#/tool/${toolId}`,
   }).catch(() => {});
 
   res.json({ tool: result.updated });
@@ -161,7 +161,7 @@ router.post("/:toolId/notes", validate(reviewNoteSchema), async (req, res) => {
     notify({
       userId: commentTool.owner_id, toolId, type: "comment",
       title: `New comment on "${commentTool.name}"`,
-      body: body.trim().slice(0, 200), link: `#/detail/${toolId}`,
+      body: body.trim().slice(0, 200), link: `#/tool/${toolId}`,
     }).catch(() => {});
   }
 
@@ -207,13 +207,13 @@ router.post("/:toolId/self-certify", async (req, res) => {
     role: "reviewer", toolId, type: "tool_activated",
     title: `"${updated.name}" self-certified and activated`,
     body: `Track 2 tool self-certified by ${req.user.netid}`,
-    link: `#/detail/${toolId}`,
+    link: `#/tool/${toolId}`,
   }).catch(() => {});
   notifyRole({
     role: "admin", toolId, type: "tool_activated",
     title: `"${updated.name}" self-certified and activated`,
     body: `Track 2 tool self-certified by ${req.user.netid}`,
-    link: `#/detail/${toolId}`,
+    link: `#/tool/${toolId}`,
   }).catch(() => {});
 
   res.json({ tool: updated });
@@ -251,7 +251,7 @@ router.post("/:toolId/activate", requireRole("reviewer", "admin"), async (req, r
     userId: updated.owner_id, toolId, type: "tool_activated",
     title: `"${updated.name}" is now active`,
     body: "Your tool has been approved and activated in the registry.",
-    link: `#/detail/${toolId}`,
+    link: `#/tool/${toolId}`,
   }).catch(() => {});
 
   res.json({ tool: updated });
