@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { C, DIMENSION_LABELS, ROUTE_META, SEVERITY_CONFIG, TRACK_LABELS } from "../constants.js";
 import { Btn, ErrorBanner, PageHeader, Skeleton, TrackBadge, formatDuration } from "./primitives.jsx";
-import { getDocDownloadUrl, getHecvatDownloadUrl, getReport, getTool } from "../api.js";
+import { getDocDownloadUrl, getHecvatDownloadUrl, getFindingsCsvUrl, getFindingsJsonUrl, getReport, getTool } from "../api.js";
 import { navigate } from "../hooks/useHashRouter.js";
 import Breadcrumb from "./Breadcrumb.jsx";
 
@@ -147,6 +147,17 @@ export default function Report({ toolId, runId }) {
                 <h3 style={{ marginTop: 8, fontSize: 14 }}>{label}</h3>
               </a>
             ))}
+          </div>
+          <div style={{ marginTop: 16, borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
+            <div className="section-label" style={{ marginBottom: 8 }}>Export all findings</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <a href={getFindingsCsvUrl(runId)} className="doc-card text-link" style={{ textDecoration: "none", padding: "10px 16px", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>
+                CSV
+              </a>
+              <a href={getFindingsJsonUrl(runId)} className="doc-card text-link" style={{ textDecoration: "none", padding: "10px 16px", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>
+                JSON
+              </a>
+            </div>
           </div>
         </section>
       )}

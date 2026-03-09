@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Shield, Eye, ClipboardCheck, FileText, Upload, Package, Check, ChevronRight, ChevronDown, Clock, FileCode, Folder, FolderOpen, ArrowRight, Terminal, CheckCircle, XCircle, MinusCircle } from "lucide-react";
 import { C, SEVERITY_CONFIG, TRACK_COLORS } from "../constants.js";
 import { navigate } from "../hooks/useHashRouter.js";
-import { getTool, startPipelineRun, getReport, getPipelineRun, updateToolStatus, uploadCodebase } from "../api.js";
+import { getTool, startPipelineRun, getReport, getPipelineRun, updateToolStatus, uploadCodebase, getFindingsCsvUrl, getFindingsJsonUrl } from "../api.js";
 import { usePipelineStream } from "../hooks/useSSE.js";
 import { useToast } from "./Toast.jsx";
 import { TrackBadge, Skeleton, ErrorBanner } from "./primitives.jsx";
@@ -1080,13 +1080,23 @@ export default function CodeUpload({ toolId }) {
                   fontFamily: "'DM Sans', sans-serif", boxShadow: `0 4px 20px ${TRACK_COLORS[1]}35` }}>
                 {(tool?.track || 3) <= 2 ? "Acknowledge Findings & Register →" : "Submit for IT Review →"}
               </button>
-              {runId && (
+              {runId && <>
                 <button onClick={() => navigate(`/tool/${toolId}/report/${runId}`)}
                   style={{ padding: "13px 24px", borderRadius: 10, border: `1.5px solid ${C.border}`, cursor: "pointer",
                     background: "transparent", color: C.textMid, fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
                   View Full Report
                 </button>
-              )}
+                <a href={getFindingsCsvUrl(runId)} style={{ padding: "13px 18px", borderRadius: 10, border: `1.5px solid ${C.border}`,
+                  background: "transparent", color: C.textMid, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                  textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+                  Export CSV
+                </a>
+                <a href={getFindingsJsonUrl(runId)} style={{ padding: "13px 18px", borderRadius: 10, border: `1.5px solid ${C.border}`,
+                  background: "transparent", color: C.textMid, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                  textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+                  Export JSON
+                </a>
+              </>}
             </div>
           ) : (
             <div style={{ marginTop: 24, padding: 24, borderRadius: 12, background: C.accentSoft, border: `1px solid ${C.accent30}` }}>
@@ -1146,19 +1156,29 @@ export default function CodeUpload({ toolId }) {
                   {tool.status === "active" ? "Tool Active" : tool.status === "approved" ? "Tool Approved" : tool.status === "under_review" ? "Under Review" : "Changes Requested"}
                 </h3>
               </div>
-              <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
+              <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
                 <button onClick={() => navigate(`/tool/${toolId}`)}
                   style={{ padding: "10px 20px", borderRadius: 8, border: "none", cursor: "pointer",
                     background: C.accent, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
                   View Tool Details
                 </button>
-                {runId && (
+                {runId && <>
                   <button onClick={() => navigate(`/tool/${toolId}/report/${runId}`)}
                     style={{ padding: "10px 20px", borderRadius: 8, border: `1.5px solid ${C.border}`, cursor: "pointer",
                       background: "transparent", color: C.textMid, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
                     View Full Report
                   </button>
-                )}
+                  <a href={getFindingsCsvUrl(runId)} style={{ padding: "10px 16px", borderRadius: 8, border: `1.5px solid ${C.border}`,
+                    background: "transparent", color: C.textMid, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                    textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+                    Export CSV
+                  </a>
+                  <a href={getFindingsJsonUrl(runId)} style={{ padding: "10px 16px", borderRadius: 8, border: `1.5px solid ${C.border}`,
+                    background: "transparent", color: C.textMid, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                    textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+                    Export JSON
+                  </a>
+                </>}
               </div>
             </div>
           )}
