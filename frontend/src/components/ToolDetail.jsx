@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { parsePossiblyStringArray, ROUTE_META, DIMENSION_LABELS, C } from "../constants.js";
 import { Btn, Card, EmptyState, ErrorBanner, PageHeader, Skeleton, StatusBadge, TrackBadge, formatAbsoluteDate, formatDuration, relativeTime } from "./primitives.jsx";
 import { deleteTool, getTool, startPipelineRun } from "../api.js";
+import { FileText, Clock, ArrowRight } from "lucide-react";
 import { navigate } from "../hooks/useHashRouter.js";
 import { useToast } from "./Toast.jsx";
 import { useAuth } from "../hooks/useAuth.jsx";
@@ -102,6 +103,56 @@ export default function ToolDetail({ toolId }) {
         <StatCard label="Latest run" value={latestRun ? relativeTime(latestRun.queued_at) : "None"} meta={latestRun?.status || ""} />
         <StatCard label="Owner" value={tool.owner_name || tool.owner_netid || "Unassigned"} meta={tool.updated_at ? `Updated ${relativeTime(tool.updated_at)}` : ""} />
       </div>
+
+      {latestRun?.status === "completed" && (
+        <button type="button" onClick={() => navigate(`/tool/${toolId}/report/${latestRun.id}`)}
+          className="section-card" style={{
+            display: "flex", alignItems: "center", gap: 16, padding: "16px 20px",
+            cursor: "pointer", border: `1px solid ${C.accent}30`, background: C.accentSoft,
+            width: "100%", textAlign: "left", fontFamily: "'DM Sans', sans-serif",
+            borderRadius: 10, transition: "border-color .15s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
+          onMouseLeave={e => e.currentTarget.style.borderColor = `${C.accent}30`}
+        >
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: `${C.accent}18`,
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <FileText size={20} color={C.accent} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Pipeline Report</div>
+            <div style={{ fontSize: 12, color: C.textMid, marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
+              <Clock size={11} />
+              {latestRun.completed_at ? `Completed ${relativeTime(latestRun.completed_at)}` : "Completed"}
+              {latestRun.queued_at && latestRun.completed_at && <> &middot; {formatDuration(latestRun.queued_at, latestRun.completed_at)}</>}
+            </div>
+          </div>
+          <ArrowRight size={16} color={C.textMid} />
+        </button>
+      )}
+
+      {isRunning && (
+        <button type="button" onClick={() => navigate(`/tool/${toolId}/pipeline/${latestRun.id}`)}
+          className="section-card" style={{
+            display: "flex", alignItems: "center", gap: 16, padding: "16px 20px",
+            cursor: "pointer", border: `1px solid ${C.warning}40`, background: `${C.warning}08`,
+            width: "100%", textAlign: "left", fontFamily: "'DM Sans', sans-serif",
+            borderRadius: 10, transition: "border-color .15s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = C.warning}
+          onMouseLeave={e => e.currentTarget.style.borderColor = `${C.warning}40`}
+        >
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: `${C.warning}18`,
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Clock size={20} color={C.warning} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Pipeline Running</div>
+            <div style={{ fontSize: 12, color: C.textMid, marginTop: 2 }}>Started {relativeTime(latestRun.queued_at)} &middot; View progress</div>
+          </div>
+          <ArrowRight size={16} color={C.textMid} />
+        </button>
+      )}
 
       <div className="wizard-layout">
         <div className="section-stack">
