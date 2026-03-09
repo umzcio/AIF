@@ -1,7 +1,27 @@
-import { useEffect } from "react";
+import { useEffect, Component } from "react";
 import { APP_META, C, ROUTE_META } from "./constants.js";
 import { useAuth } from "./hooks/useAuth.jsx";
 import { useHashRouter } from "./hooks/useHashRouter.js";
+
+class ErrorBoundary extends Component {
+  state = { error: null };
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 40, textAlign: "center" }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Something went wrong</h2>
+          <p style={{ fontSize: 13, color: "#666", marginBottom: 16 }}>{this.state.error.message}</p>
+          <button type="button" onClick={() => { this.setState({ error: null }); window.location.hash = "#/welcome"; }}
+            style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#1A6B4B", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
+            Go Home
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import TopBar from "./components/TopBar.jsx";
 import Registry from "./components/Registry.jsx";
 import IntakeForm from "./components/IntakeForm.jsx";
@@ -82,9 +102,11 @@ export default function App() {
         <div aria-live="polite" className="sr-only">
           {(ROUTE_META[route] || ROUTE_META.registry).title}
         </div>
-        <div key={route + JSON.stringify(params)} className="fade-in">
-          {renderView()}
-        </div>
+        <ErrorBoundary key={route + JSON.stringify(params)}>
+          <div className="fade-in">
+            {renderView()}
+          </div>
+        </ErrorBoundary>
       </main>
     </div>
   );

@@ -80,26 +80,26 @@ async function processNext() {
     const onProgressCb = (event) => {
       emitProgress(runId, event);
 
-      // Update DB for agent-level events
+      // Update DB for agent-level events (log errors but don't crash pipeline)
       if (event.type === "agent_start") {
         pool.query(
           `UPDATE pipeline_runs SET current_agent = $1, current_agent_index = $2 WHERE id = $3`,
           [event.agent, event.index, runId]
-        );
+        ).catch(err => console.error(`[queue] agent_start DB update failed: ${err.message}`));
         pool.query(
           `UPDATE agent_results SET status = 'running', started_at = NOW() WHERE run_id = $1 AND agent_name = $2`,
           [runId, event.agent]
-        );
+        ).catch(err => console.error(`[queue] agent_results start DB update failed: ${err.message}`));
       } else if (event.type === "agent_complete") {
         pool.query(
           `UPDATE agent_results SET status = 'completed', passes_completed = $1, completed_at = NOW() WHERE run_id = $2 AND agent_name = $3`,
           [event.passes, runId, event.agent]
-        );
+        ).catch(err => console.error(`[queue] agent_complete DB update failed: ${err.message}`));
       } else if (event.type === "pass_complete") {
         pool.query(
           `UPDATE agent_results SET passes_completed = passes_completed + 1 WHERE run_id = $1 AND agent_name = $2`,
           [runId, event.agent]
-        );
+        ).catch(err => console.error(`[queue] pass_complete DB update failed: ${err.message}`));
       }
     };
 

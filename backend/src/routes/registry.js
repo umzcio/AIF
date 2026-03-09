@@ -49,18 +49,23 @@ router.get("/", async (req, res) => {
 
   const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-  const [{ rows: tools }, { rows: [{ count }] }] = await Promise.all([
-    pool.query(
-      `SELECT t.*, u.netid as owner_netid, u.display_name as owner_name,
-         (SELECT MAX(completed_at) FROM pipeline_runs WHERE tool_id = t.id) as last_run_at
-       FROM tools t LEFT JOIN users u ON t.owner_id = u.id
-       ${whereClause} ORDER BY t.created_at DESC LIMIT $${idx++} OFFSET $${idx++}`,
-      [...params, parseInt(limit), offset]
-    ),
-    pool.query(`SELECT COUNT(*) FROM tools t ${whereClause}`, params),
-  ]);
+  try {
+    const [{ rows: tools }, { rows: [{ count }] }] = await Promise.all([
+      pool.query(
+        `SELECT t.*, u.netid as owner_netid, u.display_name as owner_name,
+           (SELECT MAX(completed_at) FROM pipeline_runs WHERE tool_id = t.id) as last_run_at
+         FROM tools t LEFT JOIN users u ON t.owner_id = u.id
+         ${whereClause} ORDER BY t.created_at DESC LIMIT $${idx++} OFFSET $${idx++}`,
+        [...params, parseInt(limit), offset]
+      ),
+      pool.query(`SELECT COUNT(*) FROM tools t ${whereClause}`, params),
+    ]);
 
-  res.json({ tools, total: parseInt(count), page: parseInt(page), limit: parseInt(limit) });
+    res.json({ tools, total: parseInt(count), page: parseInt(page), limit: parseInt(limit) });
+  } catch (err) {
+    console.error("[registry] list query failed:", err.message);
+    res.status(500).json({ error: "Failed to load registry" });
+  }
 });
 
 router.get("/:id", async (req, res) => {

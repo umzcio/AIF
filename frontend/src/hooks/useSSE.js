@@ -3,6 +3,7 @@ import { BASE } from "../api.js";
 
 const MAX_RETRIES = 3;
 const BACKOFF_BASE = 2000;
+const MAX_EVENTS = 500;
 
 export function usePipelineStream(runId) {
   const [state, setState] = useState(null);
@@ -29,7 +30,7 @@ export function usePipelineStream(runId) {
 
       es.onmessage = (e) => {
         const data = JSON.parse(e.data);
-        setEvents((prev) => [...prev, data]);
+        setEvents((prev) => prev.length >= MAX_EVENTS ? [...prev.slice(-MAX_EVENTS + 1), data] : [...prev, data]);
 
         if (data.type === "state") {
           setState(data);

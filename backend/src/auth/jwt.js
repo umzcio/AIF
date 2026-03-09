@@ -1,6 +1,10 @@
 import * as jose from "jose";
 
-const JWT_SECRET_RAW = process.env.JWT_SECRET || "aif-dev-secret-change-in-prod";
+const JWT_SECRET_RAW = process.env.JWT_SECRET;
+if (!JWT_SECRET_RAW) {
+  console.error("FATAL: JWT_SECRET environment variable is required. Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"");
+  process.exit(1);
+}
 const JWT_EXPIRY = process.env.JWT_EXPIRY || "24h";
 const ISSUER = "aif-portal";
 const AUDIENCE = "aif-users";
