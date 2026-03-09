@@ -105,30 +105,51 @@ export default function ToolDetail({ toolId }) {
       </div>
 
       {latestRun?.status === "completed" && (
-        <button type="button" onClick={() => navigate(`/tool/${toolId}/report/${latestRun.id}`)}
-          className="section-card" style={{
-            display: "flex", alignItems: "center", gap: 16, padding: "16px 20px",
-            cursor: "pointer", border: `1px solid ${C.accent}30`, background: C.accentSoft,
-            width: "100%", textAlign: "left", fontFamily: "'DM Sans', sans-serif",
-            borderRadius: 10, transition: "border-color .15s",
-          }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
-          onMouseLeave={e => e.currentTarget.style.borderColor = `${C.accent}30`}
-        >
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: `${C.accent}18`,
-            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <FileText size={20} color={C.accent} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Pipeline Report</div>
-            <div style={{ fontSize: 12, color: C.textMid, marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
-              <Clock size={11} />
-              {latestRun.completed_at ? `Completed ${relativeTime(latestRun.completed_at)}` : "Completed"}
-              {latestRun.queued_at && latestRun.completed_at && <> &middot; {formatDuration(latestRun.queued_at, latestRun.completed_at)}</>}
+        <div style={{ display: "flex", gap: 12 }}>
+          <button type="button" onClick={() => navigate(`/upload/${toolId}`)}
+            className="section-card" style={{
+              flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "16px 20px",
+              cursor: "pointer", border: `1px solid ${C.accent}30`, background: C.accentSoft,
+              textAlign: "left", fontFamily: "'DM Sans', sans-serif",
+              borderRadius: 10, transition: "border-color .15s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
+            onMouseLeave={e => e.currentTarget.style.borderColor = `${C.accent}30`}
+          >
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: `${C.accent}18`,
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <FileText size={20} color={C.accent} />
             </div>
-          </div>
-          <ArrowRight size={16} color={C.textMid} />
-        </button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Code Review</div>
+              <div style={{ fontSize: 12, color: C.textMid, marginTop: 2 }}>File tree, findings, and remediation</div>
+            </div>
+            <ArrowRight size={16} color={C.textMid} />
+          </button>
+          <button type="button" onClick={() => navigate(`/tool/${toolId}/report/${latestRun.id}`)}
+            className="section-card" style={{
+              flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "16px 20px",
+              cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent",
+              textAlign: "left", fontFamily: "'DM Sans', sans-serif",
+              borderRadius: 10, transition: "border-color .15s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
+            onMouseLeave={e => e.currentTarget.style.borderColor = C.border}
+          >
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: C.surface,
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Clock size={20} color={C.textMid} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Summary Report</div>
+              <div style={{ fontSize: 12, color: C.textMid, marginTop: 2 }}>
+                {latestRun.completed_at ? `Completed ${relativeTime(latestRun.completed_at)}` : "Completed"}
+                {latestRun.queued_at && latestRun.completed_at && <> &middot; {formatDuration(latestRun.queued_at, latestRun.completed_at)}</>}
+              </div>
+            </div>
+            <ArrowRight size={16} color={C.textMid} />
+          </button>
+        </div>
       )}
 
       {isRunning && (
