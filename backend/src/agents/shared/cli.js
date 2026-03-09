@@ -1,7 +1,8 @@
 /**
  * Shared CLI execution utilities for all agents.
  *
- * Provides: runCLI(), extractJSON(), loadEnv()
+ * Provides: runCLI(), runCLIWithRetry(), extractJSON(), loadEnv(),
+ *           MODEL_TIMEOUTS, activeProcesses
  * Used by Agent 1 (Code Analysis), Agent 2 (Accessibility), etc.
  */
 
@@ -9,9 +10,57 @@ import { spawn } from "child_process";
 import { readFileSync, writeFileSync, existsSync, symlinkSync, unlinkSync, mkdirSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { tmpdir } from "os";
+import log from "../../logger.js";
 
-const TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes per pass (synthesis with dispute resolution can be slow)
 const OPENCODE_CONFIG = process.env.OPENCODE_CONFIG_PATH || "/home/zach/opencode.json";
+
+/**
+ * Per-model timeout configuration (milliseconds).
+ * Codex is consistently slowest (7-10 min), Grok fastest (~30-40s).
+ * Claude synthesis can be slow with dispute resolution.
+ */
+export const MODEL_TIMEOUTS = {
+  codex:           15 * 60 * 1000,  // 15 min (slow, large model)
+  gemini:           8 * 60 * 1000,  // 8 min
+  "opencode:grok":  3 * 60 * 1000,  // 3 min (fastest model)
+  "opencode:kimi": 12 * 60 * 1000,  // 12 min (can be slow)
+  qwen:             8 * 60 * 1000,  // 8 min
+  claude:          15 * 60 * 1000,  // 15 min (synthesis)
+};
+
+/** Map of runId → Set<ChildProcess> for cancellation support. */
+export const activeProcesses = new Map();
+
+/**
+ * Register a process for a run so it can be killed on cancel.
+ */
+function trackProcess(runId, proc) {
+  if (!runId) return;
+  if (!activeProcesses.has(runId)) activeProcesses.set(runId, new Set());
+  activeProcesses.get(runId).add(proc);
+  const cleanup = () => {
+    const procs = activeProcesses.get(runId);
+    if (procs) { procs.delete(proc); if (procs.size === 0) activeProcesses.delete(runId); }
+  };
+  proc.on("close", cleanup);
+  proc.on("error", cleanup);
+}
+
+/**
+ * Kill all processes for a run.
+ */
+export function killRunProcesses(runId) {
+  const procs = activeProcesses.get(runId);
+  if (!procs) return 0;
+  let killed = 0;
+  for (const proc of procs) {
+    try { proc.kill("SIGTERM"); killed++; } catch {}
+    // Force kill after 5s if still alive
+    setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000).unref();
+  }
+  activeProcesses.delete(runId);
+  return killed;
+}
 
 /**
  * Load .env into process.env.
@@ -35,9 +84,27 @@ export function loadEnv() {
 /**
  * Run a single CLI tool against a codebase with a given prompt.
  * Returns the tool's text output.
+ *
+ * @param {string} tool - CLI tool name (codex, gemini, claude, qwen, opencode:grok, opencode:kimi)
+ * @param {string} prompt - The prompt to send
+ * @param {string} codebasePath - Absolute path to the codebase
+ * @param {string} outputDir - Where to write output files
+ * @param {object} [opts] - Options
+ * @param {string} [opts.runId] - Pipeline run ID (for process tracking/cancellation)
+ * @param {AbortSignal} [opts.signal] - AbortSignal for cancellation
+ * @param {number} [opts.timeoutMs] - Override timeout for this call
  */
-export function runCLI(tool, prompt, codebasePath, outputDir) {
+export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
+  const { runId, signal, timeoutMs } = opts;
+  const timeout = timeoutMs || MODEL_TIMEOUTS[tool] || 15 * 60 * 1000;
+
   return new Promise((resolve, reject) => {
+    // Check if already cancelled
+    if (signal?.aborted) {
+      reject(new Error(`${tool} cancelled before start`));
+      return;
+    }
+
     const outputFile = join(outputDir, `${tool.replace(/[^a-z0-9]/gi, "_")}.json`);
     let proc;
     let args;
@@ -54,7 +121,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir) {
         "--ephemeral",
       ];
       proc = spawn("codex", args, {
-        timeout: TIMEOUT_MS,
+        timeout,
         env: { ...process.env },
         stdio: ["ignore", "pipe", "pipe"],
       });
@@ -64,7 +131,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir) {
         "-y",
       ];
       proc = spawn("gemini", args, {
-        timeout: TIMEOUT_MS,
+        timeout,
         cwd: codebasePath,
         env: {
           ...process.env,
@@ -84,7 +151,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir) {
           "--allowedTools", "Read,Glob,Grep,Bash(cat:*,ls:*,head:*,tail:*,wc:*,find:*,grep:*)",
         ];
         proc = spawn("claude", args, {
-          timeout: TIMEOUT_MS,
+          timeout,
           cwd: codebasePath,
           env: claudeEnv,
           stdio: ["ignore", "pipe", "pipe"],
@@ -99,7 +166,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir) {
           "--allowedTools", "Read,Glob,Grep,Bash(cat:*,ls:*,head:*,tail:*,wc:*,find:*,grep:*)",
         ];
         proc = spawn("claude", args, {
-          timeout: TIMEOUT_MS,
+          timeout,
           cwd: codebasePath,
           env: claudeEnv,
           stdio: ["ignore", "pipe", "pipe"],
@@ -111,7 +178,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir) {
         "--approval-mode", "yolo",
       ];
       proc = spawn("qwen", args, {
-        timeout: TIMEOUT_MS,
+        timeout,
         cwd: codebasePath,
         env: {
           ...process.env,
@@ -141,7 +208,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir) {
       mkdirSync(instanceDataDir, { recursive: true });
       const cleanup = () => { if (createdLink) try { unlinkSync(ocLink); } catch {} };
       proc = spawn("opencode", args, {
-        timeout: TIMEOUT_MS,
+        timeout,
         env: { ...process.env, XDG_DATA_HOME: instanceDataDir },
         stdio: ["ignore", "pipe", "pipe"],
       });
@@ -152,12 +219,30 @@ export function runCLI(tool, prompt, codebasePath, outputDir) {
       return;
     }
 
+    // Track process for cancellation
+    trackProcess(runId, proc);
+
+    // Listen for abort signal
+    const onAbort = () => {
+      try { proc.kill("SIGTERM"); } catch {}
+      setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 3000).unref();
+    };
+    if (signal) signal.addEventListener("abort", onAbort, { once: true });
+
     let stdout = "";
     let stderr = "";
     proc.stdout.on("data", (d) => (stdout += d.toString()));
     proc.stderr.on("data", (d) => (stderr += d.toString()));
 
     proc.on("close", (code) => {
+      if (signal) signal.removeEventListener("abort", onAbort);
+
+      // Check if killed by cancellation
+      if (signal?.aborted) {
+        reject(new Error(`${tool} cancelled`));
+        return;
+      }
+
       let result = "";
       if (existsSync(outputFile)) {
         result = readFileSync(outputFile, "utf-8");
@@ -170,20 +255,60 @@ export function runCLI(tool, prompt, codebasePath, outputDir) {
         return;
       }
       if (!result && code === null) {
-        reject(new Error(`${tool} killed (likely timeout after ${TIMEOUT_MS / 1000}s)`));
+        reject(new Error(`${tool} killed (likely timeout after ${timeout / 1000}s)`));
         return;
       }
       resolve({ tool, output: result, exitCode: code, stderr });
     });
 
     proc.on("error", (err) => {
-      if (err.code === "ETIMEDOUT") {
-        reject(new Error(`${tool} timed out after ${TIMEOUT_MS / 1000}s`));
+      if (signal) signal.removeEventListener("abort", onAbort);
+      if (signal?.aborted) {
+        reject(new Error(`${tool} cancelled`));
+      } else if (err.code === "ETIMEDOUT") {
+        reject(new Error(`${tool} timed out after ${timeout / 1000}s`));
       } else {
         reject(err);
       }
     });
   });
+}
+
+/**
+ * Run a CLI tool with automatic retry on failure.
+ *
+ * @param {string} tool - CLI tool name
+ * @param {string} prompt - The prompt
+ * @param {string} codebasePath - Codebase path
+ * @param {string} outputDir - Output directory
+ * @param {object} [opts] - Options (same as runCLI plus retry options)
+ * @param {number} [opts.maxRetries=1] - Max retry attempts (0 = no retry)
+ * @param {number} [opts.retryDelayMs=5000] - Delay between retries
+ * @param {function} [opts.onRetry] - Callback on retry: (attempt, error, tool) => void
+ */
+export async function runCLIWithRetry(tool, prompt, codebasePath, outputDir, opts = {}) {
+  const { maxRetries = 1, retryDelayMs = 5000, onRetry, ...cliOpts } = opts;
+
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await runCLI(tool, prompt, codebasePath, outputDir, cliOpts);
+    } catch (err) {
+      lastError = err;
+
+      // Don't retry on cancellation
+      if (err.message.includes("cancelled") || cliOpts.signal?.aborted) {
+        throw err;
+      }
+
+      if (attempt < maxRetries) {
+        log.warn("CLI pass failed, retrying", { tool, attempt: attempt + 1, maxAttempts: maxRetries + 1, error: err.message, retryDelaySec: retryDelayMs / 1000 });
+        if (onRetry) onRetry(attempt + 1, err, tool);
+        await new Promise(r => setTimeout(r, retryDelayMs));
+      }
+    }
+  }
+  throw lastError;
 }
 
 /**

@@ -1,8 +1,24 @@
 export const BASE = "/aif/api";
 
+export async function fetchConfig() {
+  try {
+    const res = await fetch(`${BASE}/config`);
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+function getCsrfToken() {
+  const match = document.cookie.split("; ").find(c => c.startsWith("aif_csrf="));
+  return match ? match.split("=")[1] : "";
+}
+
 async function request(path, options = {}) {
+  const csrf = getCsrfToken();
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...options.headers },
+    headers: { "Content-Type": "application/json", ...(csrf ? { "x-csrf-token": csrf } : {}), ...options.headers },
     credentials: "same-origin",
     ...options,
   });
@@ -42,6 +58,7 @@ function buildIntakeForm(data, file) {
 }
 
 async function postForm(path, form) {
+  form.append("_csrf", getCsrfToken());
   const res = await fetch(`${BASE}${path}`, { method: "POST", credentials: "same-origin", body: form });
   if (res.status === 401) { window.location.href = `${BASE}/auth/login`; throw new Error("Authentication required"); }
   if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || `Request failed: ${res.status}`); }
@@ -49,6 +66,7 @@ async function postForm(path, form) {
 }
 
 async function putForm(path, form) {
+  form.append("_csrf", getCsrfToken());
   const res = await fetch(`${BASE}${path}`, { method: "PUT", credentials: "same-origin", body: form });
   if (res.status === 401) { window.location.href = `${BASE}/auth/login`; throw new Error("Authentication required"); }
   if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || `Request failed: ${res.status}`); }
@@ -128,6 +146,7 @@ export function uploadCodebase(toolId, file, onProgress) {
 
     const form = new FormData();
     form.append("codebase", file);
+    form.append("_csrf", getCsrfToken());
     xhr.send(form);
   });
 }
@@ -142,6 +161,16 @@ export async function startPipelineRun(toolId, track) {
 
 export async function getPipelineRun(runId) {
   const res = await request(`/pipeline/${runId}`);
+  return res.json();
+}
+
+export async function cancelPipelineRun(runId) {
+  const res = await request(`/pipeline/${runId}/cancel`, { method: "POST" });
+  return res.json();
+}
+
+export async function retryPipelineRun(runId) {
+  const res = await request(`/pipeline/${runId}/retry`, { method: "POST" });
   return res.json();
 }
 
@@ -204,6 +233,69 @@ export async function selfCertify(toolId) {
 
 export async function activateTool(toolId) {
   const res = await request(`/review/${toolId}/activate`, { method: "POST" });
+  return res.json();
+}
+
+// Notifications
+export async function getNotifications(params = {}) {
+  const qs = new URLSearchParams();
+  if (params.unread) qs.set("unread", "true");
+  if (params.limit) qs.set("limit", params.limit);
+  if (params.offset) qs.set("offset", params.offset);
+  const res = await request(`/notifications?${qs}`);
+  return res.json();
+}
+
+export async function markNotificationsRead(ids) {
+  const res = await request("/notifications/read", {
+    method: "PATCH",
+    body: JSON.stringify({ ids }),
+  });
+  return res.json();
+}
+
+export async function getNotificationPreferences() {
+  const res = await request("/notifications/preferences");
+  return res.json();
+}
+
+export async function updateNotificationPreferences(prefs) {
+  const res = await request("/notifications/preferences", {
+    method: "PATCH",
+    body: JSON.stringify(prefs),
+  });
+  return res.json();
+}
+
+export async function updateEmail(email) {
+  const res = await request("/notifications/email", {
+    method: "PATCH",
+    body: JSON.stringify({ email }),
+  });
+  return res.json();
+}
+
+// Analytics
+export async function getAnalyticsOverview(days = 90) {
+  const res = await request(`/analytics/overview?days=${days}`);
+  return res.json();
+}
+
+export async function getAnalyticsModel(modelName, params = {}) {
+  const qs = new URLSearchParams();
+  if (params.limit) qs.set("limit", params.limit);
+  if (params.offset) qs.set("offset", params.offset);
+  const res = await request(`/analytics/model/${encodeURIComponent(modelName)}?${qs}`);
+  return res.json();
+}
+
+export async function getAnalyticsRun(runId) {
+  const res = await request(`/analytics/run/${runId}`);
+  return res.json();
+}
+
+export async function getAnalyticsTrends(days = 30) {
+  const res = await request(`/analytics/trends?days=${days}`);
   return res.json();
 }
 

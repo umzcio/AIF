@@ -14,13 +14,13 @@ ITAC-06: Has a VPAT or ACR been created or updated for the solution and version 
   Compliant answer: Yes
   Reason: VPATs (Voluntary Product Accessibility Template) / ACRs (Accessibility Conformance Report, a completed VPAT) are standard accessibility reporting formats from the ITIC <https://www.itic.org/policy/acc
   Tabs: IT Accessibility, Privacy
-ITAC-07: Will your company agree to meet your stated accessibility standard or WCAG 2.1 AA as part of your contractual agreement for the solution?*
+ITAC-07: Will your company agree to meet your stated accessibility standard or WCAG 2.2 AA as part of your contractual agreement for the solution?*
   Compliant answer: Yes
-  Reason: Federal regulation requires that technology products conform to WCAG 2.1 AA. Technology platforms that do not substantially conform to this standard put schools at risk of not complying with these req
+  Reason: Federal regulation requires that technology products conform to WCAG 2.2 AA. Technology platforms that do not substantially conform to this standard put schools at risk of not complying with these req
   Tabs: IT Accessibility
-ITAC-08: Does the solution substantially conform to WCAG 2.1 AA?*
+ITAC-08: Does the solution substantially conform to WCAG 2.2 AA?*
   Compliant answer: Yes
-  Reason: Federal regulation requires that technology products conform to WCAG 2.1 AA. Technology platforms that do not substantially conform to this standard put schools at risk of not complying with these req
+  Reason: Federal regulation requires that technology products conform to WCAG 2.2 AA. Technology platforms that do not substantially conform to this standard put schools at risk of not complying with these req
   Tabs: IT Accessibility
 ITAC-09: Do you have a documented and implemented process for reporting and tracking accessibility issues?*
   Compliant answer: Yes

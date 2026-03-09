@@ -3,13 +3,16 @@
  *
  * Executes each pass using the appropriate CLI tool (same prompt for all),
  * then synthesizes results via Claude Code CLI.
+ *
+ * Supports: per-pass retry, partial results (4/5 passes → synthesize with caveat),
+ * abort signals for cancellation, per-model timeouts.
  */
 
 import { spawn } from "child_process";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join, resolve } from "path";
 import { PASSES, ANALYSIS_PROMPT, SYNTHESIS_PROMPT } from "./lenses.js";
-import { runCLI, extractJSON, loadEnv } from "../shared/cli.js";
+import { runCLIWithRetry, extractJSON, loadEnv } from "../shared/cli.js";
 
 loadEnv();
 
@@ -106,18 +109,28 @@ async function runSnykAgentScan(codebasePath, outputDir) {
  * Run all passes in parallel (same prompt, different models),
  * run Snyk agent-scan if applicable, then synthesize with Claude Code CLI.
  *
+ * Supports per-pass retry and partial results (synthesizes even if some passes fail).
+ *
  * @param {string} codebasePath - Absolute path to the codebase to analyze
  * @param {string[]} passKeys - Which passes to run (tier determines count)
  * @param {string} outputDir - Where to write results
+ * @param {function} [onProgress] - Progress callback
+ * @param {object} [opts] - Options
+ * @param {string} [opts.runId] - Pipeline run ID (for process tracking)
+ * @param {AbortSignal} [opts.signal] - AbortSignal for cancellation
  * @returns {object} - Synthesized report
  */
-export async function runCodeAnalysis(codebasePath, passKeys, outputDir, onProgress) {
+export async function runCodeAnalysis(codebasePath, passKeys, outputDir, onProgress, opts = {}) {
   const emit = onProgress || (() => {});
+  const { runId, signal } = opts;
   mkdirSync(outputDir, { recursive: true });
 
   const resolvedPath = resolve(codebasePath);
   console.log(`\nCode Analysis: scanning ${resolvedPath}`);
   console.log(`Running ${passKeys.length} passes: ${passKeys.join(", ")}\n`);
+
+  // Check cancellation
+  if (signal?.aborted) throw new Error("Pipeline cancelled");
 
   // Run all passes + Snyk agent-scan in parallel
   const [passResults, snykResult] = await Promise.all([
@@ -129,13 +142,21 @@ export async function runCodeAnalysis(codebasePath, passKeys, outputDir, onProgr
         console.log(`  ▶ Starting ${pass.name} (${pass.tool})...`);
         emit({ type: "pass_start", agent: "code-analysis", pass: key, model: pass.name });
         const start = Date.now();
-        const result = await runCLI(pass.tool, ANALYSIS_PROMPT, resolvedPath, outputDir);
+        const result = await runCLIWithRetry(pass.tool, ANALYSIS_PROMPT, resolvedPath, outputDir, {
+          runId,
+          signal,
+          maxRetries: 1,
+          retryDelayMs: 5000,
+          onRetry: (attempt, err) => {
+            emit({ type: "pass_retry", agent: "code-analysis", pass: key, model: pass.name, attempt, error: err.message });
+          },
+        });
         const elapsed = ((Date.now() - start) / 1000).toFixed(1);
         console.log(`  ✓ ${pass.name} completed in ${elapsed}s`);
-        emit({ type: "pass_complete", agent: "code-analysis", pass: key, model: pass.name, elapsed: parseFloat(elapsed) });
 
         // Parse the output
         const parsed = extractJSON(result.output);
+        const outputBytes = result.output ? Buffer.byteLength(result.output, "utf8") : 0;
         if (!parsed) {
           console.log(`  ⚠ ${pass.name}: could not parse JSON output, saving raw`);
           writeFileSync(join(outputDir, `${key}_raw.txt`), result.output);
@@ -143,11 +164,17 @@ export async function runCodeAnalysis(codebasePath, passKeys, outputDir, onProgr
           writeFileSync(join(outputDir, `${key}.json`), JSON.stringify(parsed, null, 2));
         }
 
+        emit({ type: "pass_complete", agent: "code-analysis", pass: key, model: pass.name,
+          elapsed: parseFloat(elapsed), jsonParsed: !!parsed, outputBytes });
+
         return { key, name: pass.name, parsed, raw: result.output };
       })
     ),
     runSnykAgentScan(resolvedPath, outputDir),
   ]);
+
+  // Check cancellation after passes
+  if (signal?.aborted) throw new Error("Pipeline cancelled");
 
   // Collect results
   const reports = {};
@@ -161,13 +188,14 @@ export async function runCodeAnalysis(codebasePath, passKeys, outputDir, onProgr
     }
   }
 
-  console.log(`\n${Object.keys(reports).length}/${passKeys.length} passes completed.`);
+  const passCount = Object.keys(reports).length;
+  console.log(`\n${passCount}/${passKeys.length} passes completed.`);
 
-  if (Object.keys(reports).length === 0) {
+  if (passCount === 0) {
     throw new Error("All passes failed: " + failures.join("; "));
   }
 
-  // Build synthesis input
+  // Build synthesis input with partial-results caveat
   const synthesisInput = Object.entries(reports).map(([key, r]) => {
     const content = r.parsed ? JSON.stringify(r.parsed, null, 2) : r.raw.slice(0, 50000);
     return `## ${r.name} (${key})\n\n${content}`;
@@ -179,15 +207,30 @@ export async function runCodeAnalysis(codebasePath, passKeys, outputDir, onProgr
     snykSection = `\n\n---\n\n## Snyk Agent Scan (automated)\n\nThis is an automated scan from Snyk agent-scan, not a model report. Include its findings in the agentSecurity section of the merged report. These are tool-verified findings — treat them as confirmed.\n\n${JSON.stringify(snykResult, null, 2)}`;
   }
 
+  // Add partial-results caveat if not all passes succeeded
+  let partialCaveat = "";
+  if (passCount < passKeys.length) {
+    const failedModels = failures.map(f => f.split(" ")[0]).join(", ");
+    partialCaveat = `\n\nIMPORTANT: Only ${passCount}/${passKeys.length} model passes completed successfully. Failed: ${failedModels}. Your synthesis is based on incomplete data. Add a note to the report metadata: "partial_analysis": true, "models_completed": ${passCount}, "models_total": ${passKeys.length}, "failed_models": [${failures.map(f => `"${f.split(" ")[0]}"`).join(", ")}].`;
+  }
+
   const synthesisInputFile = join(outputDir, "_synthesis_input.txt");
-  const fullSynthesisPrompt = `${SYNTHESIS_PROMPT}\n\nHere are the ${Object.keys(reports).length} independent code analysis reports${snykResult ? " plus Snyk agent-scan results" : ""}:\n\n${synthesisInput}${snykSection}`;
+  const fullSynthesisPrompt = `${SYNTHESIS_PROMPT}\n\nHere are the ${passCount} independent code analysis reports${snykResult ? " plus Snyk agent-scan results" : ""}:${partialCaveat}\n\n${synthesisInput}${snykSection}`;
   writeFileSync(synthesisInputFile, fullSynthesisPrompt);
 
   console.log("\nRunning synthesis with Claude Code CLI...");
-  const synthesisResult = await runCLI("claude", fullSynthesisPrompt, resolvedPath, outputDir);
+  const synthesisResult = await runCLIWithRetry("claude", fullSynthesisPrompt, resolvedPath, outputDir, {
+    runId, signal, maxRetries: 1, retryDelayMs: 10000,
+  });
 
   const synthesized = extractJSON(synthesisResult.output);
   if (synthesized) {
+    // Inject partial analysis metadata if applicable
+    if (passCount < passKeys.length && synthesized.metadata) {
+      synthesized.metadata.partial_analysis = true;
+      synthesized.metadata.models_completed = passCount;
+      synthesized.metadata.models_total = passKeys.length;
+    }
     writeFileSync(join(outputDir, "synthesis.json"), JSON.stringify(synthesized, null, 2));
     console.log("✓ Synthesis complete. Report written to synthesis.json");
   } else {
@@ -201,5 +244,6 @@ export async function runCodeAnalysis(codebasePath, passKeys, outputDir, onProgr
     snykAgentScan: snykResult,
     synthesis: synthesized,
     raw: synthesisResult.output,
+    partial: passCount < passKeys.length,
   };
 }

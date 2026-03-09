@@ -24,7 +24,7 @@ const AGENTS = [
     desc: "Static analysis, dependency audit, secrets scan, OWASP checks",
     phases: ["Unpacking archive", "Scanning dependencies", "Static analysis", "Secrets detection", "OWASP rule check", "Generating report"] },
   { id: "accessibility", name: "Accessibility", Icon: Eye, color: "#7C3AED",
-    desc: "WCAG 2.1 AA compliance, Section 508, screen reader compatibility",
+    desc: "WCAG 2.2 AA compliance, Section 508, screen reader compatibility",
     phases: ["Parsing HTML/JSX templates", "Color contrast analysis", "ARIA attribute check", "Keyboard navigation audit", "Screen reader simulation", "Generating report"] },
   { id: "hecvat", name: "HECVAT-Lite", Icon: ClipboardCheck, color: "#0891B2",
     desc: "Higher Ed vendor assessment — data handling, auth, encryption, privacy",

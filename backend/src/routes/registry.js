@@ -1,7 +1,12 @@
 import { Router } from "express";
-import pool from "../db/pool.js";
+import pool, { withTransaction } from "../db/pool.js";
 import { requireRole } from "../auth/middleware.js";
 import { logAudit } from "../audit.js";
+import { validate, toolStatusSchema } from "../validation.js";
+import log from "../logger.js";
+
+// Valid status values — used for whitelist validation on query params
+const VALID_STATUSES = ["draft","pending","in_progress","under_review","approved","changes_requested","active","suspended","retired"];
 
 const router = Router();
 
@@ -27,8 +32,12 @@ function canTransition(fromStatus, toStatus, role) {
 
 // List tools — scoped by role
 router.get("/", async (req, res) => {
-  const { track, status, page = 1, limit = 50 } = req.query;
-  const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(Math.max(1, parseInt(req.query.limit) || 50), 100);
+  const offset = (page - 1) * limit;
+  const track = req.query.track ? parseInt(req.query.track) : null;
+  const rawStatus = req.query.status?.replace(/[^a-z_]/g, "") || null;
+  const status = rawStatus && VALID_STATUSES.includes(rawStatus) ? rawStatus : null;
 
   let where = [];
   let params = [];
@@ -44,7 +53,7 @@ router.get("/", async (req, res) => {
   }
   // Reviewers and admins see all — no scoping
 
-  if (track) { where.push(`t.track = $${idx++}`); params.push(parseInt(track)); }
+  if (track) { where.push(`t.track = $${idx++}`); params.push(track); }
   if (status) { where.push(`t.status = $${idx++}`); params.push(status); }
 
   const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
@@ -52,18 +61,18 @@ router.get("/", async (req, res) => {
   try {
     const [{ rows: tools }, { rows: [{ count }] }] = await Promise.all([
       pool.query(
-        `SELECT t.*, u.netid as owner_netid, u.display_name as owner_name,
-           (SELECT MAX(completed_at) FROM pipeline_runs WHERE tool_id = t.id) as last_run_at
+        `SELECT t.*, u.netid as owner_netid, u.display_name as owner_name, pr.last_run_at
          FROM tools t LEFT JOIN users u ON t.owner_id = u.id
+         LEFT JOIN (SELECT tool_id, MAX(completed_at) as last_run_at FROM pipeline_runs GROUP BY tool_id) pr ON t.id = pr.tool_id
          ${whereClause} ORDER BY t.created_at DESC LIMIT $${idx++} OFFSET $${idx++}`,
         [...params, parseInt(limit), offset]
       ),
       pool.query(`SELECT COUNT(*) FROM tools t ${whereClause}`, params),
     ]);
 
-    res.json({ tools, total: parseInt(count), page: parseInt(page), limit: parseInt(limit) });
+    res.json({ tools, total: parseInt(count), page, limit });
   } catch (err) {
-    console.error("[registry] list query failed:", err.message);
+    log.error("Registry list query failed", { error: err.message });
     res.status(500).json({ error: "Failed to load registry" });
   }
 });
@@ -85,38 +94,39 @@ router.get("/:id", async (req, res) => {
 });
 
 // Update tool status — enforces state machine + role checks
-router.patch("/:id/status", async (req, res) => {
+router.patch("/:id/status", validate(toolStatusSchema), async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
-  const { status } = req.body;
-  if (!status) return res.status(400).json({ error: "status is required" });
+  const { status } = req.validated;
 
-  const { rows: [tool] } = await pool.query("SELECT * FROM tools WHERE id = $1", [req.params.id]);
-  if (!tool) return res.status(404).json({ error: "Tool not found" });
+  const updated = await withTransaction(async (client) => {
+    const { rows: [tool] } = await client.query("SELECT * FROM tools WHERE id = $1 FOR UPDATE", [req.params.id]);
+    if (!tool) { res.status(404).json({ error: "Tool not found" }); return null; }
 
-  const role = req.user.role;
-  const isOwner = tool.owner_id === req.user.userId;
+    const role = req.user.role;
+    const isOwner = tool.owner_id === req.user.userId;
 
-  // Check if transition is allowed for this role
-  if (!canTransition(tool.status, status, role)) {
-    // Also allow if user is the owner and builder transitions apply
-    if (!(isOwner && canTransition(tool.status, status, "builder"))) {
-      return res.status(403).json({
-        error: `Cannot transition from '${tool.status}' to '${status}' with role '${role}'`
-      });
+    if (!canTransition(tool.status, status, role)) {
+      if (!(isOwner && canTransition(tool.status, status, "builder"))) {
+        res.status(403).json({
+          error: `Cannot transition from '${tool.status}' to '${status}' with role '${role}'`
+        });
+        return null;
+      }
     }
-  }
 
-  const { rows: [updated] } = await pool.query(
-    "UPDATE tools SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
-    [status, req.params.id]
-  );
-
-  await logAudit({
-    actorId: req.user.userId, actorNetid: req.user.netid,
-    action: "status_change", entityType: "tool", entityId: req.params.id,
-    details: { from: tool.status, to: status },
+    const { rows: [u] } = await client.query(
+      "UPDATE tools SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
+      [status, req.params.id]
+    );
+    await logAudit({
+      actorId: req.user.userId, actorNetid: req.user.netid,
+      action: "status_change", entityType: "tool", entityId: req.params.id,
+      details: { from: tool.status, to: status },
+    }, client);
+    return u;
   });
 
+  if (!updated) return;
   res.json({ tool: updated });
 });
 
@@ -125,15 +135,14 @@ router.delete("/:id", requireRole("admin"), async (req, res) => {
   const { rows: [existing] } = await pool.query("SELECT * FROM tools WHERE id = $1", [req.params.id]);
   if (!existing) return res.status(404).json({ error: "Tool not found" });
 
-  await pool.query("DELETE FROM review_notes WHERE tool_id = $1", [req.params.id]);
-  await pool.query("DELETE FROM agent_results WHERE run_id IN (SELECT id FROM pipeline_runs WHERE tool_id = $1)", [req.params.id]);
-  await pool.query("DELETE FROM pipeline_runs WHERE tool_id = $1", [req.params.id]);
-  await pool.query("DELETE FROM tools WHERE id = $1", [req.params.id]);
-
-  await logAudit({
-    actorId: req.user.userId, actorNetid: req.user.netid,
-    action: "delete_tool", entityType: "tool", entityId: req.params.id,
-    details: { name: existing.name },
+  await withTransaction(async (client) => {
+    // All child tables cascade via ON DELETE CASCADE (migration 008)
+    await client.query("DELETE FROM tools WHERE id = $1", [req.params.id]);
+    await logAudit({
+      actorId: req.user.userId, actorNetid: req.user.netid,
+      action: "delete_tool", entityType: "tool", entityId: req.params.id,
+      details: { name: existing.name },
+    }, client);
   });
 
   res.json({ ok: true });

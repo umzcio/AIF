@@ -2,6 +2,7 @@ import { Router } from "express";
 import pool from "../db/pool.js";
 import { requireRole } from "../auth/middleware.js";
 import { logAudit } from "../audit.js";
+import { validate, userRoleSchema, userActiveSchema } from "../validation.js";
 
 const router = Router();
 
@@ -52,11 +53,8 @@ router.get("/users", async (req, res) => {
 });
 
 // Change user role
-router.patch("/users/:id/role", async (req, res) => {
-  const { role } = req.body;
-  if (!role || !["builder", "reviewer", "admin"].includes(role)) {
-    return res.status(400).json({ error: "role must be 'builder', 'reviewer', or 'admin'" });
-  }
+router.patch("/users/:id/role", validate(userRoleSchema), async (req, res) => {
+  const { role } = req.validated;
 
   const userId = parseInt(req.params.id);
   const { rows: [user] } = await pool.query("SELECT * FROM users WHERE id = $1", [userId]);
@@ -78,11 +76,8 @@ router.patch("/users/:id/role", async (req, res) => {
 });
 
 // Toggle user active status
-router.patch("/users/:id/active", async (req, res) => {
-  const { active } = req.body;
-  if (typeof active !== "boolean") {
-    return res.status(400).json({ error: "active must be a boolean" });
-  }
+router.patch("/users/:id/active", validate(userActiveSchema), async (req, res) => {
+  const { active } = req.validated;
 
   const userId = parseInt(req.params.id);
   if (userId === req.user.userId) {
@@ -109,7 +104,13 @@ router.patch("/users/:id/active", async (req, res) => {
 
 // Audit log with filters
 router.get("/audit", async (req, res) => {
-  const { actor, entityType, action, from, to, limit = 50, offset = 0 } = req.query;
+  const actor = req.query.actor || null;
+  const entityType = req.query.entityType?.replace(/[^a-z_]/g, "") || null;
+  const action = req.query.action?.replace(/[^a-z_]/g, "") || null;
+  const from = req.query.from || null;
+  const to = req.query.to || null;
+  const limit = Math.min(Math.max(1, parseInt(req.query.limit) || 50), 100);
+  const offset = Math.max(0, parseInt(req.query.offset) || 0);
 
   let where = [];
   let params = [];
@@ -131,7 +132,24 @@ router.get("/audit", async (req, res) => {
     pool.query(`SELECT COUNT(*) FROM audit_log ${whereClause}`, params),
   ]);
 
-  res.json({ entries, total: parseInt(count), limit: parseInt(limit), offset: parseInt(offset) });
+  res.json({ entries, total: parseInt(count), limit, offset });
+});
+
+// Data retention — admin-triggered cleanup
+router.post("/retention", async (req, res) => {
+  const dryRun = req.query.dryRun === "true";
+  try {
+    const { runRetention } = await import("../jobs/retention.js");
+    const result = await runRetention({ dryRun });
+    await logAudit({
+      actorId: req.user.userId, actorNetid: req.user.netid,
+      action: "run_retention", entityType: "system", entityId: "retention",
+      details: result,
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;

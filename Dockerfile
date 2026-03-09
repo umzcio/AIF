@@ -62,6 +62,18 @@ RUN mkdir -p /data/output /data/codebases
 RUN groupadd -r aif && useradd -r -g aif -d /home/aif -m -s /sbin/nologin aif && \
     chown -R aif:aif /app /data /home/aif
 
+# Startup script (before USER switch so root can chmod)
+COPY <<'STARTUP' /app/startup.sh
+#!/bin/sh
+set -e
+# Write codex auth safely via node (avoids shell injection with special chars in API key)
+node -e "const fs=require('fs'); fs.writeFileSync('/home/aif/.codex/auth.json', JSON.stringify({auth_mode:'apikey',OPENAI_API_KEY:process.env.OPENAI_API_KEY||''}))"
+cd /app/backend
+node src/db/migrate.js
+exec node src/server.js
+STARTUP
+RUN chmod +x /app/startup.sh
+
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV BASE_PATH=/aif
@@ -72,7 +84,6 @@ ENV HECVAT_TEMPLATE_PATH=/app/hecvat415.xlsx
 EXPOSE 3000
 
 USER aif
-
-# Run migrations then start server
 ENV HOME=/home/aif
-CMD ["sh", "-c", "echo '{\"auth_mode\":\"apikey\",\"OPENAI_API_KEY\":\"'\"$OPENAI_API_KEY\"'\"}' > /home/aif/.codex/auth.json && cd /app/backend && node src/db/migrate.js && node src/server.js"]
+
+CMD ["/app/startup.sh"]

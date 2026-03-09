@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Shield, Eye, ClipboardCheck, FileText, GitBranch, ExternalLink, Cpu, Layers, ChevronRight, Zap, Users, Terminal, Brain, Github } from "lucide-react";
 import { C } from "../constants.js";
+import { useAuth } from "../hooks/useAuth.jsx";
 
 const AGENT_DETAILS = [
   {
@@ -406,6 +407,7 @@ function AgentCard({ agent }) {
 
 export default function AgentsPage() {
   const [activeSection, setActiveSection] = useState("overview");
+  const { config } = useAuth();
 
   function scrollTo(id) {
     setActiveSection(id);
@@ -450,7 +452,7 @@ export default function AgentsPage() {
           <p style={{ fontSize: 15, color: C.textMid, margin: "0 0 4px" }}>
             Four AI agents review every codebase submission with multi-model convergence.
           </p>
-          <p style={{ fontSize: 12, color: C.textDim, margin: 0 }}>University of Montana &middot; Enterprise IT &middot; 2026</p>
+          <p style={{ fontSize: 12, color: C.textDim, margin: 0 }}>{config.institutionName} &middot; Enterprise IT &middot; 2026</p>
         </div>
 
         {/* Pipeline architecture diagram */}
@@ -582,7 +584,7 @@ export default function AgentsPage() {
         {/* Footer */}
         <div style={{ padding: 20, borderRadius: 10, background: C.surfaceAlt, border: `1px solid ${C.border}`, textAlign: "center" }}>
           <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.6, margin: 0, maxWidth: 640, marginLeft: "auto", marginRight: "auto" }}>
-            The agent pipeline is open-source infrastructure built at the University of Montana.
+            The agent pipeline is open-source infrastructure built at {config.institutionName}.
             It stands on the shoulders of the open-source community &mdash; the tools, frameworks, and projects listed above
             made this possible.
           </p>

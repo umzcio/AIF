@@ -3,6 +3,7 @@ import { Home, LayoutGrid, PenLine, Cpu, BookOpen, Bot, LogIn, LogOut, Moon, Sun
 import { C } from "../constants.js";
 import { useAuth } from "../hooks/useAuth.jsx";
 import { navigate } from "../hooks/useHashRouter.js";
+import NotificationBell from "./NotificationBell.jsx";
 
 function activeTab(route) {
   if (route === "welcome") return "welcome";
@@ -113,7 +114,7 @@ function MenuLink({ icon, label, onClick }) {
 }
 
 export default function TopBar({ route, params }) {
-  const { user, logout } = useAuth();
+  const { user, logout, config } = useAuth();
   const current = activeTab(route);
   const onPipelinePage = ["upload", "pipeline", "report"].includes(route);
 
@@ -145,7 +146,7 @@ export default function TopBar({ route, params }) {
             <div className="top-bar-logo">UM</div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>AI-Built Tool Code Intake</div>
-              <div style={{ fontSize: 11, color: C.textMid }}>University of Montana &middot; Enterprise IT</div>
+              <div style={{ fontSize: 11, color: C.textMid }}>{config.institutionName} &middot; Enterprise IT</div>
             </div>
           </button>
         </div>
@@ -167,9 +168,12 @@ export default function TopBar({ route, params }) {
         </nav>
 
         {/* User / Sign In */}
-        <div style={{ display: "flex", alignItems: "center", padding: "14px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "14px 0" }}>
           {user ? (
-            <UserMenu user={user} logout={logout} />
+            <>
+              <NotificationBell />
+              <UserMenu user={user} logout={logout} />
+            </>
           ) : (
             <button type="button" onClick={() => window.location.href = "/aif/api/auth/login"}
               style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 16px", borderRadius: 8,

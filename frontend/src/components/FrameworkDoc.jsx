@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { ChevronRight, AlertTriangle, Github } from "lucide-react";
 import { C, TRACK_COLORS, TRACK_LABELS } from "../constants.js";
+import { useAuth } from "../hooks/useAuth.jsx";
 import { TrackBadge } from "./primitives.jsx";
 
 export default function FrameworkDoc() {
+  const { config } = useAuth();
   const [activeSection, setActiveSection] = useState("purpose");
 
   const sections = [
@@ -50,7 +52,7 @@ export default function FrameworkDoc() {
             <div style={{ fontSize: 10, color: C.textDim, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>VERSION</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginTop: 2 }}>v1.0 Draft</div>
             <div style={{ fontSize: 11, color: C.textMid, marginTop: 4 }}>Zachary Rossmiller, CIO</div>
-            <div style={{ fontSize: 11, color: C.textMid }}>University of Montana · 2026</div>
+            <div style={{ fontSize: 11, color: C.textMid }}>{config.institutionName} · 2026</div>
           </div>
         </div>
       </div>
@@ -60,13 +62,13 @@ export default function FrameworkDoc() {
         <div style={{ marginBottom: 32 }}>
           <h1 style={{ fontSize: 28, fontWeight: 700, color: C.text, margin: "0 0 6px", letterSpacing: -0.5 }}>AI-Built Tool Code Intake</h1>
           <p style={{ fontSize: 15, color: C.textMid, margin: "0 0 4px" }}>Governance framework and intake specification for AI-assisted code</p>
-          <p style={{ fontSize: 12, color: C.textDim, margin: 0 }}>Zachary Rossmiller, CIO, University of Montana · v1.0 Draft · 2026</p>
+          <p style={{ fontSize: 12, color: C.textDim, margin: 0 }}>Zachary Rossmiller, CIO, {config.institutionName} · v1.0 Draft · 2026</p>
         </div>
 
         <div id="fw-purpose" style={sectionStyle}>
           <h2 style={h2Style}>Purpose and Framing</h2>
           <p style={pStyle}>This document is the governance framework and operational specification for the AI-Built Tool Code Intake process. It covers the rationale behind the process, the intake form question by question, the routing logic that determines what review a submission receives, and the tier requirements that govern what happens before a tool goes to production.</p>
-          <p style={pStyle}>The purpose of this process is to ensure that custom AI-assisted code meets campus security standards, follows best practice coding principles, and satisfies WCAG 2.1 AA accessibility requirements before reaching production. It is similar in intent to a software requisition process — but for custom-built code rather than purchased software.</p>
+          <p style={pStyle}>The purpose of this process is to ensure that custom AI-assisted code meets campus security standards, follows best practice coding principles, and satisfies WCAG 2.2 AA accessibility requirements before reaching production. It is similar in intent to a software requisition process — but for custom-built code rather than purchased software.</p>
         </div>
 
         <div id="fw-quickstart" style={sectionStyle}>
@@ -169,7 +171,7 @@ export default function FrameworkDoc() {
               <tbody>
                 {[
                   ["Security / Vulnerability", "Critical (×4)", "High (×3)", "High (×3)", "High (×3)"],
-                  ["Accessibility (WCAG 2.1 AA)", "Critical (×4)", "High (×3)", "N/A (×0)", "Low (×1)"],
+                  ["Accessibility (WCAG 2.2 AA)", "Critical (×4)", "High (×3)", "N/A (×0)", "Low (×1)"],
                   ["Data Sensitivity", "High (×3)", "Critical (×4)", "High (×3)", "High (×3)"],
                   ["Blast Radius", "High (×3)", "Medium (×2)", "Medium (×2)", "Critical (×4)"],
                   ["Autonomy", "Low (×1)", "Low (×1)", "Medium (×2)", "Critical (×4)"],
@@ -228,7 +230,7 @@ export default function FrameworkDoc() {
             { t: 2, title: "Automated review plus builder self-certification.", when: ["Medium band score", "Internal non-sensitive data", "Team or department use", "No escalations"],
               req: ["Automated pipeline runs", "Complete Self-Assessment (length scales with score)", "Plain-language explanation of tool behavior", "Document data access and storage", "Confirm auth and access controls", "Identify tool successor", "Department head sign-off", "Builder self-certifies"] },
             { t: 3, title: "Automated review plus IT human review.", when: ["High band score", "PII, FERPA, or HR data", "Serves students or public", "Significant blast radius"],
-              req: ["Automated pipeline runs", "Full Self-Assessment", "IT human review of findings", "Security architecture review", "Data classification review", "Accessibility review (WCAG 2.1 AA / 508)", "Equity review", "Supportability plan", "IT sign-off before go-live"] },
+              req: ["Automated pipeline runs", "Full Self-Assessment", "IT human review of findings", "Security architecture review", "Data classification review", "Accessibility review (WCAG 2.2 AA / 508)", "Equity review", "Supportability plan", "IT sign-off before go-live"] },
             { t: 4, title: "Formal IT project and institutional sign-off.", when: ["Very high band score", "Any escalation condition", "Regulated data (HIPAA, export, IRB)", "Autonomous decisions without human review"],
               req: ["Automated pipeline runs", "Stop — contact IT immediately", "Formal IT project request", "IT leadership scoping", "Security, privacy, legal, compliance review", "Architecture approval", "Project plan with testing, rollback, support", "Formal sign-off before go-live"] },
           ].map(tier => (
@@ -315,7 +317,7 @@ export default function FrameworkDoc() {
 
         <div style={{ padding: 20, borderRadius: 10, background: C.surfaceAlt, border: `1px solid ${C.border}`, marginTop: 32 }}>
           <h3 style={{ ...h3Style, marginTop: 0 }}>Document Preparation Notice</h3>
-          <p style={{ ...pStyle, marginBottom: 8 }}>Prepared collaboratively by University of Montana Enterprise IT staff and an AI assistant (Anthropic Claude). Frameworks, decisions, and editorial judgment are those of UM IT leadership.</p>
+          <p style={{ ...pStyle, marginBottom: 8 }}>Prepared collaboratively by {config.institutionName} Enterprise IT staff and an AI assistant (Anthropic Claude). Frameworks, decisions, and editorial judgment are those of UM IT leadership.</p>
           <p style={{ ...pStyle, marginBottom: 0, fontStyle: "italic" }}>This is a living draft. It does not constitute legal advice, official policy, or a final governance determination. Direct questions to the Office of the CIO.</p>
           <p style={{ fontSize: 12, color: C.textDim, margin: "12px 0 0" }}>Last updated March 7, 2026</p>
         </div>
