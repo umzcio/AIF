@@ -1065,7 +1065,7 @@ export default function CodeUpload({ toolId }) {
           )}
 
           {/* Action buttons */}
-          {!submitted ? (
+          {!submitted && !["under_review", "approved", "active", "changes_requested"].includes(tool?.status) ? (
             <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
               <button onClick={async () => {
                   if (isDemo) { navigate("/registry"); return; }
@@ -1127,6 +1127,30 @@ export default function CodeUpload({ toolId }) {
                   style={{ padding: "10px 20px", borderRadius: 8, border: `1.5px solid ${C.border}`, cursor: "pointer",
                     background: "transparent", color: C.textMid, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
                   Back to Registry
+                </button>
+                {runId && (
+                  <button onClick={() => navigate(`/tool/${toolId}/report/${runId}`)}
+                    style={{ padding: "10px 20px", borderRadius: 8, border: `1.5px solid ${C.border}`, cursor: "pointer",
+                      background: "transparent", color: C.textMid, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
+                    View Full Report
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          {!submitted && ["under_review", "approved", "active", "changes_requested"].includes(tool?.status) && (
+            <div style={{ marginTop: 24, padding: 24, borderRadius: 12, background: C.accentSoft, border: `1px solid ${C.accent30}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <Check size={20} color={C.accent} />
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.accent }}>
+                  {tool.status === "active" ? "Tool Active" : tool.status === "approved" ? "Tool Approved" : tool.status === "under_review" ? "Under Review" : "Changes Requested"}
+                </h3>
+              </div>
+              <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
+                <button onClick={() => navigate(`/tool/${toolId}`)}
+                  style={{ padding: "10px 20px", borderRadius: 8, border: "none", cursor: "pointer",
+                    background: C.accent, color: "#fff", fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
+                  View Tool Details
                 </button>
                 {runId && (
                   <button onClick={() => navigate(`/tool/${toolId}/report/${runId}`)}
