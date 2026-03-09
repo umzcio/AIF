@@ -62,15 +62,17 @@ RUN mkdir -p /data/output /data/codebases
 RUN groupadd -r aif && useradd -r -g aif -d /home/aif -m -s /sbin/nologin aif && \
     chown -R aif:aif /app /data /home/aif
 
-# Startup script (before USER switch so root can chmod)
+# Startup script — runs as root initially to fix volume ownership, then drops to aif
 COPY <<'STARTUP' /app/startup.sh
 #!/bin/sh
 set -e
+# Fix ownership on mounted volumes (they may be root-owned from prior runs)
+chown -R aif:aif /data /home/aif 2>/dev/null || true
 # Write codex auth safely via node (avoids shell injection with special chars in API key)
-node -e "const fs=require('fs'); fs.writeFileSync('/home/aif/.codex/auth.json', JSON.stringify({auth_mode:'apikey',OPENAI_API_KEY:process.env.OPENAI_API_KEY||''}))"
+su -s /bin/sh aif -c "node -e \"const fs=require('fs'); fs.writeFileSync('/home/aif/.codex/auth.json', JSON.stringify({auth_mode:'apikey',OPENAI_API_KEY:process.env.OPENAI_API_KEY||''}))\""
 cd /app/backend
-node src/db/migrate.js
-exec node src/server.js
+su -s /bin/sh aif -c "node src/db/migrate.js"
+exec su -s /bin/sh aif -c "node src/server.js"
 STARTUP
 RUN chmod +x /app/startup.sh
 
@@ -83,7 +85,5 @@ ENV HECVAT_TEMPLATE_PATH=/app/hecvat415.xlsx
 
 EXPOSE 3000
 
-USER aif
-ENV HOME=/home/aif
-
+# Start as root so startup.sh can fix volume ownership, then drops to aif
 CMD ["/app/startup.sh"]
