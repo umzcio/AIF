@@ -193,6 +193,14 @@ export function getDocDownloadUrl(runId, docName) {
   return `${BASE}/reports/${runId}/docs/${baseName}.docx`;
 }
 
+export function getFindingsJsonUrl(runId) {
+  return `${BASE}/reports/${runId}/findings.json`;
+}
+
+export function getFindingsCsvUrl(runId) {
+  return `${BASE}/reports/${runId}/findings.csv`;
+}
+
 // Auth
 export async function refreshAuth() {
   const res = await fetch(`${BASE}/auth/refresh`, { credentials: "same-origin" });
