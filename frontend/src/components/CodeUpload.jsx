@@ -488,7 +488,7 @@ export default function CodeUpload({ toolId }) {
               }
             }
           }).catch(() => {});
-        } else if (completedRun && data.tool.status === "under_review") {
+        } else if (completedRun) {
           setRunId(completedRun.id);
           // Fetch findings from the completed run
           getReport(completedRun.id).then(reportData => {
