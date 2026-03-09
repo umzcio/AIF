@@ -293,20 +293,23 @@ async function processNext() {
         link: `#/report/${next.tool_id}/${runId}`,
       }).catch(() => {});
 
-      // Notify reviewers if tool needs review (Track 2-4)
+      // Notify reviewers if tool needs review (Track 2-4), excluding the owner (already notified above)
       if (newStatus === "under_review") {
         const reviewTitle = `"${completedTool.name}" needs review (Track ${next.track})`;
+        const exclude = [completedTool.owner_id];
         notifyRole({
           role: "reviewer", toolId: next.tool_id, type: "review_needed",
           title: reviewTitle,
           body: `Pipeline complete. Tool requires reviewer decision.`,
           link: `#/detail/${next.tool_id}`,
+          excludeUserIds: exclude,
         }).catch(() => {});
         notifyRole({
           role: "admin", toolId: next.tool_id, type: "review_needed",
           title: reviewTitle,
           body: `Pipeline complete. Tool requires reviewer decision.`,
           link: `#/detail/${next.tool_id}`,
+          excludeUserIds: exclude,
         }).catch(() => {});
       }
     }
