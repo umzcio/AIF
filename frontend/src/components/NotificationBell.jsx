@@ -90,13 +90,11 @@ export default function NotificationBell() {
 
   function handleNotifClick(notif) {
     if (!notif.read) handleMarkRead(notif.id);
-    // Navigate based on type
-    if (notif.tool_id) {
-      if (notif.type === "pipeline_complete") {
-        navigate(`/detail/${notif.tool_id}`);
-      } else {
-        navigate(`/detail/${notif.tool_id}`);
-      }
+    // Navigate using the stored link, falling back to tool detail
+    if (notif.link) {
+      navigate(notif.link.replace(/^#/, ""));
+    } else if (notif.tool_id) {
+      navigate(`/detail/${notif.tool_id}`);
     }
     setOpen(false);
   }
@@ -175,8 +173,9 @@ export default function NotificationBell() {
                   color: tab === "settings" ? C.accent : C.textMid,
                   borderBottom: tab === "settings" ? `2px solid ${C.accent}` : "2px solid transparent",
                   paddingBottom: 2,
+                  display: "inline-flex", alignItems: "center", gap: 3,
                 }}>
-                <Settings size={12} style={{ marginRight: 3, verticalAlign: -1 }} />
+                <Settings size={12} />
                 Settings
               </button>
             </div>
@@ -306,7 +305,7 @@ export default function NotificationBell() {
                 }}>
                   <input
                     type="checkbox"
-                    checked={prefs?.notify_email ?? true}
+                    checked={prefs?.notify_email ?? false}
                     onChange={e => setPrefs(p => ({ ...p, notify_email: e.target.checked }))}
                     style={{ accentColor: "#1A6B4B" }}
                   />

@@ -42,9 +42,9 @@ export async function notify({ userId, toolId, type, title, body, link }) {
   try {
     // Create in-app notification
     await pool.query(
-      `INSERT INTO notifications (user_id, tool_id, type, title, body)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [userId, toolId || null, type, title, body || null]
+      `INSERT INTO notifications (user_id, tool_id, type, title, body, link)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [userId, toolId || null, type, title, body || null, link || null]
     );
 
     // Check user preferences + email
@@ -74,13 +74,14 @@ export async function notify({ userId, toolId, type, title, body, link }) {
 /**
  * Notify all users with a given role.
  */
-export async function notifyRole({ role, toolId, type, title, body, link }) {
+export async function notifyRole({ role, toolId, type, title, body, link, excludeUserIds = [] }) {
   try {
     const { rows: users } = await pool.query(
       "SELECT id FROM users WHERE role = $1 AND is_active = true",
       [role]
     );
-    await Promise.all(users.map(u =>
+    const exclude = new Set(excludeUserIds);
+    await Promise.all(users.filter(u => !exclude.has(u.id)).map(u =>
       notify({ userId: u.id, toolId, type, title, body, link })
     ));
   } catch (err) {

@@ -100,7 +100,7 @@ router.get("/preferences", async (req, res) => {
 
   res.json({
     email: user?.email || null,
-    notify_email: user?.notify_email ?? true,
+    notify_email: user?.notify_email ?? false,
     notify_in_app: user?.notify_in_app ?? true,
   });
 });
