@@ -1,11 +1,10 @@
 import { Router } from "express";
 import multer from "multer";
-import { execSync } from "child_process";
-import { mkdirSync } from "fs";
 import { join } from "path";
 import pool from "../db/pool.js";
 import { computeDimensionScores, checkEscalations, computeWeightedPercentage, routeToTrack } from "../scoring.js";
 import { logAudit } from "../audit.js";
+import { extractArchive } from "../utils/extract.js";
 
 const CODEBASES_DIR = process.env.CODEBASES_DIR || "/data/codebases";
 const upload = multer({ dest: "/tmp/aif-uploads", limits: { fileSize: 500 * 1024 * 1024 } });
@@ -21,32 +20,9 @@ function computeFromAnswers(answers, artifactType) {
   return { scores, escalations, pct, track };
 }
 
-async function extractUpload(file, toolId) {
+function extractUpload(file, toolId) {
   const destDir = join(CODEBASES_DIR, toolId);
-  mkdirSync(destDir, { recursive: true });
-  const filePath = file.path;
-  const originalName = file.originalname || "";
-
-  try {
-    if (originalName.endsWith(".zip")) {
-      execSync(`unzip -o -q "${filePath}" -d "${destDir}"`, { timeout: 60000 });
-    } else if (originalName.endsWith(".tar.gz") || originalName.endsWith(".tgz")) {
-      execSync(`tar xzf "${filePath}" -C "${destDir}"`, { timeout: 60000 });
-    } else if (originalName.endsWith(".tar")) {
-      execSync(`tar xf "${filePath}" -C "${destDir}"`, { timeout: 60000 });
-    } else {
-      try {
-        execSync(`unzip -o -q "${filePath}" -d "${destDir}"`, { timeout: 60000 });
-      } catch {
-        execSync(`tar xf "${filePath}" -C "${destDir}"`, { timeout: 60000 });
-      }
-    }
-
-    const entries = execSync(`ls "${destDir}"`, { encoding: "utf-8" }).trim().split("\n");
-    return entries.length === 1 ? join(destDir, entries[0]) : destDir;
-  } finally {
-    try { execSync(`rm -f "${filePath}"`); } catch {}
-  }
+  return extractArchive(file, destDir);
 }
 
 function parseBody(body) {

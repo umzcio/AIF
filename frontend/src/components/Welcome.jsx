@@ -1,9 +1,11 @@
 import { Shield, PenLine, Upload, Cpu, LayoutGrid, ChevronRight, ArrowRight, BookOpen, Terminal } from "lucide-react";
 import { C, TRACK_COLORS, TRACK_LABELS } from "../constants.js";
+import { useAuth } from "../hooks/useAuth.jsx";
 import { navigate } from "../hooks/useHashRouter.js";
 import { TrackBadge } from "./primitives.jsx";
 
 export default function Welcome() {
+  const { config } = useAuth();
   const stepBoxStyle = { padding: 20, borderRadius: 10, background: C.surface, border: `1px solid ${C.border}`, flex: 1, minWidth: 0 };
   const stepNumStyle = { width: 28, height: 28, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center",
     fontWeight: 700, fontSize: 13, fontFamily: "'JetBrains Mono', monospace", color: "#fff", flexShrink: 0 };
@@ -22,8 +24,8 @@ export default function Welcome() {
           AI-Built Tool Code Intake
         </h1>
         <p style={{ fontSize: 16, color: C.textMid, margin: "0 auto", maxWidth: 560, lineHeight: 1.65 }}>
-          The governance framework for getting AI-assisted code into production at the
-          University of Montana. If you built something with AI and want to share
+          The governance framework for getting AI-assisted code into production at{" "}
+          {config.institutionName}. If you built something with AI and want to share
           it beyond yourself, this is where you start.
         </p>
       </div>
@@ -41,7 +43,7 @@ export default function Welcome() {
             { num: "2", color: "#8B5CF6", Icon: Upload, title: "Upload Code",
               desc: "Submit your codebase as a .zip file. This triggers the automated review pipeline — no manual handoff needed." },
             { num: "3", color: C.gold, Icon: Cpu, title: "Agent Review",
-              desc: "Four AI agents review in parallel: Code/Security, Accessibility (WCAG 2.1 AA), HECVAT-Lite, and Documentation. You get a findings report." },
+              desc: "Four AI agents review in parallel: Code/Security, Accessibility (WCAG 2.2 AA), HECVAT-Lite, and Documentation. You get a findings report." },
             { num: "4", color: TRACK_COLORS[1], Icon: LayoutGrid, title: "Registry",
               desc: "Your tool is registered with a track assignment. Track 1-2 can self-certify. Track 3-4 require IT review before production." },
           ].map((step, i) => (
@@ -134,8 +136,8 @@ export default function Welcome() {
       <div style={{ padding: 20, borderRadius: 10, background: C.surfaceAlt, border: `1px solid ${C.border}`, textAlign: "center" }}>
         <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.6, margin: 0, maxWidth: 640, marginLeft: "auto", marginRight: "auto" }}>
           Built on NIST AI RMF, ITIL Change Management, EDUCAUSE AI Ethics, and six additional
-          governance frameworks. Designed to enable AI-assisted development at the University of
-          Montana — not restrict it.
+          governance frameworks. Designed to enable AI-assisted development at{" "}
+          {config.institutionName} — not restrict it.
         </p>
         <p style={{ fontSize: 12, color: C.textDim, margin: "8px 0 0" }}>v1.0 Draft · Office of the CIO · 2026</p>
       </div>

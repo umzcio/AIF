@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { C, AGENTS, ROUTE_META } from "../constants.js";
 import { Btn, ErrorBanner, PageHeader, Skeleton, StatusBadge, TrackBadge, formatDuration, relativeTime } from "./primitives.jsx";
 import { usePipelineStream } from "../hooks/useSSE.js";
-import { getPipelineRun, getTool } from "../api.js";
+import { getPipelineRun, getTool, cancelPipelineRun, retryPipelineRun } from "../api.js";
 import { navigate } from "../hooks/useHashRouter.js";
 import Breadcrumb from "./Breadcrumb.jsx";
 
@@ -33,6 +33,8 @@ export default function Pipeline({ toolId, runId }) {
   const [run, setRun] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   const { events, done: sseDone, connectionLost } = usePipelineStream(
     run?.status === "running" || run?.status === "queued" ? runId : null
@@ -56,27 +58,66 @@ export default function Pipeline({ toolId, runId }) {
         const key = `${event.agent}_passes`;
         statuses[key] = (statuses[key] || 0) + 1;
       }
+      if (event.type === "pass_retry") {
+        const key = `${event.agent}_retries`;
+        statuses[key] = (statuses[key] || 0) + 1;
+      }
     }
     return statuses;
   }, [events]);
 
   const isLive = run && ["running", "queued"].includes(run.status) && !sseDone;
+  const isCancelled = events.some(e => e.type === "status" && e.status === "cancelled") || run?.status === "cancelled";
   const failed = events.some(e => e.type === "status" && e.status === "failed") || run?.status === "failed";
-  const completed = run?.status === "completed" || events.some(e => e.type === "status" && e.status === "completed") || sseDone;
+  const completed = run?.status === "completed" || events.some(e => e.type === "status" && e.status === "completed") || (sseDone && !failed && !isCancelled);
+  const canCancel = isLive && !cancelling;
+  const canRetry = (failed || isCancelled) && !retrying;
+  const retryCount = run?.retry_count || 0;
+
+  const handleCancel = useCallback(async () => {
+    setCancelling(true);
+    try {
+      await cancelPipelineRun(runId);
+      setRun(prev => prev ? { ...prev, status: "cancelled" } : prev);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setCancelling(false);
+    }
+  }, [runId]);
+
+  const handleRetry = useCallback(async () => {
+    setRetrying(true);
+    try {
+      const { run: newRun } = await retryPipelineRun(runId);
+      // Navigate to the new run
+      navigate(`/tool/${toolId}/pipeline/${newRun.id}`);
+    } catch (err) {
+      setError(err.message);
+      setRetrying(false);
+    }
+  }, [runId, toolId]);
 
   const recentEvents = useMemo(() => {
     return events.slice(-8).reverse().map((event, i) => ({
       id: `${event.type}-${i}-${event.agent || ""}`,
       label: event.type === "agent_start" ? `Agent ${event.index + 1} started.`
-        : event.type === "agent_complete" ? `Agent ${event.index + 1} completed.`
-        : event.type === "pass_complete" ? `${event.agent} pass completed.`
+        : event.type === "agent_complete" ? `Agent ${event.index + 1} completed${event.partial ? " (partial)" : ""}.`
+        : event.type === "pass_complete" ? `${event.agent} pass completed${event.elapsed ? ` (${event.elapsed}s)` : ""}.`
+        : event.type === "pass_retry" ? `${event.agent} ${event.pass} retrying (attempt ${event.attempt + 1})...`
         : event.type === "status" ? `Status: ${event.status}`
         : `${event.type} event`,
+      isRetry: event.type === "pass_retry",
     }));
   }, [events]);
 
   if (loading) return <LoadingPipeline />;
-  if (error) return <div className="page is-compact"><ErrorBanner message={error} /></div>;
+  if (error && !run) return <div className="page is-compact"><ErrorBanner message={error} /></div>;
+
+  const headerTitle = completed ? "Analysis complete"
+    : isCancelled ? "Analysis cancelled"
+    : failed ? "Analysis failed"
+    : "Analysis in progress";
 
   return (
     <div className="page is-compact">
@@ -84,11 +125,12 @@ export default function Pipeline({ toolId, runId }) {
 
       <PageHeader
         eyebrow="Pipeline"
-        title={completed ? "Analysis complete" : failed ? "Analysis failed" : "Analysis in progress"}
+        title={headerTitle}
         subtitle={tool?.name}
       >
         {tool?.track ? <TrackBadge track={tool.track} size="lg" /> : null}
         {run ? <StatusBadge status={run.status} /> : null}
+        {retryCount > 0 && <span className="soft-pill" style={{ fontSize: 11 }}>Retry #{retryCount}</span>}
       </PageHeader>
 
       <div className="summary-grid">
@@ -98,9 +140,33 @@ export default function Pipeline({ toolId, runId }) {
         <StatCard label="Events" value={events.length} />
       </div>
 
+      {error && <ErrorBanner message={error} />}
       {connectionLost && <div className="error-banner"><div><strong>Connection lost.</strong> Refresh to check status.</div></div>}
-      {isLive && <div className="status-banner"><div><strong>Safe to leave.</strong> The pipeline continues server-side.</div></div>}
-      {failed && <div className="error-banner"><div><strong>Pipeline failed.</strong> Check logs or retry.</div><Btn variant="ghost" onClick={() => navigate(`/tool/${toolId}`)}>Back to tool</Btn></div>}
+      {isLive && !cancelling && <div className="status-banner"><div><strong>Safe to leave.</strong> The pipeline continues server-side.</div></div>}
+      {cancelling && <div className="status-banner"><div><strong>Cancelling pipeline...</strong> Killing active processes.</div></div>}
+
+      {isCancelled && (
+        <div className="error-banner" style={{ background: "var(--warning-bg)", borderColor: "var(--warning)" }}>
+          <div><strong>Pipeline cancelled.</strong> No API charges for unstarted passes.</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {canRetry && <Btn onClick={handleRetry} disabled={retrying}>{retrying ? "Retrying..." : "Retry run"}</Btn>}
+            <Btn variant="ghost" onClick={() => navigate(`/tool/${toolId}`)}>Back to tool</Btn>
+          </div>
+        </div>
+      )}
+
+      {failed && !isCancelled && (
+        <div className="error-banner">
+          <div>
+            <strong>Pipeline failed.</strong> {run?.error_message || "Check logs for details."}
+            {retryCount >= 2 && <div style={{ marginTop: 4, fontSize: 12, color: C.textDim }}>Max retries reached. Investigate the issue before retrying.</div>}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {canRetry && retryCount < 2 && <Btn onClick={handleRetry} disabled={retrying}>{retrying ? "Retrying..." : "Retry run"}</Btn>}
+            <Btn variant="ghost" onClick={() => navigate(`/tool/${toolId}`)}>Back to tool</Btn>
+          </div>
+        </div>
+      )}
 
       <div className="report-grid">
         <section className="section-card" aria-live="polite" aria-atomic="false">
@@ -110,6 +176,8 @@ export default function Pipeline({ toolId, runId }) {
               const isDone = agentStatuses[index] === "done" || (completed && !isLive);
               const isRunning = agentStatuses[index] === "running" && isLive;
               const passes = agentStatuses[`${agent.key}_passes`] || (isDone ? agent.passes : 0);
+              const retries = agentStatuses[`${agent.key}_retries`] || 0;
+              const isFailed = (failed || isCancelled) && !isDone && agentStatuses[index] === "running";
               return (
                 <div key={agent.name} className="data-row">
                   <div className="inline-meta">
@@ -117,7 +185,12 @@ export default function Pipeline({ toolId, runId }) {
                       <span className="soft-pill">Agent {index + 1}</span>
                       <strong>{agent.name}</strong>
                     </div>
-                    <span className={`soft-pill ${isRunning ? "pulse" : ""}`}>{isDone ? "Done" : isRunning ? "Running" : "Waiting"}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {retries > 0 && <span className="soft-pill" style={{ fontSize: 10, color: C.warning }}>↻{retries} retries</span>}
+                      <span className={`soft-pill ${isRunning ? "pulse" : ""}`} style={isFailed ? { color: C.danger } : {}}>
+                        {isDone ? "Done" : isFailed ? (isCancelled ? "Cancelled" : "Failed") : isRunning ? "Running" : "Waiting"}
+                      </span>
+                    </div>
                   </div>
                   <div style={{ marginTop: 10 }}>
                     <div className="inline-meta" style={{ marginBottom: 6 }}>
@@ -125,7 +198,10 @@ export default function Pipeline({ toolId, runId }) {
                       <span className="mono" style={{ fontSize: 12 }}>{passes}/{agent.passes}</span>
                     </div>
                     <div className="score-bar">
-                      <div className="score-bar-fill" style={{ width: `${(passes / agent.passes) * 100}%`, background: isDone ? C.success : C.accent }} />
+                      <div className="score-bar-fill" style={{
+                        width: `${(passes / agent.passes) * 100}%`,
+                        background: isDone ? C.success : isFailed ? C.danger : C.accent,
+                      }} />
                     </div>
                   </div>
                 </div>
@@ -140,15 +216,29 @@ export default function Pipeline({ toolId, runId }) {
             <div className="muted">{completed ? "Pipeline completed." : "Waiting for events."}</div>
           ) : (
             <div className="data-list">
-              {recentEvents.map(e => <div key={e.id} className="event-card"><div style={{ fontSize: 13 }}>{e.label}</div></div>)}
+              {recentEvents.map(e => (
+                <div key={e.id} className="event-card">
+                  <div style={{ fontSize: 13, color: e.isRetry ? C.warning : undefined }}>{e.label}</div>
+                </div>
+              ))}
             </div>
           )}
         </section>
       </div>
 
       <div className="page-actions">
+        {canCancel && (
+          <Btn
+            variant="ghost"
+            onClick={handleCancel}
+            disabled={cancelling}
+            style={{ color: C.danger, borderColor: C.danger }}
+          >
+            {cancelling ? "Cancelling..." : "Cancel pipeline"}
+          </Btn>
+        )}
         <Btn variant="ghost" onClick={() => navigate(`/tool/${toolId}`)}>Back to tool</Btn>
-        {completed && !failed ? <Btn onClick={() => navigate(`/tool/${toolId}/report/${runId}`)}>Open report</Btn> : null}
+        {completed && !failed && !isCancelled ? <Btn onClick={() => navigate(`/tool/${toolId}/report/${runId}`)}>Open report</Btn> : null}
       </div>
     </div>
   );

@@ -49,7 +49,7 @@ export const WEIGHT_MATRIX = {
 
 export const AGENTS = [
   { id: "security", name: "Code / Security", color: "#F97316", desc: "Static analysis, dependency audit, secrets scan, OWASP checks" },
-  { id: "accessibility", name: "Accessibility", color: "#8B5CF6", desc: "WCAG 2.1 AA compliance, Section 508, screen reader audit" },
+  { id: "accessibility", name: "Accessibility", color: "#8B5CF6", desc: "WCAG 2.2 AA compliance, Section 508, screen reader audit" },
   { id: "hecvat", name: "HECVAT-Lite", color: "#06B6D4", desc: "Higher Ed vendor assessment — data handling, auth, privacy" },
   { id: "documentation", name: "Documentation", color: "#22C55E", desc: "User guide, admin guide, findings report generation" },
 ];
@@ -82,6 +82,7 @@ export const DIMENSION_SHORT = {
   maintenance: "MAINT",
 };
 
+/** Preview-only: backend recomputes authoritatively on submit via scoring.js. */
 export function computeDimensionScores(a) {
   const s = { security: 0, accessibility: 0, dataSensitivity: 0, blastRadius: 0, autonomy: 0, comprehension: 0, maintenance: 0 };
   if (a.q5 === "public-noauth") s.security = 3;

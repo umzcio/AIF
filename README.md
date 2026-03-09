@@ -61,6 +61,8 @@ Builders submit tools via a 21-question intake form → the system scores them o
 │  Track 3-4 → reviewer approves / requests changes                │
 │                                                                  │
 │  Admins: dashboard, user management, audit log, track override   │
+│  Pipeline: cancel, retry, per-model timeouts, dead letter queue  │
+│  Analytics: per-model metrics, cost tracking, convergence stats  │
 └────────────────────────────┬─────────────────────────────────────┘
                              │
                              ▼
@@ -171,6 +173,15 @@ draft → pending → in_progress → under_review → approved → active
 - **Track override**: Reviewers/admins can escalate or de-escalate with documented reason
 - All status changes and decisions are recorded in the audit log
 
+## Security
+
+- **Helmet** security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, etc.)
+- **CSRF** protection via double-submit cookie pattern
+- **Rate limiting** (30/15min auth, 120/min API)
+- **JWT** cookies with required secret, refresh endpoint
+- **Non-root Docker** container with dedicated `aif` user
+- **Input validation** — pagination caps, query param sanitization, body size limits (1MB)
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -190,18 +201,19 @@ AIF/
 ├── docker-compose.yml               ← App + PostgreSQL
 ├── hecvat415.xlsx                   ← HECVAT 4.15 template
 ├── backend/
-│   ├── migrations/                  ← SQL schema (init, RBAC, review)
+│   ├── migrations/                  ← SQL schema (init, RBAC, review, notifications, pipeline, analytics)
 │   ├── src/
 │   │   ├── index.js                ← CLI entry point
-│   │   ├── server.js               ← Express HTTP API
+│   │   ├── server.js               ← Express HTTP API (helmet, CSRF, rate limiting)
 │   │   ├── scoring.js              ← Shared scoring module (7 dimensions, weights, tracks)
 │   │   ├── audit.js                ← Audit logging helper
+│   │   ├── notifications.js        ← In-app + email notification delivery
 │   │   ├── orchestrator/index.js   ← Pipeline orchestration (4 agents, uniform 5-model)
 │   │   ├── pipeline/
-│   │   │   ├── queue.js            ← Job queue with SSE progress streaming
+│   │   │   ├── queue.js            ← Job queue, SSE streaming, cancel/retry, pass metrics
 │   │   │   └── events.js           ← SSE event emitter
 │   │   ├── agents/
-│   │   │   ├── shared/cli.js       ← CLI execution, JSON extraction, env loading
+│   │   │   ├── shared/cli.js       ← CLI execution, JSON extraction, per-model timeouts, process tracking
 │   │   │   ├── code-analysis/      ← Agent 1 (prompts + runner)
 │   │   │   ├── accessibility/      ← Agent 2 (prompts + runner)
 │   │   │   ├── hecvat/             ← Agent 3 (prompts + runner + XLSX export)
@@ -209,11 +221,13 @@ AIF/
 │   │   ├── routes/
 │   │   │   ├── auth.js             ← CAS login, JWT, refresh
 │   │   │   ├── intake.js           ← Draft/submit, score computation
-│   │   │   ├── pipeline.js         ← Start run, SSE stream
+│   │   │   ├── pipeline.js         ← Start run, SSE stream, cancel, retry
 │   │   │   ├── registry.js         ← Role-scoped listing, status transitions
 │   │   │   ├── reports.js          ← Agent results, report download
 │   │   │   ├── review.js           ← Review decisions, notes, self-certify
-│   │   │   └── admin.js            ← Dashboard stats, user management, audit log
+│   │   │   ├── admin.js            ← Dashboard stats, user management, audit log
+│   │   │   ├── analytics.js        ← Pipeline performance, model metrics, cost trends
+│   │   │   └── notifications.js    ← Notification CRUD, preferences, email
 │   │   ├── auth/                   ← CAS auth, JWT, RBAC middleware
 │   │   └── db/                     ← PostgreSQL pool + migration runner
 ├── frontend/
@@ -222,7 +236,7 @@ AIF/
 │   │   ├── App.jsx                 ← Root shell, routing, role guards
 │   │   ├── constants.js            ← Scoring engine, color palette, metadata
 │   │   ├── styles.css              ← CSS design system (light + dark themes)
-│   │   ├── api.js                  ← API client (auth, intake, pipeline, review, admin)
+│   │   ├── api.js                  ← API client (auth, intake, pipeline, review, admin, analytics, notifications)
 │   │   ├── hooks/
 │   │   │   ├── useAuth.jsx         ← Auth context + JWT refresh
 │   │   │   ├── useHashRouter.js    ← Client-side hash routing
@@ -230,14 +244,15 @@ AIF/
 │   │   └── components/
 │   │       ├── TopBar.jsx          ← Navigation + user menu + admin link
 │   │       ├── Welcome.jsx         ← Landing page
-│   │       ├── IntakeForm.jsx      ← 21-question form with live scoring sidebar
+│   │       ├── IntakeForm.jsx      ← 21-question form, live scoring, auto-save, progress bar
 │   │       ├── CodeUpload.jsx      ← Drag-and-drop upload + pipeline trigger
 │   │       ├── Registry.jsx        ← Tool registry with track/status/review filters
 │   │       ├── ToolDetail.jsx      ← Tool detail + review panel
 │   │       ├── ReviewPanel.jsx     ← Review decisions, notes, track override, self-certify
-│   │       ├── Pipeline.jsx        ← Agent progress (SSE streaming)
+│   │       ├── Pipeline.jsx        ← Agent progress (SSE streaming, cancel, retry)
 │   │       ├── Report.jsx          ← Structured findings report
-│   │       ├── AdminDashboard.jsx  ← Tabbed admin (overview, users, audit log)
+│   │       ├── NotificationBell.jsx ← In-app notifications dropdown
+│   │       ├── AdminDashboard.jsx  ← Tabbed admin (overview, analytics, users, audit log)
 │   │       ├── AgentsPage.jsx      ← Pipeline architecture + model rationale
 │   │       ├── FrameworkDoc.jsx    ← 12-section framework reference
 │   │       ├── Toast.jsx           ← Toast notifications + confirm dialogs
@@ -309,6 +324,15 @@ CAS_SERVICE_URL=...                # CAS callback URL
 | RBAC (builder/reviewer/admin) | Done |
 | Review workflow (approve/reject, self-certify, track override) | Done |
 | Admin dashboard (stats, user management, audit log) | Done |
+| In-app + email notifications | Done |
+| Intake form auto-save & progress recovery | Done |
+| Pipeline cancel, retry, per-pass recovery & dead letter queue | Done |
+| Security hardening (helmet, CSRF, rate limiting, input validation) | Done |
+| Pipeline performance dashboard & model analytics | Done |
+| Zod request validation schemas (all state-changing routes) | Done |
+| Shell-safe subprocess calls (execFileSync, URL validation, path traversal protection) | Done |
+| WCAG 2.2 AA language normalization (was inconsistently "2.1") | Done |
+| Test suite (scoring engine + status state machine, 123 tests) | Done |
 | MCP connectors (repo, project tracker, docs) | Planned |
 
 ---

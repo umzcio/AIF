@@ -43,10 +43,10 @@ ITAC-06: Has a VPAT or ACR been created or updated for the solution and version 
   Compliant answer: Yes
   CHECK: Look for VPAT, ACR, accessibility conformance reports.
 
-ITAC-07: Will your organization agree to meet your stated accessibility standard or WCAG 2.1 AA as part of your contractual agreement for the solution?
+ITAC-07: Will your organization agree to meet your stated accessibility standard or WCAG 2.2 AA as part of your contractual agreement for the solution?
   Compliant answer: Yes
 
-ITAC-08: Does the solution substantially conform to WCAG 2.1 AA?
+ITAC-08: Does the solution substantially conform to WCAG 2.2 AA?
   Compliant answer: Yes
   CITE: Agent 2 scorecard — overall conformance level and principle pass/fail counts.
 

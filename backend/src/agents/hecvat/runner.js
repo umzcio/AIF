@@ -8,7 +8,7 @@
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "fs";
 import { join, resolve } from "path";
 import { HECVAT_PROMPT } from "./prompts.js";
-import { runCLI, extractJSON, loadEnv } from "../shared/cli.js";
+import { runCLIWithRetry, extractJSON, loadEnv } from "../shared/cli.js";
 import { exportHecvatXlsx } from "./xlsx-export.js";
 
 loadEnv();
@@ -50,7 +50,7 @@ ${sections.join("\n\n---\n\n")}`;
  * @param {string} outputDir - Where to write HECVAT output
  * @returns {object} - HECVAT assessment results
  */
-export async function runHecvatAssessment(codebasePath, runDir, outputDir) {
+export async function runHecvatAssessment(codebasePath, runDir, outputDir, opts = {}) {
   mkdirSync(outputDir, { recursive: true });
 
   const resolvedPath = resolve(codebasePath);
@@ -61,9 +61,13 @@ export async function runHecvatAssessment(codebasePath, runDir, outputDir) {
 
   writeFileSync(join(outputDir, "_hecvat_prompt.txt"), fullPrompt);
 
+  if (opts.signal?.aborted) throw new Error("Pipeline cancelled");
+
   console.log("[hecvat] Running HECVAT 4 Lite assessment with Claude Code CLI...");
   const start = Date.now();
-  const result = await runCLI("claude", fullPrompt, resolvedPath, outputDir);
+  const result = await runCLIWithRetry("claude", fullPrompt, resolvedPath, outputDir, {
+    runId: opts.runId, signal: opts.signal, maxRetries: 1, retryDelayMs: 10000,
+  });
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
   console.log(`[hecvat] Claude completed in ${elapsed}s`);
 

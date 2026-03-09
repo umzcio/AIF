@@ -5,13 +5,13 @@ services:
     ports: ["3300:3000"]
     env_file: backend/.env
     environment:
-      - DATABASE_URL=postgresql://aif:${DB_PASSWORD:-aifdev}@db:5432/aif
+      - DATABASE_URL=postgresql://aif:${DB_PASSWORD}@db:5432/aif
       - BASE_PATH=/aif
       - OUTPUT_DIR=/data/output
       - CODEBASES_DIR=/data/codebases
       - HECVAT_TEMPLATE_PATH=/app/hecvat415.xlsx
       - AUTH_BYPASS=${AUTH_BYPASS:-false}
-      - JWT_SECRET=${JWT_SECRET:-aif-dev-secret-change-in-prod}
+      - JWT_SECRET=${JWT_SECRET}
       - ADMIN_NETIDS=${ADMIN_NETIDS:-}
       - CAS_SERVICE_URL=${CAS_SERVICE_URL:-https://umzcaio.ito.umt.edu/aif/api/auth/callback}
       - FRONTEND_URL=${FRONTEND_URL:-https://umzcaio.ito.umt.edu/aif/}
@@ -25,6 +25,17 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+          cpus: "4"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     depends_on:
       db: { condition: service_healthy }
     networks: [aif-network]
@@ -36,11 +47,21 @@ services:
     environment:
       POSTGRES_DB: aif
       POSTGRES_USER: aif
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-aifdev}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U aif"]
       interval: 5s
       retries: 5
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
     networks: [aif-network]
 
 volumes:

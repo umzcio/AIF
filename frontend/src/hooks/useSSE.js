@@ -37,7 +37,7 @@ export function usePipelineStream(runId) {
         } else if (data.type === "status" && data.status === "completed") {
           setDone(true);
           es.close();
-        } else if (data.type === "status" && data.status === "failed") {
+        } else if (data.type === "status" && (data.status === "failed" || data.status === "cancelled")) {
           setFailed(true);
           setDone(true);
           es.close();

@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { C, TRACK_COLORS, STATUS_META } from "../constants.js";
 import { Btn, ErrorBanner, Skeleton, TrackBadge, relativeTime } from "./primitives.jsx";
-import { getAdminDashboard, getAuditLog, getUsers, updateUserRole, toggleUserActive } from "../api.js";
+import { getAdminDashboard, getAuditLog, getUsers, updateUserRole, toggleUserActive,
+  getAnalyticsOverview, getAnalyticsTrends } from "../api.js";
 import { navigate } from "../hooks/useHashRouter.js";
 import { useAuth } from "../hooks/useAuth.jsx";
 import { useToast } from "./Toast.jsx";
 
 const TABS = [
   { id: "overview", label: "Overview" },
+  { id: "analytics", label: "Pipeline Analytics" },
   { id: "users", label: "Users" },
   { id: "audit", label: "Audit Log" },
 ];
@@ -37,6 +39,7 @@ export default function AdminDashboard() {
       </div>
 
       {tab === "overview" && <OverviewTab />}
+      {tab === "analytics" && <AnalyticsTab />}
       {tab === "users" && <UsersTab />}
       {tab === "audit" && <AuditTab />}
     </div>
@@ -130,6 +133,339 @@ function OverviewTab() {
         )}
       </section>
     </>
+  );
+}
+
+/* ── Analytics Tab ── */
+
+/** Model display metadata — colors match agent colors from constants.js */
+const MODEL_META = {
+  "Pass 1 (Codex/GPT-5.4)": { short: "Codex", color: "#F97316" },
+  "Pass 2 (Gemini 2.5 Pro)": { short: "Gemini", color: "#8B5CF6" },
+  "Pass 3 (Grok)": { short: "Grok", color: "#06B6D4" },
+  "Pass 4 (Kimi K2)": { short: "Kimi K2", color: "#22C55E" },
+  "Pass 5 (Qwen3 Coder)": { short: "Qwen3", color: "#EC4899" },
+};
+
+function getModelMeta(name) {
+  return MODEL_META[name] || { short: name?.split("(")[1]?.replace(")", "") || name, color: C.textMid };
+}
+
+function fmtDuration(seconds) {
+  if (seconds == null) return "—";
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return `${m}m ${s}s`;
+}
+
+function fmtCost(usd) {
+  if (usd == null || usd === 0) return "$0.00";
+  return `$${usd.toFixed(2)}`;
+}
+
+function pct(n, d) {
+  if (!d) return "0%";
+  return `${Math.round((n / d) * 100)}%`;
+}
+
+function AnalyticsTab() {
+  const [data, setData] = useState(null);
+  const [trends, setTrends] = useState(null);
+  const [days, setDays] = useState(90);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([getAnalyticsOverview(days), getAnalyticsTrends(days)])
+      .then(([overview, trendData]) => { setData(overview); setTrends(trendData); })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [days]);
+
+  if (loading) return <Skeleton height={500} />;
+  if (error) return <ErrorBanner message={error} />;
+  if (!data) return null;
+
+  const { runs, cost, passes, models, recentRuns } = data;
+
+  return (
+    <>
+      {/* Period selector */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+        <span style={{ fontSize: 12, color: C.textMid, fontWeight: 600 }}>Period:</span>
+        {[30, 90, 180, 365].map(d => (
+          <button key={d} type="button" onClick={() => setDays(d)}
+            style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${days === d ? C.accent : C.border}`,
+              background: days === d ? C.accentSoft : "transparent", color: days === d ? C.accent : C.textMid,
+              fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+            {d}d
+          </button>
+        ))}
+      </div>
+
+      {/* Summary cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 24 }}>
+        <SummaryCard label="Total Runs" value={runs.total} />
+        <SummaryCard label="Success Rate" value={pct(runs.completed, runs.total)}
+          accent={runs.total > 0 && runs.completed / runs.total < 0.8 ? C.warning : C.success} />
+        <SummaryCard label="Avg Duration" value={fmtDuration(runs.avgDurationSeconds)} />
+        <SummaryCard label="Total Cost" value={fmtCost(cost.total)} />
+        <SummaryCard label="Avg Cost/Run" value={fmtCost(cost.avgPerRun)} />
+      </div>
+
+      {/* Model Performance Comparison */}
+      {models.length > 0 && (
+        <section className="section-card" style={{ padding: 16, marginBottom: 24 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 16 }}>Model Performance Comparison</div>
+
+          {/* Bar chart visualization */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, color: C.textDim, marginBottom: 8, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Average Duration (seconds)
+            </div>
+            {models.map(m => {
+              const meta = getModelMeta(m.name);
+              const maxSec = Math.max(...models.map(x => x.maxSeconds || 0), 1);
+              return (
+                <div key={m.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <div style={{ width: 70, fontSize: 12, fontWeight: 600, color: meta.color, textAlign: "right" }}>
+                    {meta.short}
+                  </div>
+                  <div style={{ flex: 1, position: "relative", height: 24, background: C.surface, borderRadius: 4, overflow: "hidden" }}>
+                    {/* Avg bar */}
+                    <div style={{
+                      position: "absolute", top: 2, left: 0, height: 20, borderRadius: 3,
+                      background: meta.color, opacity: 0.25,
+                      width: `${((m.maxSeconds || 0) / maxSec) * 100}%`,
+                    }} />
+                    <div style={{
+                      position: "absolute", top: 2, left: 0, height: 20, borderRadius: 3,
+                      background: meta.color,
+                      width: `${((m.avgSeconds || 0) / maxSec) * 100}%`,
+                    }} />
+                    {/* Median marker */}
+                    {m.medianSeconds != null && (
+                      <div style={{
+                        position: "absolute", top: 0, height: 24, width: 2,
+                        background: "#fff", opacity: 0.8,
+                        left: `${((m.medianSeconds) / maxSec) * 100}%`,
+                      }} />
+                    )}
+                    <span style={{ position: "absolute", top: 3, left: 8, fontSize: 11, fontWeight: 600,
+                      color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>
+                      {fmtDuration(m.avgSeconds)}
+                    </span>
+                  </div>
+                  <div style={{ width: 45, fontSize: 11, color: C.textDim, textAlign: "right" }}>
+                    {pct(m.successes, m.totalRuns)}
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 10, color: C.textDim }}>
+              <span>Solid = avg &nbsp; Faded = max &nbsp; Line = median &nbsp; Right = success rate</span>
+            </div>
+          </div>
+
+          {/* Model detail table */}
+          <div style={{ borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+            <div className="registry-table-header" style={{ gridTemplateColumns: "140px 60px 60px 60px 80px 80px 80px 80px 80px" }}>
+              <span>Model</span><span>Runs</span><span>OK</span><span>Fail</span>
+              <span>Avg Time</span><span>Min</span><span>Max</span>
+              <span>Timeouts</span><span>Parse Fail</span>
+            </div>
+            {models.map((m, i) => {
+              const meta = getModelMeta(m.name);
+              return (
+                <div key={m.name} className="registry-table-row"
+                  style={{ background: i % 2 === 0 ? "transparent" : C.surface,
+                    gridTemplateColumns: "140px 60px 60px 60px 80px 80px 80px 80px 80px", cursor: "default" }}>
+                  <span style={{ fontWeight: 600, color: meta.color, fontSize: 12 }}>{meta.short}</span>
+                  <span className="mono" style={{ fontSize: 12 }}>{m.totalRuns}</span>
+                  <span className="mono" style={{ fontSize: 12, color: C.success }}>{m.successes}</span>
+                  <span className="mono" style={{ fontSize: 12, color: m.failures > 0 ? C.danger : C.textDim }}>{m.failures}</span>
+                  <span className="mono" style={{ fontSize: 12 }}>{fmtDuration(m.avgSeconds)}</span>
+                  <span className="mono" style={{ fontSize: 12, color: C.textDim }}>{fmtDuration(m.minSeconds)}</span>
+                  <span className="mono" style={{ fontSize: 12, color: m.maxSeconds > 300 ? C.warning : C.textDim }}>{fmtDuration(m.maxSeconds)}</span>
+                  <span className="mono" style={{ fontSize: 12, color: m.timeouts > 0 ? C.danger : C.textDim }}>{m.timeouts}</span>
+                  <span className="mono" style={{ fontSize: 12, color: m.parseFailures > 0 ? C.warning : C.textDim }}>{m.parseFailures}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Pipeline Runs + Trends side by side */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+        {/* Run Status Breakdown */}
+        <section className="section-card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Run Status Breakdown</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {[
+              { label: "Completed", value: runs.completed, color: C.success },
+              { label: "Failed", value: runs.failed, color: C.danger },
+              { label: "Cancelled", value: runs.cancelled, color: C.warning },
+            ].map(s => (
+              <div key={s.label} style={{ flex: 1, textAlign: "center", padding: 12, borderRadius: 8,
+                background: `${s.color}10`, border: `1px solid ${s.color}30` }}>
+                <div className="mono" style={{ fontSize: 24, fontWeight: 700, color: s.color }}>{s.value}</div>
+                <div style={{ fontSize: 11, color: C.textMid, marginTop: 2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+          {runs.avgRetries > 0 && (
+            <div style={{ marginTop: 8, fontSize: 12, color: C.textMid }}>
+              Avg retries per run: <span className="mono" style={{ fontWeight: 600 }}>{runs.avgRetries.toFixed(1)}</span>
+            </div>
+          )}
+        </section>
+
+        {/* Pass-Level Stats */}
+        <section className="section-card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Pass-Level Statistics</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <MiniStat label="Total Passes" value={passes.total} />
+            <MiniStat label="Success Rate" value={pct(passes.completed, passes.total)}
+              color={passes.total > 0 && passes.completed / passes.total < 0.9 ? C.warning : C.success} />
+            <MiniStat label="Avg Pass Time" value={fmtDuration(passes.avgSeconds)} />
+            <MiniStat label="JSON Parse Fails" value={passes.jsonParseFailures}
+              color={passes.jsonParseFailures > 0 ? C.warning : null} />
+            <MiniStat label="Avg Attempts" value={passes.avgAttempts.toFixed(1)} />
+            <MiniStat label="Median Duration" value={fmtDuration(runs.medianDurationSeconds)} />
+          </div>
+        </section>
+      </div>
+
+      {/* Cost/Duration Trend */}
+      {trends?.timeSeries?.length > 1 && (
+        <section className="section-card" style={{ padding: 16, marginBottom: 24 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
+            Pipeline Trends ({trends.period.bucket === "day" ? "Daily" : "Weekly"})
+          </div>
+          <TrendChart data={trends.timeSeries} />
+        </section>
+      )}
+
+      {/* Recent Runs Table */}
+      {recentRuns.length > 0 && (
+        <section className="section-card" style={{ marginBottom: 24 }}>
+          <div className="card-header">
+            <div><h2>Recent Pipeline Runs</h2></div>
+          </div>
+          <div style={{ borderRadius: 0, overflow: "hidden" }}>
+            <div className="registry-table-header" style={{ gridTemplateColumns: "1fr 60px 80px 90px 80px 80px 80px" }}>
+              <span>Tool</span><span>Track</span><span>Status</span><span>Duration</span>
+              <span>Models</span><span>Cost</span><span>When</span>
+            </div>
+            {recentRuns.slice(0, 20).map((r, i) => {
+              const statusMeta = STATUS_META[r.status] || {};
+              return (
+                <div key={r.id} className="registry-table-row"
+                  style={{ background: i % 2 === 0 ? "transparent" : C.surface,
+                    gridTemplateColumns: "1fr 60px 80px 90px 80px 80px 80px", cursor: "default" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>{r.tool_name || "—"}</span>
+                  <span><TrackBadge track={r.track} /></span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: statusMeta.color || C.textMid }}>{statusMeta.label || r.status}</span>
+                  <span className="mono" style={{ fontSize: 12 }}>{fmtDuration(r.total_elapsed_seconds)}</span>
+                  <span className="mono" style={{ fontSize: 12 }}>
+                    {r.models_succeeded != null ? `${r.models_succeeded}/${(r.models_succeeded || 0) + (r.models_failed || 0)}` : "—"}
+                  </span>
+                  <span className="mono" style={{ fontSize: 12 }}>{fmtCost(r.estimated_cost_usd)}</span>
+                  <span style={{ fontSize: 11, color: C.textDim }}>{relativeTime(r.queued_at)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+    </>
+  );
+}
+
+/** Simple mini stat for grid layout */
+function MiniStat({ label, value, color }) {
+  return (
+    <div style={{ padding: 8, borderRadius: 6, background: C.surface }}>
+      <div style={{ fontSize: 10, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{label}</div>
+      <div className="mono" style={{ fontSize: 18, fontWeight: 700, color: color || C.text }}>{value}</div>
+    </div>
+  );
+}
+
+/** Sparkline-style trend chart using CSS/inline elements */
+function TrendChart({ data }) {
+  if (!data || data.length === 0) return null;
+
+  const maxRuns = Math.max(...data.map(d => d.runs), 1);
+  const maxCost = Math.max(...data.map(d => d.totalCost), 0.01);
+  const maxDur = Math.max(...data.map(d => d.avgDuration || 0), 1);
+  const barW = Math.max(8, Math.min(40, Math.floor(600 / data.length) - 2));
+
+  return (
+    <div>
+      {/* Runs + success rate bars */}
+      <div style={{ fontSize: 11, color: C.textDim, marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+        Runs (green = completed, red = failed)
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 80, marginBottom: 12 }}>
+        {data.map((d, i) => {
+          const h = (d.runs / maxRuns) * 72;
+          const failH = (d.failed / maxRuns) * 72;
+          return (
+            <div key={i} style={{ position: "relative", width: barW, height: 72 }}
+              title={`${new Date(d.period).toLocaleDateString()}: ${d.runs} runs (${d.completed} ok, ${d.failed} failed)`}>
+              <div style={{ position: "absolute", bottom: 0, width: "100%", height: h, borderRadius: 3, background: C.success, opacity: 0.3 }} />
+              <div style={{ position: "absolute", bottom: 0, width: "100%", height: (d.completed / maxRuns) * 72, borderRadius: 3, background: C.success }} />
+              {failH > 0 && (
+                <div style={{ position: "absolute", bottom: 0, width: "100%", height: failH, borderRadius: "0 0 3px 3px", background: C.danger, opacity: 0.6 }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Duration trend line (simulated with bars) */}
+      <div style={{ fontSize: 11, color: C.textDim, marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+        Avg Duration
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 50, marginBottom: 12 }}>
+        {data.map((d, i) => (
+          <div key={i} style={{ width: barW, borderRadius: 3,
+            height: d.avgDuration ? `${(d.avgDuration / maxDur) * 44}px` : 0,
+            background: C.accent, opacity: 0.6 }}
+            title={`${new Date(d.period).toLocaleDateString()}: ${fmtDuration(d.avgDuration)}`} />
+        ))}
+      </div>
+
+      {/* Cost trend */}
+      <div style={{ fontSize: 11, color: C.textDim, marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+        Cost per Period
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 50 }}>
+        {data.map((d, i) => (
+          <div key={i} style={{ width: barW, borderRadius: 3,
+            height: d.totalCost ? `${(d.totalCost / maxCost) * 44}px` : 0,
+            background: C.gold, opacity: 0.7 }}
+            title={`${new Date(d.period).toLocaleDateString()}: ${fmtCost(d.totalCost)}`} />
+        ))}
+      </div>
+
+      {/* Date labels */}
+      <div style={{ display: "flex", gap: 2, marginTop: 4 }}>
+        {data.map((d, i) => {
+          // Only show some labels to avoid overlap
+          const showLabel = i === 0 || i === data.length - 1 || i % Math.ceil(data.length / 6) === 0;
+          return (
+            <div key={i} style={{ width: barW, fontSize: 9, color: C.textDim, textAlign: "center", overflow: "hidden" }}>
+              {showLabel ? new Date(d.period).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : ""}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

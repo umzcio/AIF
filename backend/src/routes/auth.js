@@ -2,17 +2,12 @@ import { Router } from "express";
 import { validateTicket } from "../auth/cas.js";
 import { generateToken, verifyToken } from "../auth/jwt.js";
 import pool from "../db/pool.js";
+import { CAS_BASE_URL, CAS_SERVICE_URL, CAS_LOGOUT_URL, FRONTEND_URL, AUTH_BYPASS, ADMIN_NETIDS, JWT_COOKIE_NAME, BASE_PATH, INSTITUTION_DOMAIN } from "../config.js";
+import log from "../logger.js";
 
 const router = Router();
 
-const CAS_BASE_URL = process.env.CAS_BASE_URL || "https://login.umt.edu/cas";
-const CAS_SERVICE_URL = process.env.CAS_SERVICE_URL || "https://umzcaio.ito.umt.edu/aif/api/auth/callback";
-const CAS_LOGOUT_URL = process.env.CAS_LOGOUT_URL || "https://login.umt.edu/idp/profile/cas/logout";
-const FRONTEND_URL = process.env.FRONTEND_URL || "https://umzcaio.ito.umt.edu/aif/";
-const AUTH_BYPASS = process.env.AUTH_BYPASS === "true";
-const ADMIN_NETIDS = (process.env.ADMIN_NETIDS || "").split(",").map(s => s.trim()).filter(Boolean);
-const COOKIE_NAME = "aif_token";
-const BASE_PATH = process.env.BASE_PATH || "/aif";
+const COOKIE_NAME = JWT_COOKIE_NAME;
 
 async function upsertUser(netid, displayName) {
   const { rows: [{ count }] } = await pool.query("SELECT COUNT(*) FROM users");
@@ -20,14 +15,16 @@ async function upsertUser(netid, displayName) {
   const isAdminNetid = ADMIN_NETIDS.includes(netid);
   const role = (isFirstUser || isAdminNetid) ? "admin" : "builder";
 
+  const defaultEmail = `${netid}@${INSTITUTION_DOMAIN}`;
   const { rows: [user] } = await pool.query(
-    `INSERT INTO users (netid, display_name, role, last_login)
-     VALUES ($1, $2, $3, NOW())
+    `INSERT INTO users (netid, display_name, role, email, last_login)
+     VALUES ($1, $2, $3, $4, NOW())
      ON CONFLICT (netid) DO UPDATE SET
        display_name = COALESCE(NULLIF($2, ''), users.display_name),
+       email = COALESCE(users.email, $4),
        last_login = NOW()
      RETURNING *`,
-    [netid, displayName || null, role]
+    [netid, displayName || null, role, defaultEmail]
   );
   return user;
 }
@@ -61,7 +58,7 @@ router.get("/callback", async (req, res) => {
     const user = await upsertUser(casUser.netid, casUser.displayName);
     const token = await generateToken(user);
 
-    console.log(`Auth success: ${user.netid} (${user.role})`);
+    log.info("Auth success", { netid: user.netid, role: user.role });
 
     res.cookie(COOKIE_NAME, token, {
       httpOnly: true, secure: true, sameSite: "lax",
@@ -69,7 +66,7 @@ router.get("/callback", async (req, res) => {
     });
     res.redirect(FRONTEND_URL);
   } catch (err) {
-    console.error("CAS callback error:", err);
+    log.error("CAS callback error", { error: err.message });
     res.redirect(`${FRONTEND_URL}?error=auth_error`);
   }
 });
