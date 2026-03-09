@@ -36,7 +36,7 @@ export async function verifySmtp() {
  * @param {string} opts.type - notification type
  * @param {string} opts.title - notification title
  * @param {string} opts.body - notification body text
- * @param {string} [opts.link] - relative hash link (e.g. "#/detail/uuid")
+ * @param {string} [opts.link] - relative hash link (e.g. "#/tool/uuid")
  */
 export async function notify({ userId, toolId, type, title, body, link }) {
   try {

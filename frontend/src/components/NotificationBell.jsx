@@ -94,7 +94,7 @@ export default function NotificationBell() {
     if (notif.link) {
       navigate(notif.link.replace(/^#/, ""));
     } else if (notif.tool_id) {
-      navigate(`/detail/${notif.tool_id}`);
+      navigate(`/tool/${notif.tool_id}`);
     }
     setOpen(false);
   }

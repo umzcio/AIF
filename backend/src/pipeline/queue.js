@@ -290,7 +290,7 @@ async function processNext() {
         userId: completedTool.owner_id, toolId: next.tool_id, type: "pipeline_complete",
         title: pipelineTitle,
         body: `All 4 agents finished. Track ${next.track} tool.`,
-        link: `#/report/${next.tool_id}/${runId}`,
+        link: `#/tool/${next.tool_id}/report/${runId}`,
       }).catch(() => {});
 
       // Notify reviewers if tool needs review (Track 2-4), excluding the owner (already notified above)
@@ -301,14 +301,14 @@ async function processNext() {
           role: "reviewer", toolId: next.tool_id, type: "review_needed",
           title: reviewTitle,
           body: `Pipeline complete. Tool requires reviewer decision.`,
-          link: `#/detail/${next.tool_id}`,
+          link: `#/tool/${next.tool_id}`,
           excludeUserIds: exclude,
         }).catch(() => {});
         notifyRole({
           role: "admin", toolId: next.tool_id, type: "review_needed",
           title: reviewTitle,
           body: `Pipeline complete. Tool requires reviewer decision.`,
-          link: `#/detail/${next.tool_id}`,
+          link: `#/tool/${next.tool_id}`,
           excludeUserIds: exclude,
         }).catch(() => {});
       }
