@@ -58,16 +58,18 @@ function buildIntakeForm(data, file) {
 }
 
 async function postForm(path, form) {
-  form.append("_csrf", getCsrfToken());
-  const res = await fetch(`${BASE}${path}`, { method: "POST", credentials: "same-origin", body: form });
+  const csrf = getCsrfToken();
+  form.append("_csrf", csrf);
+  const res = await fetch(`${BASE}${path}`, { method: "POST", credentials: "same-origin", body: form, headers: csrf ? { "x-csrf-token": csrf } : {} });
   if (res.status === 401) { window.location.href = `${BASE}/auth/login`; throw new Error("Authentication required"); }
   if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || `Request failed: ${res.status}`); }
   return res.json();
 }
 
 async function putForm(path, form) {
-  form.append("_csrf", getCsrfToken());
-  const res = await fetch(`${BASE}${path}`, { method: "PUT", credentials: "same-origin", body: form });
+  const csrf = getCsrfToken();
+  form.append("_csrf", csrf);
+  const res = await fetch(`${BASE}${path}`, { method: "PUT", credentials: "same-origin", body: form, headers: csrf ? { "x-csrf-token": csrf } : {} });
   if (res.status === 401) { window.location.href = `${BASE}/auth/login`; throw new Error("Authentication required"); }
   if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || `Request failed: ${res.status}`); }
   return res.json();
@@ -127,6 +129,8 @@ export function uploadCodebase(toolId, file, onProgress) {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${BASE}/pipeline/${toolId}/upload`);
     xhr.withCredentials = true;
+    const csrf = getCsrfToken();
+    if (csrf) xhr.setRequestHeader("x-csrf-token", csrf);
 
     if (onProgress) {
       xhr.upload.addEventListener("progress", (e) => {
