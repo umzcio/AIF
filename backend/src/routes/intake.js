@@ -5,6 +5,7 @@ import { mkdirSync } from "fs";
 import { join } from "path";
 import pool from "../db/pool.js";
 import { computeDimensionScores, checkEscalations, computeWeightedPercentage, routeToTrack } from "../scoring.js";
+import { logAudit } from "../audit.js";
 
 const CODEBASES_DIR = process.env.CODEBASES_DIR || "/data/codebases";
 const upload = multer({ dest: "/tmp/aif-uploads", limits: { fileSize: 500 * 1024 * 1024 } });
@@ -104,6 +105,10 @@ router.post("/draft", upload.single("codebase"), async (req, res) => {
     }
   }
 
+  if (req.user) {
+    logAudit({ actorId: req.user.userId, actorNetid: req.user.netid, action: "create_draft", entityType: "tool", entityId: tool.id, details: { name: tool.name } }).catch(() => {});
+  }
+
   res.status(201).json({ tool, track: computed?.track ?? null });
 });
 
@@ -199,6 +204,10 @@ router.post("/", upload.single("codebase"), async (req, res) => {
       }
     }
 
+    if (req.user) {
+      logAudit({ actorId: req.user.userId, actorNetid: req.user.netid, action: "submit_tool", entityType: "tool", entityId: tool.id, details: { name: tool.name, track: computed.track } }).catch(() => {});
+    }
+
     return res.json({ tool, track: computed.track });
   }
 
@@ -242,6 +251,10 @@ router.post("/", upload.single("codebase"), async (req, res) => {
     } catch (err) {
       return res.status(400).json({ error: `Failed to extract codebase: ${err.message}` });
     }
+  }
+
+  if (req.user) {
+    logAudit({ actorId: req.user.userId, actorNetid: req.user.netid, action: "submit_tool", entityType: "tool", entityId: tool.id, details: { name: tool.name, track: computed.track } }).catch(() => {});
   }
 
   res.status(201).json({ tool, track: computed.track });

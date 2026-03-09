@@ -73,8 +73,11 @@ export function checkEscalations(a) {
   return e;
 }
 
+export const VALID_ARTIFACT_TYPES = Object.keys(WEIGHT_PROFILES);
+
 export function computeWeightedPercentage(scores, artifactType) {
-  const w = WEIGHT_PROFILES[artifactType] || WEIGHT_PROFILES["other"];
+  const key = VALID_ARTIFACT_TYPES.includes(artifactType) ? artifactType : "other";
+  const w = WEIGHT_PROFILES[key];
   let total = 0, max = 0;
   for (const k of SCORE_DIMENSIONS) {
     total += (scores[k] || 0) * (w[k] || 0);
