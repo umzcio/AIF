@@ -116,11 +116,11 @@ function MenuLink({ icon, label, onClick }) {
 export default function TopBar({ route, params }) {
   const { user, logout, config } = useAuth();
   const current = activeTab(route);
-  const onPipelinePage = ["upload", "pipeline", "report"].includes(route);
+  const onToolPage = ["upload", "pipeline", "report", "detail"].includes(route);
 
   // Track the active tool for the Code Review tab
   const toolId = params?.toolId;
-  if (onPipelinePage && toolId) {
+  if (onToolPage && toolId) {
     sessionStorage.setItem("aif-active-tool", toolId);
   }
   const savedToolId = sessionStorage.getItem("aif-active-tool");
