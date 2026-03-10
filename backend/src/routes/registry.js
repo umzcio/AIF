@@ -78,12 +78,21 @@ router.get("/", async (req, res) => {
 });
 
 router.get("/:id", async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Authentication required" });
+
   const { rows: [tool] } = await pool.query(
     `SELECT t.*, u.netid as owner_netid, u.display_name as owner_name
      FROM tools t LEFT JOIN users u ON t.owner_id = u.id WHERE t.id = $1`,
     [req.params.id]
   );
   if (!tool) return res.status(404).json({ error: "Tool not found" });
+
+  // Builders can only view their own tools or active/approved tools
+  if (req.user.role === "builder") {
+    const isOwner = tool.owner_id === req.user.userId;
+    const isPublic = tool.status === "active" || tool.status === "approved";
+    if (!isOwner && !isPublic) return res.status(403).json({ error: "Access denied" });
+  }
 
   const { rows: runs } = await pool.query(
     `SELECT * FROM pipeline_runs WHERE tool_id = $1 ORDER BY queued_at DESC`,

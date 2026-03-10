@@ -51,7 +51,7 @@ export default function Registry() {
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Tool Registry</h3>
+          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Tool Registry</h1>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: C.textMid }}>{tools.length} tools registered · {activeCount} active</p>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
@@ -84,12 +84,12 @@ export default function Registry() {
             <span>Tool Name</span><span>Track</span><span>Owner</span><span>Type</span><span>Status</span><span>Date</span>
           </div>
           {filtered.map((item, i) => (
-            <div key={item.id} className="registry-table-row" role="button" tabIndex={0}
-              style={{ background: i % 2 === 0 ? "transparent" : C.surface }}
-              onClick={() => navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`)}
-              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`); }}}
-              onMouseEnter={e => e.currentTarget.style.background = C.surfaceHover}
-              onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface}>
+            <div key={item.id} className="registry-table-row" role={user ? "button" : undefined} tabIndex={user ? 0 : undefined}
+              style={{ background: i % 2 === 0 ? "transparent" : C.surface, cursor: user ? "pointer" : "default" }}
+              onClick={user ? () => navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`) : undefined}
+              onKeyDown={user ? (e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`); }}) : undefined}
+              onMouseEnter={user ? (e => e.currentTarget.style.background = C.surfaceHover) : undefined}
+              onMouseLeave={user ? (e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface) : undefined}>
               <span style={{ fontWeight: 600 }}>{item.name}</span>
               <span>{item.track ? <TrackBadge track={item.track} /> : <span style={{ color: C.textDim }}>—</span>}</span>
               <span style={{ color: C.textMid }}>{item.owner_name || item.owner_netid || "—"}</span>

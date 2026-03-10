@@ -5,7 +5,7 @@ const AUTH_BYPASS = process.env.AUTH_BYPASS === "true";
 const COOKIE_NAME = "aif_token";
 
 // Routes that require authentication (write operations)
-const PROTECTED_PREFIXES = ["/intake", "/pipeline", "/review", "/admin"];
+const PROTECTED_PREFIXES = ["/intake", "/pipeline", "/review", "/admin", "/reports"];
 const PROTECTED_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
 
 function isProtectedRoute(req) {

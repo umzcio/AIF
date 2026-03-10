@@ -6,6 +6,21 @@ import pool from "../db/pool.js";
 const router = Router();
 
 /**
+ * Verify the requesting user can access reports for this run.
+ * Builders can only access reports for their own tools; reviewers/admins can access all.
+ */
+async function requireRunAccess(req, res) {
+  if (!req.user) { res.status(401).json({ error: "Authentication required" }); return null; }
+  const { rows: [run] } = await pool.query("SELECT * FROM pipeline_runs WHERE id = $1", [req.params.runId]);
+  if (!run) { res.status(404).json({ error: "Run not found" }); return null; }
+  if (req.user.role === "builder") {
+    const { rows: [tool] } = await pool.query("SELECT owner_id FROM tools WHERE id = $1", [run.tool_id]);
+    if (!tool || tool.owner_id !== req.user.userId) { res.status(403).json({ error: "Access denied" }); return null; }
+  }
+  return run;
+}
+
+/**
  * Load all agent outputs for a completed run and normalize findings into a flat array.
  */
 function loadFindings(outputDir) {
@@ -123,10 +138,8 @@ function findingsToCsv(findings) {
 }
 
 router.get("/:runId", async (req, res) => {
-  const { rows: [run] } = await pool.query(
-    "SELECT * FROM pipeline_runs WHERE id = $1", [req.params.runId]
-  );
-  if (!run) return res.status(404).json({ error: "Run not found" });
+  const run = await requireRunAccess(req, res);
+  if (!run) return;
   if (run.status !== "completed") {
     return res.status(400).json({ error: "Run not completed yet", status: run.status });
   }
@@ -151,8 +164,8 @@ router.get("/:runId", async (req, res) => {
 
 // Export all findings as JSON
 router.get("/:runId/findings.json", async (req, res) => {
-  const { rows: [run] } = await pool.query("SELECT * FROM pipeline_runs WHERE id = $1", [req.params.runId]);
-  if (!run?.output_dir) return res.status(404).json({ error: "Run not found" });
+  const run = await requireRunAccess(req, res);
+  if (!run) return;
   if (run.status !== "completed") return res.status(400).json({ error: "Run not completed yet" });
 
   const { rows: [tool] } = await pool.query("SELECT name, track FROM tools WHERE id = $1", [run.tool_id]);
@@ -172,8 +185,8 @@ router.get("/:runId/findings.json", async (req, res) => {
 
 // Export all findings as CSV
 router.get("/:runId/findings.csv", async (req, res) => {
-  const { rows: [run] } = await pool.query("SELECT * FROM pipeline_runs WHERE id = $1", [req.params.runId]);
-  if (!run?.output_dir) return res.status(404).json({ error: "Run not found" });
+  const run = await requireRunAccess(req, res);
+  if (!run) return;
   if (run.status !== "completed") return res.status(400).json({ error: "Run not completed yet" });
 
   const { rows: [tool] } = await pool.query("SELECT name FROM tools WHERE id = $1", [run.tool_id]);
@@ -186,10 +199,8 @@ router.get("/:runId/findings.csv", async (req, res) => {
 });
 
 router.get("/:runId/hecvat.xlsx", async (req, res) => {
-  const { rows: [run] } = await pool.query(
-    "SELECT * FROM pipeline_runs WHERE id = $1", [req.params.runId]
-  );
-  if (!run?.output_dir) return res.status(404).json({ error: "Run not found" });
+  const run = await requireRunAccess(req, res);
+  if (!run) return;
 
   const xlsxPath = join(run.output_dir, "agent3_hecvat", "hecvat_assessment.xlsx");
   if (!existsSync(xlsxPath)) return res.status(404).json({ error: "HECVAT XLSX not found" });
@@ -198,10 +209,9 @@ router.get("/:runId/hecvat.xlsx", async (req, res) => {
 });
 
 router.get("/:runId/docs/:name", async (req, res) => {
-  const { rows: [run] } = await pool.query(
-    "SELECT * FROM pipeline_runs WHERE id = $1", [req.params.runId]
-  );
-  if (!run?.output_dir) return res.status(404).json({ error: "Run not found" });
+  const run = await requireRunAccess(req, res);
+  if (!run) return;
+  if (!run.output_dir) return res.status(404).json({ error: "Run output not found" });
 
   const validDocs = ["USER_GUIDE", "ADMIN_GUIDE", "COMPLIANCE_SUMMARY"];
   const docBase = req.params.name.replace(/\.(md|docx)$/, "");
