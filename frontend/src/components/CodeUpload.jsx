@@ -141,132 +141,6 @@ function remapFindings(agentFindings) {
 // DEMO / SIMULATION DATA
 // ═══════════════════════════════════════════════════════════
 
-const LOG_TEMPLATES = {
-  security: [
-    "[scan] Extracting 47 files from archive...",
-    "[scan] Found package.json, requirements.txt — 2 dependency manifests",
-    "[deps] Auditing 142 npm packages...",
-    "[deps] WARN lodash@4.17.15 — prototype pollution (CVE-2020-8203)",
-    "[deps] WARN axios@0.21.0 — SSRF vulnerability (CVE-2021-3749)",
-    "[sast] Running static analysis on 23 source files...",
-    "[sast] CRITICAL src/config.js:14 — hardcoded API key detected",
-    "[sast] HIGH src/routes/api.js:42 — missing CSRF token validation",
-    "[sast] MEDIUM src/db/queries.js:18 — potential SQL injection vector",
-    "[secrets] Scanning for API keys, tokens, credentials...",
-    "[secrets] CRITICAL .env committed to repository with production secrets",
-    "[secrets] WARN src/config.js contains base64-encoded credential",
-    "[owasp] Checking A01:Broken Access Control...",
-    "[owasp] Checking A02:Cryptographic Failures...",
-    "[owasp] Checking A03:Injection...",
-    "[owasp] WARN A03 — unparameterized query in src/db/queries.js",
-    "[owasp] Checking A07:Authentication Failures...",
-    "[report] Compiling security findings — 2 critical, 3 high, 4 medium, 2 low",
-  ],
-  accessibility: [
-    "[parse] Scanning 12 component files for rendered markup...",
-    "[parse] Found 8 pages, 24 interactive components, 15 form elements",
-    "[color] Analyzing color contrast ratios...",
-    "[color] FAIL #999 on #fff — ratio 2.85:1, requires 4.5:1 (AA)",
-    "[color] FAIL #B0B0B0 on #F5F5F5 — ratio 1.96:1 on secondary nav",
-    "[color] PASS primary text #333 on #fff — ratio 12.63:1",
-    "[aria] Checking ARIA roles and attributes...",
-    "[aria] WARN 12 images missing alt attributes in Dashboard.jsx",
-    "[aria] WARN 3 buttons with no accessible name in Toolbar.jsx",
-    "[aria] PASS landmark roles correctly applied to layout",
-    "[kbd] Simulating keyboard-only navigation...",
-    "[kbd] FAIL modal does not trap focus — tab escapes to background",
-    "[kbd] WARN skip-to-content link missing on main layout",
-    "[kbd] PASS all interactive elements reachable via tab",
-    "[sr] Screen reader simulation pass...",
-    "[sr] WARN dynamic content updates not announced via aria-live",
-    "[report] Compiling accessibility findings — 1 critical, 2 high, 3 medium, 2 low",
-  ],
-  hecvat: [
-    "[data] Mapping data flow: input → processing → storage → output",
-    "[data] Identified 3 data stores: PostgreSQL, Redis cache, S3 bucket",
-    "[data] WARN no data retention policy documented",
-    "[auth] Reviewing authentication implementation...",
-    "[auth] Found: session-based auth with express-session",
-    "[auth] WARN session secret loaded from environment — verify rotation policy",
-    "[auth] No MFA implementation detected",
-    "[encrypt] Checking encryption at rest and in transit...",
-    "[encrypt] TLS configured for all external connections",
-    "[encrypt] WARN database encryption at rest not confirmed in config",
-    "[encrypt] WARN Redis connection not using TLS",
-    "[privacy] Checking data handling practices...",
-    "[privacy] No privacy policy endpoint detected",
-    "[privacy] WARN user deletion/export capability not implemented (FERPA)",
-    "[compliance] Mapping to HECVAT-Lite questionnaire...",
-    "[compliance] 18/32 questions auto-answerable from codebase",
-    "[report] Compiling HECVAT findings — 0 critical, 2 high, 4 medium, 3 low",
-  ],
-  documentation: [
-    "[struct] Analyzing project structure...",
-    "[struct] Detected: Node.js/Express backend, React frontend, PostgreSQL",
-    "[struct] Entry points: server.js (API), src/index.jsx (client)",
-    "[api] Extracting API surface...",
-    "[api] Found 14 REST endpoints across 4 route files",
-    "[api] 3 endpoints missing JSDoc annotations",
-    "[guide] Generating user guide...",
-    "[guide] Sections: Overview, Getting Started, Features, FAQ",
-    "[guide] Writing docs/user-guide.md (estimated 1,200 words)",
-    "[admin] Generating admin guide...",
-    "[admin] Sections: Deployment, Configuration, Monitoring, Troubleshooting",
-    "[admin] Writing docs/admin-guide.md (estimated 2,100 words)",
-    "[report] Compiling consolidated findings report...",
-    "[report] Aggregating 28 findings across 4 agents",
-    "[report] Writing docs/findings-report.md",
-    "[report] README.md is sparse — recommending expansion",
-    "[done] Documentation generation complete — 3 documents written",
-  ],
-};
-
-const DEMO_FINDINGS = {
-  security: [
-    { id: "sec-1", severity: "critical", title: "Hardcoded API key in source", file: "src/config.js", line: 14, detail: "Anthropic API key found in plaintext. Move to environment variables and rotate the exposed key immediately.", remediation: "Move to .env, add to .gitignore, rotate key in provider dashboard.", status: "open" },
-    { id: "sec-2", severity: "critical", title: ".env file committed to repository", file: ".env", line: null, detail: "Production environment file with database credentials and API keys committed to version control.", remediation: "Remove from tracking with git rm --cached, add to .gitignore, rotate all credentials.", status: "open" },
-    { id: "sec-3", severity: "high", title: "Missing CSRF protection on POST endpoints", file: "src/routes/api.js", line: 42, detail: "POST, PUT, and DELETE endpoints lack CSRF token validation. Vulnerable to cross-site request forgery.", remediation: "Add csurf middleware or implement double-submit cookie pattern.", status: "open" },
-    { id: "sec-4", severity: "high", title: "Outdated lodash with prototype pollution", file: "package.json", line: null, detail: "lodash@4.17.15 has known prototype pollution vulnerability (CVE-2020-8203).", remediation: "Update to lodash@4.17.21 or later.", status: "open" },
-    { id: "sec-5", severity: "high", title: "Potential SQL injection vector", file: "src/db/queries.js", line: 18, detail: "String concatenation used in SQL query construction instead of parameterized queries.", remediation: "Use parameterized queries or prepared statements for all database operations.", status: "open" },
-    { id: "sec-6", severity: "medium", title: "Axios SSRF vulnerability", file: "package.json", line: null, detail: "axios@0.21.0 allows server-side request forgery (CVE-2021-3749).", remediation: "Update to axios@0.21.2 or later.", status: "open" },
-    { id: "sec-7", severity: "medium", title: "No rate limiting on API endpoints", file: "src/server.js", line: null, detail: "Public API endpoints have no rate limiting, vulnerable to abuse and DoS.", remediation: "Add express-rate-limit middleware with appropriate thresholds.", status: "open" },
-    { id: "sec-8", severity: "medium", title: "Permissive CORS configuration", file: "src/server.js", line: 8, detail: "CORS origin set to '*', allowing requests from any domain.", remediation: "Restrict to known domains: campus URLs and approved origins.", status: "open" },
-    { id: "sec-9", severity: "low", title: "Console.log statements in production code", file: "src/utils/helpers.js", line: "8, 22, 45", detail: "Debug logging left in production code. May leak sensitive data to browser console.", remediation: "Remove or replace with a proper logging library with level controls.", status: "open" },
-    { id: "sec-10", severity: "low", title: "Missing security headers", file: "src/server.js", line: null, detail: "No Helmet middleware — missing X-Content-Type-Options, X-Frame-Options, CSP headers.", remediation: "Add helmet middleware with appropriate security header configuration.", status: "open" },
-    { id: "sec-11", severity: "medium", title: "No error boundary in React app", file: "src/index.jsx", line: null, detail: "No React error boundary component. Unhandled rendering errors crash the entire UI with no fallback.", remediation: "Add an ErrorBoundary wrapper at the app root with a user-friendly fallback UI.", status: "open" },
-    { id: "sec-12", severity: "medium", title: "Unused dependencies in package.json", file: "package.json", line: null, detail: "6 packages imported in package.json are not referenced anywhere in the codebase, increasing bundle size and attack surface.", remediation: "Run 'npx depcheck' and remove unused packages.", status: "open" },
-    { id: "sec-13", severity: "low", title: "Inconsistent error handling patterns", file: "src/routes/", line: null, detail: "Some routes use try/catch with proper error responses, others let exceptions propagate unhandled. Mixed async/callback patterns.", remediation: "Standardize on async/await with a shared error handler middleware.", status: "open" },
-    { id: "sec-14", severity: "info", title: "No TypeScript or JSDoc type annotations", file: "src/", line: null, detail: "Entire codebase is untyped JavaScript. No JSDoc annotations on function signatures. Increases maintenance risk.", remediation: "Consider adding TypeScript or JSDoc annotations to critical paths.", status: "open" },
-  ],
-  accessibility: [
-    { id: "a11y-1", severity: "critical", title: "Missing alt text on 12 images", file: "src/components/Dashboard.jsx", line: null, detail: "12 <img> elements without alt attributes. Screen readers cannot describe these images to users.", remediation: "Add descriptive alt text to all images. Use alt='' for decorative images.", status: "open" },
-    { id: "a11y-2", severity: "high", title: "Color contrast ratio below 4.5:1", file: "src/styles/theme.css", line: 18, detail: "Text color #999 on #fff background has contrast ratio 2.85:1. WCAG AA requires 4.5:1 for normal text.", remediation: "Use #767676 or darker for text on white backgrounds.", status: "open" },
-    { id: "a11y-3", severity: "high", title: "Secondary nav contrast failure", file: "src/styles/theme.css", line: 34, detail: "Navigation text #B0B0B0 on #F5F5F5 has ratio 1.96:1. Effectively invisible to low-vision users.", remediation: "Darken text to at least #757575 or darken background.", status: "open" },
-    { id: "a11y-4", severity: "medium", title: "Form inputs missing associated labels", file: "src/components/Form.jsx", line: "24-38", detail: "15 form inputs without <label> elements or aria-label attributes.", remediation: "Add <label htmlFor='id'> or aria-label to all form controls.", status: "open" },
-    { id: "a11y-5", severity: "medium", title: "Buttons without accessible names", file: "src/components/Toolbar.jsx", line: null, detail: "3 icon-only buttons have no accessible name. Screen readers announce them as 'button'.", remediation: "Add aria-label describing the button action.", status: "open" },
-    { id: "a11y-6", severity: "medium", title: "Modal does not trap focus", file: "src/components/Modal.jsx", line: null, detail: "Tab key escapes the modal to background content. Keyboard users can interact with hidden elements.", remediation: "Implement focus trap using focus-trap-react or manual tab key handling.", status: "open" },
-    { id: "a11y-7", severity: "low", title: "Missing skip-to-content link", file: "src/layouts/MainLayout.jsx", line: null, detail: "No skip navigation link present. Keyboard users must tab through entire header on every page.", remediation: "Add a visually hidden skip link as the first focusable element.", status: "open" },
-    { id: "a11y-8", severity: "low", title: "Dynamic content not announced", file: "src/components/Notifications.jsx", line: null, detail: "Toast notifications and status updates not wrapped in aria-live regions.", remediation: "Add aria-live='polite' to notification container.", status: "open" },
-  ],
-  hecvat: [
-    { id: "hec-1", severity: "high", title: "No data retention policy documented", file: "Architecture", line: null, detail: "No documented policy on data lifecycle — how long data is retained, when and how it's purged.", remediation: "Define and document data retention schedule. Implement automated purge for expired data.", status: "open" },
-    { id: "hec-2", severity: "high", title: "No user data export/deletion capability", file: "Architecture", line: null, detail: "No mechanism for users to request data export or deletion. Required under FERPA for student data.", remediation: "Implement data export endpoint and account deletion workflow.", status: "open" },
-    { id: "hec-3", severity: "medium", title: "Database encryption at rest not confirmed", file: "config/database.yml", line: null, detail: "Database configuration does not specify encryption at rest. Data may be stored unencrypted on disk.", remediation: "Enable encryption at rest in PostgreSQL config or use encrypted storage volumes.", status: "open" },
-    { id: "hec-4", severity: "medium", title: "Redis connection without TLS", file: "src/config/redis.js", line: null, detail: "Redis client connects without TLS. Session data transmitted in plaintext on the network.", remediation: "Enable TLS on Redis connection. Use rediss:// protocol.", status: "open" },
-    { id: "hec-5", severity: "medium", title: "No MFA implementation", file: "src/auth/", line: null, detail: "Single-factor authentication only. No multi-factor option available for elevated-privilege accounts.", remediation: "Implement MFA via campus SSO integration or TOTP for admin accounts.", status: "open" },
-    { id: "hec-6", severity: "medium", title: "Backup and recovery plan absent", file: "Operations", line: null, detail: "No documented backup schedule, retention, or disaster recovery procedure.", remediation: "Document backup schedule, test recovery procedure, define RTO/RPO.", status: "open" },
-    { id: "hec-7", severity: "low", title: "Incident response contacts not listed", file: "Documentation", line: null, detail: "No documented security incident response contacts or escalation path.", remediation: "Add IR contacts to admin guide and operational runbook.", status: "open" },
-    { id: "hec-8", severity: "low", title: "Session secret rotation not documented", file: "src/config/session.js", line: null, detail: "Session secret loaded from environment but no rotation policy documented.", remediation: "Document rotation schedule and implement graceful secret rotation.", status: "open" },
-    { id: "hec-9", severity: "low", title: "No privacy policy endpoint", file: "src/routes/", line: null, detail: "Application has no privacy policy page or endpoint for users to review data practices.", remediation: "Add a /privacy route with institutional privacy policy.", status: "open" },
-  ],
-  documentation: [
-    { id: "doc-1", severity: "info", title: "User guide generated", file: "docs/user-guide.md", line: null, detail: "Plain-language guide covering tool purpose, access, features, and FAQ. ~1,200 words.", remediation: null, status: "complete" },
-    { id: "doc-2", severity: "info", title: "Admin guide generated", file: "docs/admin-guide.md", line: null, detail: "Deployment, configuration, environment variables, monitoring, and troubleshooting. ~2,100 words.", remediation: null, status: "complete" },
-    { id: "doc-3", severity: "info", title: "Findings report compiled", file: "docs/findings-report.md", line: null, detail: "Consolidated report of all agent findings with severity ratings, file references, and remediation steps.", remediation: null, status: "complete" },
-    { id: "doc-4", severity: "low", title: "README.md is sparse", file: "README.md", line: null, detail: "Current README contains only project name. Should include setup, architecture overview, and usage.", remediation: "Expand README with installation steps, architecture diagram, and contributing guidelines.", status: "open" },
-    { id: "doc-5", severity: "low", title: "3 API endpoints missing JSDoc", file: "src/routes/", line: null, detail: "Endpoints POST /api/users, PUT /api/settings, DELETE /api/sessions lack documentation.", remediation: "Add JSDoc comments with parameter types, descriptions, and response formats.", status: "open" },
-  ],
-};
 
 // ═══════════════════════════════════════════════════════════
 // SMALL COMPONENTS
@@ -386,7 +260,14 @@ function FindingCard({ finding, onStatusChange }) {
       <div onClick={() => setExpanded(!expanded)} style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
         {expanded ? <ChevronDown size={14} color={C.textDim} /> : <ChevronRight size={14} color={C.textDim} />}
         <SevBadge severity={finding.severity} />
-        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.text }}>{finding.title}</span>
+        {finding.priorStatus && finding.priorStatus !== "new" && (
+          <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+            background: finding.priorStatus === "resolved" ? C.successBg : finding.priorStatus === "partial" ? C.warningBg : "transparent",
+            color: finding.priorStatus === "resolved" ? C.success : finding.priorStatus === "partial" ? C.warning : C.textDim }}>
+            {finding.priorStatus === "resolved" ? "FIXED" : finding.priorStatus === "partial" ? "PARTIAL" : "OPEN"}
+          </span>
+        )}
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.text, textDecoration: finding.priorStatus === "resolved" ? "line-through" : "none" }}>{finding.title}</span>
         <span style={{ fontSize: 11, color: C.textDim, fontFamily: "'JetBrains Mono', monospace" }}>{finding.file}{finding.line ? `:${finding.line}` : ""}</span>
         <StatusIcon status={finding.status} />
       </div>
@@ -446,20 +327,12 @@ export default function CodeUpload({ toolId }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [submitted, setSubmitted] = useState(null);
 
-  // Demo mode
-  const [isDemo, setIsDemo] = useState(false);
-
   // SSE
   const { events, done: sseDone, failed: sseFailed, connectionLost } = usePipelineStream(runId);
   const [pipelineError, setPipelineError] = useState(null);
 
   // Load tool and check for active pipeline runs (skip for demo mode)
   useEffect(() => {
-    if (toolId === "demo") {
-      setTool({ name: "um-course-advisor-v2.1", track: 3 });
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     getTool(toolId)
       .then(data => {
@@ -646,52 +519,6 @@ export default function CodeUpload({ toolId }) {
     }
   }
 
-  // Demo simulation
-  function startDemo() {
-    setIsDemo(true);
-    setTool({ name: "um-course-advisor-v2.1", track: 3 });
-    setPhase("running");
-    AGENTS.forEach((agent, idx) => {
-      setTimeout(() => {
-        setAgentStates(p => ({ ...p, [agent.id]: "running" }));
-        setExpandedAgent(agent.id);
-        const logLines = LOG_TEMPLATES[agent.id];
-        const dur = 4000 + Math.random() * 3000;
-        const interval = 60;
-        let elapsed = 0;
-        let logIdx = 0;
-        const timer = setInterval(() => {
-          elapsed += interval;
-          const pct = Math.min(elapsed / dur, 1);
-          setAgentProgress(p => ({ ...p, [agent.id]: pct }));
-          const targetLogIdx = Math.floor(pct * logLines.length);
-          while (logIdx < targetLogIdx && logIdx < logLines.length) {
-            const line = logLines[logIdx];
-            setAgentLogs(p => ({ ...p, [agent.id]: [...p[agent.id], line] }));
-            logIdx++;
-          }
-          if (pct >= 1) {
-            clearInterval(timer);
-            while (logIdx < logLines.length) {
-              const line = logLines[logIdx];
-              setAgentLogs(p => ({ ...p, [agent.id]: [...p[agent.id], line] }));
-              logIdx++;
-            }
-            setAgentStates(p => ({ ...p, [agent.id]: "complete" }));
-            setFindings(p => ({ ...p, [agent.id]: DEMO_FINDINGS[agent.id] }));
-          }
-        }, interval);
-      }, idx * 1200);
-    });
-  }
-
-  // Transition to review when all agents complete (demo mode)
-  useEffect(() => {
-    if (isDemo && phase === "running" && Object.values(agentStates).every(s => s === "complete")) {
-      setTimeout(() => setPhase("review"), 800);
-    }
-  }, [isDemo, agentStates, phase]);
-
   // Status change on findings
   const handleStatusChange = (findingId, status) => {
     setFindings(prev => {
@@ -821,14 +648,6 @@ export default function CodeUpload({ toolId }) {
                 {starting ? "Starting pipeline..." : <>Initiate Review Pipeline <ArrowRight size={16} /></>}
               </button>
             )}
-            <button onClick={startDemo}
-              style={{ padding: "10px 24px", borderRadius: 8, border: `1.5px solid ${C.border}`, cursor: "pointer",
-                background: "transparent", color: C.textMid, fontSize: 13, fontWeight: 600,
-                fontFamily: "'DM Sans', sans-serif", display: "inline-flex", alignItems: "center", gap: 6 }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.accent; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMid; }}>
-              <Terminal size={14} /> Simulate Demo
-            </button>
           </div>
         </div>
       )}
@@ -1068,7 +887,6 @@ export default function CodeUpload({ toolId }) {
           {!submitted && !["under_review", "approved", "active", "changes_requested"].includes(tool?.status) ? (
             <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
               <button onClick={async () => {
-                  if (isDemo) { navigate("/registry"); return; }
                   const newStatus = (tool?.track || 3) <= 2 ? "active" : "under_review";
                   try {
                     await updateToolStatus(toolId, newStatus);

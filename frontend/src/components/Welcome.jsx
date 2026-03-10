@@ -1,4 +1,4 @@
-import { Shield, PenLine, Upload, Cpu, LayoutGrid, ChevronRight, ArrowRight, BookOpen, Terminal } from "lucide-react";
+import { Shield, PenLine, Upload, Cpu, LayoutGrid, ChevronRight, ArrowRight, BookOpen } from "lucide-react";
 import { C, TRACK_COLORS, TRACK_LABELS } from "../constants.js";
 import { useAuth } from "../hooks/useAuth.jsx";
 import { navigate } from "../hooks/useHashRouter.js";
@@ -121,14 +121,6 @@ export default function Welcome() {
           onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.text; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMid; }}>
           <BookOpen size={14} /> Read the Framework
-        </button>
-        <button onClick={() => navigate("/upload/demo")}
-          style={{ padding: "14px 24px", borderRadius: 10, border: `1.5px solid ${C.border}`, cursor: "pointer",
-            background: "transparent", color: C.textMid, fontSize: 14, fontWeight: 600,
-            fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6, transition: "all .15s" }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.text; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMid; }}>
-          <Terminal size={14} /> Demo Pipeline
         </button>
       </div>
 
