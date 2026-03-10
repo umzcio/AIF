@@ -6,7 +6,7 @@ import { notify, notifyRole } from "../notifications.js";
 import { killRunProcesses } from "../agents/shared/cli.js";
 import { resolve } from "path";
 import { execFileSync } from "child_process";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync, readFileSync } from "fs";
 
 /**
  * Validate a URL for safe use in subprocess arguments.
@@ -184,6 +184,27 @@ async function processNext() {
 
     mkdirSync(OUTPUT_BASE, { recursive: true });
 
+    // Load previous run's findings for differential review
+    let previousFindings = null;
+    try {
+      const { rows: [prevRun] } = await pool.query(
+        `SELECT output_dir FROM pipeline_runs WHERE tool_id = $1 AND status = 'completed' AND id != $2 ORDER BY completed_at DESC LIMIT 1`,
+        [next.tool_id, runId]
+      );
+      if (prevRun?.output_dir) {
+        const prevCodePath = join(prevRun.output_dir, "agent1_code_analysis", "synthesis.json");
+        const prevA11yPath = join(prevRun.output_dir, "agent2_accessibility", "synthesis.json");
+        const codePrev = existsSync(prevCodePath) ? JSON.parse(readFileSync(prevCodePath, "utf-8")) : null;
+        const a11yPrev = existsSync(prevA11yPath) ? JSON.parse(readFileSync(prevA11yPath, "utf-8")) : null;
+        if (codePrev || a11yPrev) {
+          previousFindings = { codeAnalysis: codePrev?.findings || [], accessibility: a11yPrev?.findings || [] };
+          log.info("Loaded previous findings for differential review", { runId, prevRunDir: prevRun.output_dir, codeCount: previousFindings.codeAnalysis.length, a11yCount: previousFindings.accessibility.length });
+        }
+      }
+    } catch (err) {
+      log.warn("Failed to load previous findings (non-fatal)", { runId, error: err.message });
+    }
+
     const onProgressCb = (event) => {
       emitProgress(runId, event);
 
@@ -258,6 +279,7 @@ async function processNext() {
       onProgress: onProgressCb,
       runId,
       signal: controller.signal,
+      previousFindings,
     });
 
     // Track-based auto-status on pipeline completion:

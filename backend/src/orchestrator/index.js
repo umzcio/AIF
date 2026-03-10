@@ -45,13 +45,13 @@ const ALL_PASSES = ["pass1", "pass2", "pass3", "pass4", "pass5"];
  * @param {AbortSignal} [params.signal] - AbortSignal for cancellation
  * @returns {object} - Full pipeline results
  */
-export async function runPipeline({ codebasePath, track, toolName, outputBase, onProgress, runId, signal }) {
+export async function runPipeline({ codebasePath, track, toolName, outputBase, onProgress, runId, signal, previousFindings }) {
   const emit = onProgress || (() => {});
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const runDir = join(outputBase, `${toolName.replace(/\s+/g, "_")}_${timestamp}`);
   mkdirSync(runDir, { recursive: true });
 
-  const agentOpts = { runId, signal };
+  const agentOpts = { runId, signal, previousFindings };
 
   const pipelineLog = log.child({ component: "pipeline", runId, toolName, track });
   pipelineLog.info("Pipeline started", { codebasePath, outputDir: runDir });

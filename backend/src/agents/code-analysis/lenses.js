@@ -369,7 +369,7 @@ OUTPUT the merged report as JSON with this schema:
     "comprehension": { "median": 0, "range": [0, 0], "byModel": {} },
     "maintenance": { "median": 0, "range": [0, 0], "byModel": {} }
   },
-  "findings": [{ "severity": "", "category": "", "title": "", "detail": "", "evidence": "", "reportedBy": [], "convergenceCount": 0, "confidence": "confirmed|potential" }],
+  "findings": [{ "severity": "", "category": "", "title": "", "detail": "", "evidence": "", "reportedBy": [], "convergenceCount": 0, "confidence": "confirmed|potential", "priorStatus": "new|open|resolved|partial", "priorFindingTitle": "title from prior run if this matches a prior finding, omit if new" }],
   "disputes": [{
     "topic": "",
     "type": "factual|judgment",

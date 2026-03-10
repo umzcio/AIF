@@ -481,7 +481,7 @@ OUTPUT the merged report as JSON with this schema:
     "viewportMetaCorrect": true,
     "issues": []
   },
-  "findings": [{ "severity": "", "wcagCriterion": "", "category": "", "title": "", "detail": "", "evidence": "", "recommendation": "", "reportedBy": [], "convergenceCount": 0, "confidence": "confirmed|potential" }],
+  "findings": [{ "severity": "", "wcagCriterion": "", "category": "", "title": "", "detail": "", "evidence": "", "recommendation": "", "reportedBy": [], "convergenceCount": 0, "confidence": "confirmed|potential", "priorStatus": "new|open|resolved|partial", "priorFindingTitle": "title from prior run if this matches a prior finding, omit if new" }],
   "disputes": [{
     "topic": "",
     "type": "factual|judgment",
