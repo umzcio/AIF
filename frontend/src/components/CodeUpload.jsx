@@ -361,24 +361,8 @@ export default function CodeUpload({ toolId }) {
               }
             }
           }).catch(() => {});
-        } else if (completedRun) {
-          setRunId(completedRun.id);
-          // Fetch findings from the completed run
-          getReport(completedRun.id).then(reportData => {
-            const report = reportData.report || reportData;
-            if (report?.agents) {
-              const mapped = {};
-              for (const [key, agentData] of Object.entries(report.agents)) {
-                const id = REPORT_KEY_MAP[key] || key;
-                mapped[id] = extractFindings(id, agentData);
-              }
-              setFindings(mapped);
-            }
-            setAgentStates({ security: "complete", accessibility: "complete", hecvat: "complete", documentation: "complete" });
-            setAgentProgress({ security: 1, accessibility: 1, hecvat: 1, documentation: 1 });
-            setPhase("review");
-          }).catch(() => setPhase("review"));
         }
+        // No active run — always show upload phase so user can re-upload and re-scan
       })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
@@ -474,8 +458,11 @@ export default function CodeUpload({ toolId }) {
     if (phase === "running" && sseDone && !sseFailed) {
       setAgentStates({ security: "complete", accessibility: "complete", hecvat: "complete", documentation: "complete" });
       setAgentProgress({ security: 1, accessibility: 1, hecvat: 1, documentation: 1 });
-      getReport(runId)
-        .then(data => {
+      Promise.all([
+        getReport(runId),
+        getTool(toolId).then(d => setTool(d.tool)),
+      ])
+        .then(([data]) => {
           const report = data.report || data;
           if (report?.agents) {
             const mapped = {};
@@ -888,6 +875,7 @@ export default function CodeUpload({ toolId }) {
             <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
               <button onClick={async () => {
                   const newStatus = (tool?.track || 3) <= 2 ? "active" : "under_review";
+                  if (tool?.status === newStatus) { setSubmitted(newStatus); return; }
                   try {
                     await updateToolStatus(toolId, newStatus);
                     setSubmitted(newStatus);
