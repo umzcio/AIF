@@ -20,7 +20,7 @@ export default function AdminDashboard() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Admin Dashboard</h3>
+        <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Admin Dashboard</h1>
         <p style={{ margin: "4px 0 0", fontSize: 13, color: C.textMid }}>System overview and management</p>
       </div>
 

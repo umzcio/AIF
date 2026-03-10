@@ -182,12 +182,14 @@ function AgentFindings({ data }) {
           const sev = f.severity || f.level || "info";
           const cfg = SEVERITY_CONFIG[sev] || SEVERITY_CONFIG.info;
           return (
-            <div key={`${f.title || f.description}-${i}`} className="finding-card" style={{ borderColor: `${cfg.color}30` }}>
+            <div key={`${f.title || f.description}-${i}`} className="finding-card" style={{ borderColor: `${cfg.color}30`, opacity: f.priorStatus === "resolved" ? 0.55 : 1 }}>
               <div className="inline-meta" style={{ marginBottom: 8 }}>
                 <span className="severity-pill" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label || sev}</span>
+                {f.priorStatus && f.priorStatus !== "new" && <span className="soft-pill" style={{ fontSize: 10, padding: "2px 7px", background: f.priorStatus === "resolved" ? C.successBg : f.priorStatus === "partial" ? C.warningBg : "transparent", color: f.priorStatus === "resolved" ? C.success : f.priorStatus === "partial" ? C.warning : C.textMid, fontWeight: 700 }}>{f.priorStatus === "resolved" ? "Resolved" : f.priorStatus === "partial" ? "Partial Fix" : "Still Open"}</span>}
+                {!f.priorStatus || f.priorStatus === "new" ? null : null}
                 {f.modelAgreement != null && <span className="mono muted">{f.modelAgreement}/5</span>}
               </div>
-              <strong style={{ display: "block", fontSize: 14 }}>{f.title || f.description}</strong>
+              <strong style={{ display: "block", fontSize: 14, textDecoration: f.priorStatus === "resolved" ? "line-through" : "none" }}>{f.title || f.description}</strong>
               {f.detail && <p className="body-copy">{f.detail}</p>}
               {f.location && <span className="soft-pill mono" style={{ marginTop: 8, display: "inline-block" }}>{f.location}</span>}
             </div>

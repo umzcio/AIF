@@ -96,6 +96,7 @@ export default function ReviewPanel({ tool, onUpdate }) {
         {canDecide && (
           <div style={{ padding: "0 16px" }}>
             <textarea value={decisionNotes} onChange={e => setDecisionNotes(e.target.value)}
+              aria-label="Decision notes"
               placeholder="Decision notes (optional)..."
               style={{ width: "100%", minHeight: 60, padding: 10, borderRadius: 8,
                 border: `1px solid ${C.border}`, background: C.surface, color: C.text,
@@ -155,6 +156,7 @@ export default function ReviewPanel({ tool, onUpdate }) {
                   ))}
                 </div>
                 <textarea value={overrideReason} onChange={e => setOverrideReason(e.target.value)}
+                  aria-label="Reason for track override"
                   placeholder="Reason for override (required)..."
                   style={{ width: "100%", minHeight: 50, padding: 8, borderRadius: 6,
                     border: `1px solid ${C.border}`, background: C.bg, color: C.text,
@@ -199,6 +201,7 @@ export default function ReviewPanel({ tool, onUpdate }) {
           {(isReviewerOrAdmin || isOwner) && (
             <div style={{ display: "flex", gap: 8 }}>
               <textarea value={newComment} onChange={e => setNewComment(e.target.value)}
+                aria-label="Add a comment"
                 placeholder="Add a comment..."
                 style={{ flex: 1, minHeight: 40, padding: 8, borderRadius: 6,
                   border: `1px solid ${C.border}`, background: C.surface, color: C.text,

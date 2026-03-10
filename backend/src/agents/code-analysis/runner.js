@@ -61,7 +61,7 @@ async function runSnykAgentScan(codebasePath, outputDir) {
   const start = Date.now();
 
   // Build scan arguments
-  const args = ["snyk-agent-scan@latest", "--json"];
+  const args = ["snyk-agent-scan@0", "--json"]; // pin to major version 0.x
   for (const config of foundConfigs) args.push(config);
   if (skillFiles.length > 0 || skillDirs.length > 0) {
     args.push("--skills");
@@ -214,8 +214,30 @@ export async function runCodeAnalysis(codebasePath, passKeys, outputDir, onProgr
     partialCaveat = `\n\nIMPORTANT: Only ${passCount}/${passKeys.length} model passes completed successfully. Failed: ${failedModels}. Your synthesis is based on incomplete data. Add a note to the report metadata: "partial_analysis": true, "models_completed": ${passCount}, "models_total": ${passKeys.length}, "failed_models": [${failures.map(f => `"${f.split(" ")[0]}"`).join(", ")}].`;
   }
 
+  // Differential review: include previous run's findings if available
+  let priorFindingsSection = "";
+  const priorFindings = opts.previousFindings?.codeAnalysis;
+  if (priorFindings?.length) {
+    priorFindingsSection = `\n\n=====================================================================
+PRIOR RUN FINDINGS (DIFFERENTIAL REVIEW)
+=====================================================================
+
+The following ${priorFindings.length} findings were reported in the PREVIOUS pipeline run for this same codebase. For each prior finding, you MUST determine its current status by checking the code:
+
+- "resolved" — the issue has been fixed in the current codebase
+- "open" — the issue still exists
+- "partial" — partially addressed but not fully resolved
+
+Add a "priorStatus" field to each finding in your output. For findings that match a prior finding, also add "priorFindingTitle" with the original title.
+
+New findings not present in the prior run should have "priorStatus": "new".
+
+PRIOR FINDINGS:
+${JSON.stringify(priorFindings, null, 2)}`;
+  }
+
   const synthesisInputFile = join(outputDir, "_synthesis_input.txt");
-  const fullSynthesisPrompt = `${SYNTHESIS_PROMPT}\n\nHere are the ${passCount} independent code analysis reports${snykResult ? " plus Snyk agent-scan results" : ""}:${partialCaveat}\n\n${synthesisInput}${snykSection}`;
+  const fullSynthesisPrompt = `${SYNTHESIS_PROMPT}\n\nHere are the ${passCount} independent code analysis reports${snykResult ? " plus Snyk agent-scan results" : ""}:${partialCaveat}\n\n${synthesisInput}${snykSection}${priorFindingsSection}`;
   writeFileSync(synthesisInputFile, fullSynthesisPrompt);
 
   console.log("\nRunning synthesis with Claude Code CLI...");
