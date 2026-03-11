@@ -21,7 +21,7 @@ import log from "../logger.js";
 function summarizeFindings(synthesis) {
   if (!synthesis?.findings) return null;
   const findings = synthesis.findings;
-  const bySev = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  const bySev = { critical: 0, high: 0, warning: 0, medium: 0, low: 0, info: 0 };
   for (const f of findings) {
     const sev = (f.severity || "info").toLowerCase();
     if (bySev[sev] !== undefined) bySev[sev]++;

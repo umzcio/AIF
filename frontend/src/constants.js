@@ -35,7 +35,7 @@ export const C = {
   gold20: "var(--gold-20)",
 };
 
-export const TRACK_COLORS = { 1: "#14754A", 2: "#7A5A07", 3: "#A34414", 4: "#B22B27" };
+export const TRACK_COLORS = { 1: "#14754A", 2: "#7A5A07", 3: "#C05E1A", 4: "#B22B27" };
 export const TRACK_LABELS = { 1: "Register & Go", 2: "Self-Certify", 3: "IT Review", 4: "Formal Project" };
 
 export const WEIGHT_MATRIX = {
@@ -57,6 +57,7 @@ export const AGENTS = [
 export const SEVERITY_CONFIG = {
   critical: { color: "#B22B27", bg: "rgba(178,43,39,0.08)", label: "CRITICAL" },
   high:     { color: "#A34414", bg: "rgba(163,68,20,0.08)", label: "HIGH" },
+  warning:  { color: "#7A5A07", bg: "rgba(122,90,7,0.08)", label: "WARNING" },
   medium:   { color: "#7A5A07", bg: "rgba(122,90,7,0.08)", label: "MEDIUM" },
   low:      { color: "#1A6B4B", bg: "rgba(26,107,75,0.08)", label: "LOW" },
   info:     { color: "#546070", bg: "rgba(84,96,112,0.06)", label: "INFO" },
