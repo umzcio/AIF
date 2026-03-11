@@ -56,7 +56,7 @@ export default function App() {
   }
 
   // Routes that require authentication
-  const AUTH_REQUIRED = ["intake", "intake-edit", "upload", "pipeline", "admin", "detail", "report"];
+  const AUTH_REQUIRED = ["intake", "intake-edit", "upload", "review", "pipeline", "admin", "detail", "report"];
   const needsAuth = AUTH_REQUIRED.includes(route);
 
   if (needsAuth && !user) {
@@ -75,7 +75,9 @@ export default function App() {
       case "intake-edit":
         return <IntakeForm draftId={params.draftId} />;
       case "upload":
-        return <CodeUpload key={params.toolId} toolId={params.toolId} />;
+        return <CodeUpload key={`upload-${params.toolId}`} toolId={params.toolId} />;
+      case "review":
+        return <CodeUpload key={`review-${params.toolId}-${params.runId || ""}`} toolId={params.toolId} runId={params.runId} initialPhase="review" />;
       case "detail":
         return <ToolDetail key={params.toolId} toolId={params.toolId} />;
       case "pipeline":

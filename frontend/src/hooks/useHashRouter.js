@@ -7,6 +7,8 @@ const routes = [
   { pattern: /^#\/intake\/([^/]+)$/, name: "intake-edit", params: ["draftId"] },
   { pattern: /^#\/intake$/, name: "intake", params: [] },
   { pattern: /^#\/welcome$/, name: "welcome", params: [] },
+  { pattern: /^#\/review\/([^/]+)\/([^/]+)$/, name: "review", params: ["toolId", "runId"] },
+  { pattern: /^#\/review\/([^/]+)$/, name: "review", params: ["toolId"] },
   { pattern: /^#\/upload\/([^/]+)$/, name: "upload", params: ["toolId"] },
   { pattern: /^#\/agents$/, name: "agents", params: [] },
   { pattern: /^#\/framework$/, name: "framework", params: [] },

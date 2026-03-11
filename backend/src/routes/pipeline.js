@@ -117,7 +117,17 @@ router.get("/:runId", async (req, res) => {
     "SELECT * FROM agent_results WHERE run_id = $1 ORDER BY agent_index", [req.params.runId]
   );
 
-  res.json({ run, agents });
+  // Include queue position if queued
+  let queuePosition = null;
+  if (run.status === "queued") {
+    const { rows: [pos] } = await pool.query(
+      "SELECT COUNT(*) FROM pipeline_runs WHERE status = 'queued' AND queued_at < $1",
+      [run.queued_at]
+    );
+    queuePosition = parseInt(pos.count) + 1;
+  }
+
+  res.json({ run, agents, queuePosition });
 });
 
 router.get("/:runId/stream", async (req, res) => {
@@ -157,7 +167,18 @@ router.get("/:runId/stream", async (req, res) => {
     "SELECT * FROM pipeline_runs WHERE id = $1", [req.params.runId]
   );
   const currentRun = freshRun || run;
-  res.write(`data: ${JSON.stringify({ type: "state", run: currentRun, agents })}\n\n`);
+
+  // Include queue position if queued
+  let queuePosition = null;
+  if (currentRun.status === "queued") {
+    const { rows: [pos] } = await pool.query(
+      "SELECT COUNT(*) FROM pipeline_runs WHERE status = 'queued' AND queued_at < $1",
+      [currentRun.queued_at]
+    );
+    queuePosition = parseInt(pos.count) + 1;
+  }
+
+  res.write(`data: ${JSON.stringify({ type: "state", run: currentRun, agents, queuePosition })}\n\n`);
 
   // Flush buffered events, then switch to live mode
   flushing = true;

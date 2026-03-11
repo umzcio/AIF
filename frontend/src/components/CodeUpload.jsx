@@ -5,7 +5,7 @@ import { navigate } from "../hooks/useHashRouter.js";
 import { getTool, startPipelineRun, getReport, getPipelineRun, updateToolStatus, uploadCodebase, getFindingsCsvUrl, getFindingsJsonUrl } from "../api.js";
 import { usePipelineStream } from "../hooks/useSSE.js";
 import { useToast } from "./Toast.jsx";
-import { TrackBadge, Skeleton, ErrorBanner } from "./primitives.jsx";
+import { TrackBadge, Skeleton, ErrorBanner, relativeTime } from "./primitives.jsx";
 
 // ═══════════════════════════════════════════════════════════
 // AGENT DEFINITIONS
@@ -13,14 +13,14 @@ import { TrackBadge, Skeleton, ErrorBanner } from "./primitives.jsx";
 
 const SEV = {
   critical: { color: "#C9302C", bg: "rgba(201,48,44,0.07)", label: "CRITICAL", order: 0 },
-  high:     { color: "#D35C1A", bg: "rgba(211,92,26,0.07)", label: "HIGH", order: 1 },
-  medium:   { color: "#A07816", bg: "rgba(160,120,22,0.07)", label: "MEDIUM", order: 2 },
+  high:     { color: "#A34414", bg: "rgba(163,68,20,0.07)", label: "HIGH", order: 1 },
+  medium:   { color: "#7A5A07", bg: "rgba(122,90,7,0.07)", label: "MEDIUM", order: 2 },
   low:      { color: "#1A6B4B", bg: "rgba(26,107,75,0.07)", label: "LOW", order: 3 },
   info:     { color: "#5F6B7A", bg: "rgba(95,107,122,0.05)", label: "INFO", order: 4 },
 };
 
 const AGENTS = [
-  { id: "security", name: "Code / Security", Icon: Shield, color: "#D35C1A",
+  { id: "security", name: "Code / Security", Icon: Shield, color: "#A34414",
     desc: "Static analysis, dependency audit, secrets scan, OWASP checks",
     phases: ["Unpacking archive", "Scanning dependencies", "Static analysis", "Secrets detection", "OWASP rule check", "Generating report"] },
   { id: "accessibility", name: "Accessibility", Icon: Eye, color: "#7C3AED",
@@ -51,6 +51,7 @@ function extractFindings(agentId, data) {
     }
     return {
       id: `${prefix}-${i}`,
+      agent: agentId,
       severity: (f.severity || f.level || "info").toLowerCase().replace("warning", "high"),
       title: f.title || f.finding || f.description || "Finding",
       file, line,
@@ -85,13 +86,8 @@ function extractFindings(agentId, data) {
     return normalize(results, "hec");
   }
   if (agentId === "documentation") {
-    // Agent 4: documentation.json → { userGuide, adminGuide, complianceSummary, metadata }
-    const results = [];
-    if (data.userGuide) results.push({ severity: "info", title: "User guide generated", detail: `${data.metadata?.wordCount?.userGuide || "~1,000"} words`, file: "docs/USER_GUIDE.docx" });
-    if (data.adminGuide) results.push({ severity: "info", title: "Admin guide generated", detail: `${data.metadata?.wordCount?.adminGuide || "~1,500"} words`, file: "docs/ADMIN_GUIDE.docx" });
-    if (data.complianceSummary) results.push({ severity: "info", title: "Compliance summary generated", detail: `${data.metadata?.wordCount?.complianceSummary || "~1,000"} words`, file: "docs/COMPLIANCE_SUMMARY.docx" });
-    if (data.metadata?.todoCount > 0) results.push({ severity: "low", title: `${data.metadata.todoCount} TODO items found in docs`, detail: "Generated documentation contains placeholder items that need human review." });
-    return normalize(results, "doc");
+    // Agent 4 generates documents, not findings — return empty
+    return [];
   }
   // Fallback
   return normalize(data.findings || data.issues || [], agentId);
@@ -102,8 +98,16 @@ const FINDING_CATEGORIES = [
   { id: "code", name: "Code Quality", Icon: FileCode, color: "#8B5CF6" },
   { id: "security", name: "Security", Icon: Shield, color: "#D35C1A" },
   { id: "accessibility", name: "Accessibility", Icon: Eye, color: "#7C3AED" },
-  { id: "docs", name: "Documentation & Compliance", Icon: ClipboardCheck, color: "#16864E" },
+  { id: "hecvat", name: "HECVAT Compliance", Icon: ClipboardCheck, color: "#06B6D4" },
+  { id: "docs", name: "Documentation", Icon: FileText, color: "#16864E" },
 ];
+
+const AGENT_SOURCE_LABEL = {
+  security: "Code / Security",
+  accessibility: "Accessibility",
+  hecvat: "HECVAT",
+  documentation: "Documentation",
+};
 
 // Keywords to classify Agent 1 findings as security vs code
 const SECURITY_KEYWORDS = [
@@ -119,7 +123,7 @@ function isSecurityFinding(f) {
 
 // Remap agent findings into display categories
 function remapFindings(agentFindings) {
-  const mapped = { code: [], security: [], accessibility: [], docs: [] };
+  const mapped = { code: [], security: [], accessibility: [], hecvat: [], docs: [] };
   for (const [agentId, findings] of Object.entries(agentFindings)) {
     for (const f of findings) {
       if (agentId === "security") {
@@ -128,8 +132,9 @@ function remapFindings(agentFindings) {
         else mapped.code.push(f);
       } else if (agentId === "accessibility") {
         mapped.accessibility.push(f);
+      } else if (agentId === "hecvat") {
+        mapped.hecvat.push(f);
       } else {
-        // hecvat + documentation → docs
         mapped.docs.push(f);
       }
     }
@@ -172,9 +177,14 @@ function FileTreeNode({ node, depth = 0, onSelect, selectedFile, path = "" }) {
   const hasFindings = !isDir && node.findings > 0;
   const fullPath = path ? `${path}/${node.name}` : node.name;
   const isSelected = !isDir && selectedFile === fullPath;
+  const handleClick = () => isDir ? setOpen(!open) : onSelect?.(fullPath);
+  const handleKeyDown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleClick(); } };
   return (
     <div>
-      <div onClick={() => isDir ? setOpen(!open) : onSelect?.(fullPath)}
+      <div role="button" tabIndex={0} onClick={handleClick} onKeyDown={handleKeyDown}
+        aria-expanded={isDir ? open : undefined}
+        aria-selected={isSelected || undefined}
+        aria-label={`${isDir ? (open ? "Collapse" : "Expand") + " folder" : "File"} ${node.name}${hasFindings ? `, ${node.findings} findings` : ""}`}
         style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", paddingLeft: 8 + depth * 16,
           borderRadius: 4, cursor: "pointer", fontSize: 12, color: hasFindings ? C.text : C.textMid,
           fontFamily: "'JetBrains Mono', monospace", fontWeight: hasFindings ? 600 : 400,
@@ -257,9 +267,18 @@ function FindingCard({ finding, onStatusChange }) {
   return (
     <div style={{ marginBottom: 6, borderRadius: 8, border: `1px solid ${C.border}`, borderLeft: `3px solid ${s.color}`,
       background: expanded ? C.surface : "transparent", transition: "all .15s" }}>
-      <div onClick={() => setExpanded(!expanded)} style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+      <div role="button" tabIndex={0} onClick={() => setExpanded(!expanded)}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpanded(!expanded); } }}
+        aria-expanded={expanded} aria-label={`${finding.severity} finding: ${finding.title}`}
+        style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
         {expanded ? <ChevronDown size={14} color={C.textDim} /> : <ChevronRight size={14} color={C.textDim} />}
         <SevBadge severity={finding.severity} />
+        {finding.agent && AGENT_SOURCE_LABEL[finding.agent] && (
+          <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+            background: C.surfaceAlt, color: C.textDim, letterSpacing: 0.3 }}>
+            {AGENT_SOURCE_LABEL[finding.agent]}
+          </span>
+        )}
         {finding.priorStatus && finding.priorStatus !== "new" && (
           <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
             background: finding.priorStatus === "resolved" ? C.successBg : finding.priorStatus === "partial" ? C.warningBg : "transparent",
@@ -302,13 +321,14 @@ function FindingCard({ finding, onStatusChange }) {
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════
 
-export default function CodeUpload({ toolId }) {
+export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
   const { toast } = useToast();
   const [tool, setTool] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [file, setFile] = useState(null);
-  const [runId, setRunId] = useState(null);
+  const [runId, setRunId] = useState(runIdProp || null);
+  const [completedRuns, setCompletedRuns] = useState([]);
   const [starting, setStarting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null); // { loaded, total } or null
 
@@ -318,6 +338,9 @@ export default function CodeUpload({ toolId }) {
   const [agentProgress, setAgentProgress] = useState({ security: 0, accessibility: 0, hecvat: 0, documentation: 0 });
   const [agentLogs, setAgentLogs] = useState({ security: [], accessibility: [], hecvat: [], documentation: [] });
   const [expandedAgent, setExpandedAgent] = useState("security");
+
+  // Queue position
+  const [queuePosition, setQueuePosition] = useState(null);
 
   // Review state
   const [findings, setFindings] = useState({});
@@ -339,9 +362,14 @@ export default function CodeUpload({ toolId }) {
         setTool(data.tool);
         // Check for active/queued pipeline runs to resume
         const runs = data.runs || [];
+        setCompletedRuns(runs.filter(r => r.status === "completed"));
         const activeRun = runs.find(r => r.status === "running" || r.status === "queued");
-        const completedRun = runs.find(r => r.status === "completed");
-        if (activeRun) {
+        // If a specific runId was requested, use that; otherwise fall back to latest completed
+        const targetRunId = runIdProp || null;
+        const completedRun = targetRunId
+          ? runs.find(r => r.id === targetRunId && r.status === "completed")
+          : runs.find(r => r.status === "completed");
+        if (activeRun && !targetRunId) {
           setRunId(activeRun.id);
           setPhase("running");
           // Restore agent states from DB
@@ -360,9 +388,33 @@ export default function CodeUpload({ toolId }) {
                 }
               }
             }
+            // Fallback: if current_agent_index is set but DB row not yet updated to running
+            const curIdx = runData.run?.current_agent_index;
+            if (curIdx != null) {
+              const curAgentId = AGENT_INDEX_MAP[curIdx];
+              if (curAgentId) {
+                setAgentStates(p => p[curAgentId] === "idle" ? { ...p, [curAgentId]: "running" } : p);
+              }
+            }
+          }).catch(() => {});
+        } else if (initialPhase === "review" && completedRun) {
+          setRunId(completedRun.id);
+          getReport(completedRun.id).then(reportData => {
+            const report = reportData.report || reportData;
+            if (report?.agents) {
+              const mapped = {};
+              for (const [key, agentData] of Object.entries(report.agents)) {
+                const id = REPORT_KEY_MAP[key] || key;
+                mapped[id] = extractFindings(id, agentData);
+              }
+              setFindings(mapped);
+            }
+            setAgentStates({ security: "complete", accessibility: "complete", hecvat: "complete", documentation: "complete" });
+            setAgentProgress({ security: 1, accessibility: 1, hecvat: 1, documentation: 1 });
+            setPhase("review");
           }).catch(() => {});
         }
-        // No active run — always show upload phase so user can re-upload and re-scan
+        // No active run + no initialPhase="review" — show upload phase so user can re-upload and re-scan
       })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
@@ -374,6 +426,9 @@ export default function CodeUpload({ toolId }) {
     for (let i = processedRef.current; i < events.length; i++) {
       const event = events[i];
       // Catch-up state from SSE reconnect — restore agent states from DB
+      if (event.type === "state") {
+        setQueuePosition(event.queuePosition || null);
+      }
       if (event.type === "state" && event.agents) {
         for (const agent of event.agents) {
           const agentId = AGENT_ID_MAP[agent.agent_name] || agent.agent_name;
@@ -387,6 +442,18 @@ export default function CodeUpload({ toolId }) {
             setExpandedAgent(agentId);
           }
         }
+        // If the run has a current_agent_index but the DB update hasn't landed yet,
+        // use it to mark the current agent as running (avoids SSE reconnect race)
+        const curIdx = event.run?.current_agent_index;
+        if (curIdx != null) {
+          const curAgentId = AGENT_INDEX_MAP[curIdx];
+          if (curAgentId) {
+            setAgentStates(p => p[curAgentId] === "idle" ? { ...p, [curAgentId]: "running" } : p);
+          }
+        }
+      }
+      if (event.type === "status" && event.status === "running") {
+        setQueuePosition(null);
       }
       if (event.type === "agent_start") {
         const agentId = AGENT_INDEX_MAP[event.index];
@@ -557,10 +624,32 @@ export default function CodeUpload({ toolId }) {
             {tool?.track && <TrackBadge track={tool.track} />}
           </div>
           {phase === "review" && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.textMid }}>
-              <span style={{ fontWeight: 700, color: TRACK_COLORS[4] }}>{stats.open}</span> open
-              <span style={{ color: C.border }}>·</span>
-              <span style={{ fontWeight: 700, color: TRACK_COLORS[1] }}>{stats.resolved}</span> resolved
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {completedRuns.length > 1 && (
+                <select
+                  value={runId || ""}
+                  onChange={e => navigate(`/review/${toolId}/${e.target.value}`)}
+                  aria-label="Select pipeline run"
+                  style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid ${C.border}`, background: C.surface,
+                    fontSize: 12, color: C.text, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
+                  {completedRuns.map((r, i) => (
+                    <option key={r.id} value={r.id}>
+                      {i === 0 ? "Latest" : `Run ${completedRuns.length - i}`} — {relativeTime(r.completed_at || r.queued_at)} · Track {r.track}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.textMid }}>
+                <span style={{ fontWeight: 700, color: TRACK_COLORS[4] }}>{stats.open}</span> open
+                <span style={{ color: C.border }}>·</span>
+                <span style={{ fontWeight: 700, color: TRACK_COLORS[1] }}>{stats.resolved}</span> resolved
+              </div>
+              <button type="button" onClick={() => navigate(`/upload/${toolId}`)}
+                style={{ padding: "6px 14px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent",
+                  cursor: "pointer", fontSize: 12, fontWeight: 600, color: C.textMid,
+                  fontFamily: "'DM Sans', sans-serif", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <Upload size={12} /> Re-scan
+              </button>
             </div>
           )}
         </div>
@@ -574,11 +663,12 @@ export default function CodeUpload({ toolId }) {
             <p style={{ fontSize: 14, color: C.textMid, margin: 0 }}>Submit your codebase as a .zip archive. Four AI agents will review it in parallel.</p>
           </div>
 
-          <div onDragOver={e => e.preventDefault()} onDrop={handleFile}
-            style={{ padding: 56, borderRadius: 12, border: `2px dashed ${file ? C.accent : C.border}`,
-              background: file ? C.accentSoft : C.surface, textAlign: "center", cursor: "pointer", transition: "all .2s", marginBottom: 24 }}
-            onClick={() => document.getElementById("zipInput")?.click()}>
-            <input id="zipInput" type="file" accept=".zip" style={{ display: "none" }} onChange={handleFile} />
+          <label htmlFor="zipInput" onDragOver={e => e.preventDefault()} onDrop={handleFile}
+            style={{ display: "block", padding: 56, borderRadius: 12, border: `2px dashed ${file ? C.accent : C.border}`,
+              background: file ? C.accentSoft : C.surface, textAlign: "center", cursor: "pointer", transition: "all .2s", marginBottom: 24 }}>
+            <input id="zipInput" type="file" accept=".zip" aria-label="Upload ZIP archive"
+              style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", border: 0 }}
+              onChange={handleFile} />
             <div style={{ marginBottom: 14, display: "flex", justifyContent: "center" }}>
               {file ? <Package size={40} color={C.accent} /> : <Upload size={40} color={C.textDim} />}
             </div>
@@ -593,7 +683,7 @@ export default function CodeUpload({ toolId }) {
                 <div style={{ fontSize: 13, color: C.textMid, marginTop: 4 }}>or click to browse</div>
               </>
             )}
-          </div>
+          </label>
 
           {/* Agent preview */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 28 }}>
@@ -612,7 +702,7 @@ export default function CodeUpload({ toolId }) {
 
           <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
             {file && uploadProgress && (
-              <div style={{ width: "100%", maxWidth: 400 }}>
+              <div role="status" aria-live="polite" style={{ width: "100%", maxWidth: 400 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 13, color: C.textMid }}>
                   <span>Uploading...</span>
                   <span>{Math.round(uploadProgress.loaded / 1024)} / {Math.round(uploadProgress.total / 1024)} KB</span>
@@ -649,6 +739,20 @@ export default function CodeUpload({ toolId }) {
               {Object.values(agentStates).filter(s => s === "complete").length} / {AGENTS.length} agents complete
             </span>
           </div>
+
+          {queuePosition != null && (
+            <div className="info-banner" style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+              <Clock size={18} color={C.accent} />
+              <div>
+                <strong>Your job is #{queuePosition} in the queue.</strong>
+                <div style={{ fontSize: 12, color: C.textMid, marginTop: 2 }}>
+                  {queuePosition === 1
+                    ? "You're up next — it will start as soon as the current run finishes."
+                    : `There ${queuePosition - 1 === 1 ? "is 1 job" : `are ${queuePosition - 1} jobs`} ahead of yours. You can leave this page and come back anytime.`}
+                </div>
+              </div>
+            </div>
+          )}
 
           {pipelineError && (
             <div style={{ padding: "14px 16px", borderRadius: 8, background: "rgba(201,48,44,0.07)", border: `1px solid rgba(201,48,44,0.2)`, marginBottom: 16 }}>

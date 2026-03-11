@@ -19,6 +19,52 @@ const AGENT_TABS = [
   { key: "documentation", label: "Documentation" },
 ];
 
+const PASS_MODEL_NAMES = {
+  pass1: "GPT-5.4 (Codex)",
+  pass2: "Gemini 2.5 Pro",
+  pass3: "Grok 3",
+  pass4: "Kimi K2",
+  pass5: "Qwen3 Coder",
+};
+
+function formatPassNames(passes) {
+  if (!Array.isArray(passes) || !passes.length) return null;
+  return passes.map(p => PASS_MODEL_NAMES[p] || p).join(", ");
+}
+
+/** Split a wall-of-text summary into readable paragraphs by sentence boundaries. */
+function formatSummary(text) {
+  if (!text) return null;
+  // If it already has paragraph breaks, respect them
+  if (text.includes("\n\n")) {
+    return text.split(/\n\n+/).filter(Boolean).map((p, i) => (
+      <p key={i} style={{ fontSize: 13, color: C.textMid, lineHeight: 1.7, margin: "0 0 12px" }}>{p.trim()}</p>
+    ));
+  }
+  // Otherwise split on numbered items like (1), (2), (3) or sentence-ending periods before capitals
+  const parts = text.split(/(?<=\.)\s+(?=\(\d\)|[A-Z]{2,}|\d+ (?:dispute|escalation))/).filter(Boolean);
+  if (parts.length <= 1) {
+    // Try splitting on numbered markers
+    const numbered = text.split(/(?=\(\d+\)\s)/).filter(Boolean);
+    if (numbered.length > 1) {
+      return (
+        <>
+          <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.7, margin: "0 0 12px" }}>{numbered[0].trim()}</p>
+          <ol style={{ fontSize: 13, color: C.textMid, lineHeight: 1.7, margin: "0 0 12px", paddingLeft: 20 }}>
+            {numbered.slice(1).map((item, i) => (
+              <li key={i} style={{ marginBottom: 8 }}>{item.replace(/^\(\d+\)\s*/, "").trim()}</li>
+            ))}
+          </ol>
+        </>
+      );
+    }
+    return <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.7, margin: 0 }}>{text}</p>;
+  }
+  return parts.map((p, i) => (
+    <p key={i} style={{ fontSize: 13, color: C.textMid, lineHeight: 1.7, margin: "0 0 12px" }}>{p.trim()}</p>
+  ));
+}
+
 const SCORE_KEYS = [
   "score_security", "score_accessibility", "score_data_sensitivity", "score_blast_radius",
   "score_autonomy", "score_comprehension", "score_maintenance",
@@ -173,25 +219,94 @@ export default function Report({ toolId, runId }) {
 function AgentFindings({ data }) {
   if (!data) return <div className="muted">No data available.</div>;
   const findings = data.findings || data.issues || [];
+
+  // Documentation agent has a different structure: { userGuide, adminGuide, complianceSummary, metadata }
+  if (!findings.length && !data.summary && (data.userGuide || data.adminGuide || data.complianceSummary)) {
+    const docs = [
+      data.userGuide && "User Guide",
+      data.adminGuide && "Admin Guide",
+      data.complianceSummary && "Compliance Summary",
+    ].filter(Boolean);
+    return (
+      <div className="section-stack">
+        <div className="body-copy" style={{ marginTop: 0 }}>
+          Generated {docs.length} document{docs.length !== 1 ? "s" : ""}: {docs.join(", ")}.
+          {data.metadata?.todoCount > 0 && ` ${data.metadata.todoCount} TODO items need human review.`}
+          {data.metadata?.filesRead > 0 && ` ${data.metadata.filesRead} source files analyzed.`}
+        </div>
+        <div className="muted" style={{ fontSize: 13 }}>Download generated documents from the "Generated outputs" section below.</div>
+      </div>
+    );
+  }
+
   if (!findings.length && !data.summary) return <div className="muted">No findings recorded.</div>;
   return (
     <div className="section-stack">
-      {data.summary && <div className="body-copy" style={{ marginTop: 0 }}>{data.summary}</div>}
-      <div className="findings-grid">
+      {data.summary && <div style={{ marginBottom: 16 }}>{formatSummary(data.summary)}</div>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {findings.map((f, i) => {
           const sev = f.severity || f.level || "info";
           const cfg = SEVERITY_CONFIG[sev] || SEVERITY_CONFIG.info;
+          const evidence = f.evidence || f.location || "";
+          const category = f.category || f.wcagCriterion || "";
+          const convergence = f.convergenceCount ?? f.modelAgreement;
+          const reportedBy = Array.isArray(f.reportedBy) ? f.reportedBy : [];
           return (
             <div key={`${f.title || f.description}-${i}`} className="finding-card" style={{ borderColor: `${cfg.color}30`, opacity: f.priorStatus === "resolved" ? 0.55 : 1 }}>
-              <div className="inline-meta" style={{ marginBottom: 8 }}>
+              {/* Header row: severity + category + convergence + prior status */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
                 <span className="severity-pill" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label || sev}</span>
-                {f.priorStatus && f.priorStatus !== "new" && <span className="soft-pill" style={{ fontSize: 10, padding: "2px 7px", background: f.priorStatus === "resolved" ? C.successBg : f.priorStatus === "partial" ? C.warningBg : "transparent", color: f.priorStatus === "resolved" ? C.success : f.priorStatus === "partial" ? C.warning : C.textMid, fontWeight: 700 }}>{f.priorStatus === "resolved" ? "Resolved" : f.priorStatus === "partial" ? "Partial Fix" : "Still Open"}</span>}
-                {!f.priorStatus || f.priorStatus === "new" ? null : null}
-                {f.modelAgreement != null && <span className="mono muted">{f.modelAgreement}/5</span>}
+                {category && (
+                  <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: C.surfaceAlt, color: C.textDim,
+                    fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", letterSpacing: 0.3 }}>
+                    {f.wcagCriterion ? `WCAG ${f.wcagCriterion}` : category}
+                  </span>
+                )}
+                {convergence != null && (
+                  <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: C.surfaceAlt, color: C.textDim,
+                    fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>
+                    {convergence}/5 models
+                  </span>
+                )}
+                {f.priorStatus && f.priorStatus !== "new" && (
+                  <span className="soft-pill" style={{ fontSize: 10, padding: "2px 7px",
+                    background: f.priorStatus === "resolved" ? C.successBg : f.priorStatus === "partial" ? C.warningBg : "transparent",
+                    color: f.priorStatus === "resolved" ? C.success : f.priorStatus === "partial" ? C.warning : C.textMid, fontWeight: 700 }}>
+                    {f.priorStatus === "resolved" ? "Resolved" : f.priorStatus === "partial" ? "Partial Fix" : "Still Open"}
+                  </span>
+                )}
               </div>
-              <strong style={{ display: "block", fontSize: 14, textDecoration: f.priorStatus === "resolved" ? "line-through" : "none" }}>{f.title || f.description}</strong>
-              {f.detail && <p className="body-copy">{f.detail}</p>}
-              {f.location && <span className="soft-pill mono" style={{ marginTop: 8, display: "inline-block" }}>{f.location}</span>}
+              {/* Title */}
+              <strong style={{ display: "block", fontSize: 14, lineHeight: 1.4, textDecoration: f.priorStatus === "resolved" ? "line-through" : "none" }}>
+                {f.title || f.description}
+              </strong>
+              {/* Detail */}
+              {f.detail && (
+                <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, margin: "8px 0 0", whiteSpace: "pre-line" }}>{f.detail}</p>
+              )}
+              {/* Evidence / file locations */}
+              {evidence && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4 }}>Evidence</div>
+                  <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: C.text, lineHeight: 1.6,
+                    padding: "6px 10px", borderRadius: 6, background: C.surfaceAlt, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                    {evidence}
+                  </div>
+                </div>
+              )}
+              {/* Remediation */}
+              {f.remediation && (
+                <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 6, background: "rgba(26,107,75,0.06)", border: `1px solid rgba(26,107,75,0.15)` }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.success, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4 }}>Remediation</div>
+                  <p style={{ fontSize: 12, color: C.text, lineHeight: 1.55, margin: 0, whiteSpace: "pre-line" }}>{f.remediation}</p>
+                </div>
+              )}
+              {/* Reported by models */}
+              {reportedBy.length > 0 && (
+                <div style={{ marginTop: 8, fontSize: 11, color: C.textDim }}>
+                  Reported by: {formatPassNames(reportedBy)}
+                </div>
+              )}
             </div>
           );
         })}

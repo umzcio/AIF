@@ -15,6 +15,37 @@ import log from "../../logger.js";
 const OPENCODE_CONFIG = process.env.OPENCODE_CONFIG_PATH || "/home/zach/opencode.json";
 
 /**
+ * Build a filtered env object for a CLI tool.
+ * Each tool only gets the API keys it needs, plus essential system vars.
+ * Prevents prompt-injected agents from exfiltrating unrelated secrets.
+ */
+function filteredEnv(tool) {
+  const base = { HOME: process.env.HOME, PATH: process.env.PATH, NODE_ENV: process.env.NODE_ENV };
+  switch (tool) {
+    case "codex":
+      return { ...base, OPENAI_API_KEY: process.env.OPENAI_API_KEY };
+    case "gemini":
+      return { ...base,
+        GEMINI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY,
+        GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+      };
+    case "claude": {
+      const env = { ...base, ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY };
+      // Do NOT pass CLAUDECODE — allows nesting
+      return env;
+    }
+    case "qwen":
+      return { ...base, OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY };
+    default:
+      // opencode:grok, opencode:kimi
+      if (tool.startsWith("opencode:")) {
+        return { ...base, OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY };
+      }
+      return base;
+  }
+}
+
+/**
  * Per-model timeout configuration (milliseconds).
  * Codex is consistently slowest (7-10 min), Grok fastest (~30-40s).
  * Claude synthesis can be slow with dispute resolution.
@@ -114,39 +145,39 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
         "exec", prompt,
         "-m", process.env.CODEX_MODEL || "gpt-5.4-2026-03-05",
         "-C", codebasePath,
+        "--full-auto",
         "--sandbox", "read-only",
-        "--dangerously-bypass-approvals-and-sandbox",
         "--skip-git-repo-check",
         "-o", outputFile,
         "--ephemeral",
       ];
       proc = spawn("codex", args, {
         timeout,
-        env: { ...process.env },
+        cwd: codebasePath,
+        env: filteredEnv("codex"),
         stdio: ["ignore", "pipe", "pipe"],
       });
     } else if (tool === "gemini") {
       args = [
         "-p", prompt,
+        "-m", process.env.GEMINI_MODEL || "gemini-2.5-pro",
         "-y",
       ];
       proc = spawn("gemini", args, {
         timeout,
         cwd: codebasePath,
-        env: {
-          ...process.env,
-          GEMINI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY,
-        },
+        env: filteredEnv("gemini"),
         stdio: ["ignore", "pipe", "pipe"],
       });
     } else if (tool === "claude") {
-      const claudeEnv = { ...process.env };
-      delete claudeEnv.CLAUDECODE; // Allow nesting
+      const claudeEnv = filteredEnv("claude");
+      const claudeModel = process.env.CLAUDE_MODEL || "claude-opus-4-6";
       // For prompts under 120KB, pass directly via -p (spawn bypasses shell, safe for special chars).
       // For larger prompts, write to file and tell Claude to read it — avoids MAX_ARG_STRLEN (128KB).
       if (prompt.length <= 120000) {
         args = [
           "-p", prompt,
+          "-m", claudeModel,
           "--output-format", "json",
           "--allowedTools", "Read,Glob,Grep,Bash(cat:*,ls:*,head:*,tail:*,wc:*,find:*,grep:*)",
         ];
@@ -162,6 +193,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
         const metaPrompt = `Read the file at ${promptFile} — it contains your full instructions and input data. Follow every instruction in that file exactly. Output ONLY the JSON as specified.`;
         args = [
           "-p", metaPrompt,
+          "-m", claudeModel,
           "--output-format", "json",
           "--allowedTools", "Read,Glob,Grep,Bash(cat:*,ls:*,head:*,tail:*,wc:*,find:*,grep:*)",
         ];
@@ -175,15 +207,13 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
     } else if (tool === "qwen") {
       args = [
         "-p", prompt,
-        "--approval-mode", "yolo",
+        "-m", process.env.QWEN_MODEL || "openrouter/qwen/qwen3-coder",
+        "--approval-mode", "suggest",
       ];
       proc = spawn("qwen", args, {
         timeout,
         cwd: codebasePath,
-        env: {
-          ...process.env,
-          OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
-        },
+        env: filteredEnv("qwen"),
         stdio: ["ignore", "pipe", "pipe"],
       });
     } else if (tool.startsWith("opencode:")) {
@@ -209,7 +239,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
       const cleanup = () => { if (createdLink) try { unlinkSync(ocLink); } catch {} };
       proc = spawn("opencode", args, {
         timeout,
-        env: { ...process.env, XDG_DATA_HOME: instanceDataDir },
+        env: { ...filteredEnv(tool), XDG_DATA_HOME: instanceDataDir },
         stdio: ["ignore", "pipe", "pipe"],
       });
       proc.on("close", cleanup);

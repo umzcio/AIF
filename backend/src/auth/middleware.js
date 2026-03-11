@@ -1,7 +1,16 @@
 import { verifyToken } from "./jwt.js";
 import pool from "../db/pool.js";
+import log from "../logger.js";
 
-const AUTH_BYPASS = process.env.AUTH_BYPASS === "true";
+const AUTH_BYPASS_RAW = process.env.AUTH_BYPASS === "true";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+// Block AUTH_BYPASS in production — log error but don't crash
+if (AUTH_BYPASS_RAW && IS_PRODUCTION) {
+  log.error("AUTH_BYPASS cannot be enabled in production — ignoring");
+}
+const AUTH_BYPASS = AUTH_BYPASS_RAW && !IS_PRODUCTION;
+
 const COOKIE_NAME = "aif_token";
 
 // Routes that require authentication (write operations)
@@ -60,7 +69,7 @@ export default async function authMiddleware(req, res, next) {
       );
       authMiddleware._devUser = { netid: user.netid, role: user.role, userId: user.id, displayName: user.display_name };
     }
-    req.user = authMiddleware._devUser;
+    req.user = { ...authMiddleware._devUser, ip: req.ip };
     return next();
   }
 
@@ -68,7 +77,8 @@ export default async function authMiddleware(req, res, next) {
   const token = req.cookies?.[COOKIE_NAME];
   if (token) {
     try {
-      req.user = await verifyToken(token);
+      const tokenData = await verifyToken(token);
+      req.user = { ...tokenData, ip: req.ip };
     } catch {
       // Invalid token — clear it but don't block public routes
       res.clearCookie(COOKIE_NAME, { path: process.env.BASE_PATH || "/aif" });

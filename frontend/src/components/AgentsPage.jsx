@@ -9,7 +9,7 @@ const AGENT_DETAILS = [
     num: 1,
     name: "Code & Security Analysis",
     Icon: Shield,
-    color: "#D35C1A",
+    color: "#A34414",
     type: "Multi-model (5 passes + synthesis)",
     desc: "Performs a comprehensive 10-section security and code quality audit of the entire codebase. Each of 5 AI models independently reviews the code using the same evaluation rubric, then Claude synthesizes their findings with dispute resolution.",
     sections: [
@@ -224,7 +224,10 @@ function PipelineDiagram({ onScrollTo }) {
 
   function agentNode(num, name, color, type, children) {
     return (
-      <div onClick={() => onScrollTo(`agent-${num}`)} style={{ ...nodeBase, cursor: "pointer",
+      <div role="button" tabIndex={0} onClick={() => onScrollTo(`agent-${num}`)}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onScrollTo(`agent-${num}`); } }}
+        aria-label={`Scroll to Agent ${num}: ${name}`}
+        style={{ ...nodeBase, cursor: "pointer",
         border: `1px solid ${C.border}`, borderLeft: `3px solid ${color}`, transition: "background .15s" }}
         onMouseEnter={e => e.currentTarget.style.background = C.surfaceHover}
         onMouseLeave={e => e.currentTarget.style.background = C.bg}>
@@ -415,9 +418,9 @@ export default function AgentsPage() {
   }
 
   return (
-    <div style={{ display: "flex", gap: 32 }}>
+    <div className="agents-page-layout" style={{ display: "flex", gap: 32 }}>
       {/* Sidebar nav */}
-      <div style={{ width: 200, flexShrink: 0 }}>
+      <div className="agents-page-sidebar">
         <div style={{ position: "sticky", top: 16 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase",
             marginBottom: 12, fontFamily: "'JetBrains Mono', monospace" }}>

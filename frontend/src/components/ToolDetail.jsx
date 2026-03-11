@@ -91,7 +91,7 @@ export default function ToolDetail({ toolId }) {
 
   return (
     <div className="page">
-      <Breadcrumb items={[{ label: "Registry", path: "/" }, { label: tool.name }]} />
+      <Breadcrumb items={[{ label: "Registry", path: "/registry" }, { label: tool.name }]} />
       <PageHeader eyebrow="Tool Detail" title={tool.name} subtitle={tool.description || "No description."}>
         <StatusBadge status={tool.status} />
         {tool.track ? <TrackBadge track={tool.track} size="lg" /> : null}
@@ -106,7 +106,7 @@ export default function ToolDetail({ toolId }) {
 
       {latestRun?.status === "completed" && (
         <div style={{ display: "flex", gap: 12 }}>
-          <button type="button" onClick={() => navigate(`/upload/${toolId}`)}
+          <button type="button" onClick={() => navigate(`/review/${toolId}`)}
             className="section-card" style={{
               flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "16px 20px",
               cursor: "pointer", border: `1px solid ${C.accent}30`, background: C.accentSoft,
@@ -283,18 +283,35 @@ export default function ToolDetail({ toolId }) {
               <div className="card-header"><div><h2>Run history</h2></div></div>
               <div className="data-list">
                 {runs.map(run => (
-                  <button key={run.id} type="button" className="data-row" style={{ textAlign: "left", cursor: "pointer" }}
-                    onClick={() => {
-                      if (run.status === "completed") navigate(`/tool/${toolId}/report/${run.id}`);
-                      else navigate(`/tool/${toolId}/pipeline/${run.id}`);
-                    }}>
+                  <div key={run.id} className="data-row" style={{ padding: "10px 14px" }}>
                     <div className="inline-meta">
                       <StatusBadge status={run.status} />
                       <span className="mono" style={{ fontSize: 12 }}>Track {run.track}</span>
                     </div>
                     <div style={{ marginTop: 8, fontWeight: 700, fontSize: 13 }}>{relativeTime(run.queued_at)}</div>
                     {run.completed_at && <div className="muted" style={{ marginTop: 4 }}>Completed in {formatDuration(run.queued_at, run.completed_at)}</div>}
-                  </button>
+                    {run.status === "completed" && (
+                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <button type="button" onClick={() => navigate(`/review/${toolId}/${run.id}`)}
+                          style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${C.accent}40`, background: C.accentSoft,
+                            cursor: "pointer", fontSize: 11, fontWeight: 600, color: C.accent, fontFamily: "'DM Sans', sans-serif" }}>
+                          Findings
+                        </button>
+                        <button type="button" onClick={() => navigate(`/tool/${toolId}/report/${run.id}`)}
+                          style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent",
+                            cursor: "pointer", fontSize: 11, fontWeight: 600, color: C.textMid, fontFamily: "'DM Sans', sans-serif" }}>
+                          Report
+                        </button>
+                      </div>
+                    )}
+                    {run.status !== "completed" && (
+                      <button type="button" onClick={() => navigate(`/tool/${toolId}/pipeline/${run.id}`)}
+                        style={{ marginTop: 8, padding: "4px 10px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent",
+                          cursor: "pointer", fontSize: 11, fontWeight: 600, color: C.textMid, fontFamily: "'DM Sans', sans-serif" }}>
+                        View {run.status === "running" || run.status === "queued" ? "progress" : "details"}
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             </Card>
