@@ -14,8 +14,8 @@ import { TrackBadge, Skeleton, ErrorBanner, relativeTime } from "./primitives.js
 const SEV = {
   critical: { color: "#C9302C", bg: "rgba(201,48,44,0.07)", label: "CRITICAL", order: 0 },
   high:     { color: "#A34414", bg: "rgba(163,68,20,0.07)", label: "HIGH", order: 1 },
-  medium:   { color: "#7A5A07", bg: "rgba(122,90,7,0.07)", label: "MEDIUM", order: 2 },
-  low:      { color: "#1A6B4B", bg: "rgba(26,107,75,0.07)", label: "LOW", order: 3 },
+  warning:  { color: "#7A5A07", bg: "rgba(122,90,7,0.07)", label: "WARNING", order: 2 },
+  medium:   { color: "#7A5A07", bg: "rgba(122,90,7,0.07)", label: "MEDIUM", order: 3 },
   info:     { color: "#5F6B7A", bg: "rgba(95,107,122,0.05)", label: "INFO", order: 4 },
 };
 
@@ -52,7 +52,7 @@ function extractFindings(agentId, data) {
     return {
       id: `${prefix}-${i}`,
       agent: agentId,
-      severity: (f.severity || f.level || "info").toLowerCase().replace("warning", "high"),
+      severity: (f.severity || f.level || "info").toLowerCase(),
       title: f.title || f.finding || f.description || "Finding",
       file, line,
       detail: f.detail || f.description || f.answer || "",
@@ -472,7 +472,14 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
           if (event.passes != null) logs.push(`[done] ${event.passes} model passes completed${event.failures ? `, ${event.failures} failed` : ""}`);
           const s = event.summary;
           if (s && s.total != null && s.critical != null) {
-            logs.push(`[result] ${s.total} findings: ${s.critical} critical, ${s.high} high, ${s.medium} medium, ${s.low} low`);
+            const parts = [];
+            if (s.critical) parts.push(`${s.critical} critical`);
+            if (s.high) parts.push(`${s.high} high`);
+            if (s.warning) parts.push(`${s.warning} warning`);
+            if (s.medium) parts.push(`${s.medium} medium`);
+            if (s.low) parts.push(`${s.low} low`);
+            if (s.info) parts.push(`${s.info} info`);
+            logs.push(`[result] ${s.total} findings: ${parts.join(", ") || "none"}`);
             if (s.topFindings) for (const f of s.topFindings.slice(0, 3)) {
               logs.push(`  ${(f.severity || "").toUpperCase()}: ${f.title}`);
             }
@@ -527,7 +534,7 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
       setAgentProgress({ security: 1, accessibility: 1, hecvat: 1, documentation: 1 });
       Promise.all([
         getReport(runId),
-        getTool(toolId).then(d => setTool(d.tool)),
+        getTool(toolId).then(d => { setTool(d.tool); setCompletedRuns((d.runs || []).filter(r => r.status === "completed")); }),
       ])
         .then(([data]) => {
           const report = data.report || data;
@@ -602,8 +609,8 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
     total: allFindings.length,
     critical: allFindings.filter(f => f.severity === "critical").length,
     high: allFindings.filter(f => f.severity === "high").length,
+    warning: allFindings.filter(f => f.severity === "warning").length,
     medium: allFindings.filter(f => f.severity === "medium").length,
-    low: allFindings.filter(f => f.severity === "low").length,
     info: allFindings.filter(f => f.severity === "info").length,
     open: allFindings.filter(f => f.status === "open").length,
     resolved: allFindings.filter(f => f.status === "resolved").length,
@@ -824,8 +831,8 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
             {[
               { label: "Critical", count: stats.critical, color: SEV.critical.color },
               { label: "High", count: stats.high, color: SEV.high.color },
+              { label: "Warning", count: stats.warning, color: SEV.warning.color },
               { label: "Medium", count: stats.medium, color: SEV.medium.color },
-              { label: "Low", count: stats.low, color: SEV.low.color },
               { label: "Info", count: stats.info, color: SEV.info.color },
             ].map(s => (
               <div key={s.label} style={{ padding: "12px 16px", borderRadius: 8, background: C.surface, border: `1px solid ${C.border}`, flex: 1, textAlign: "center" }}>
@@ -939,7 +946,7 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
                       </div>
                       {af.length > 0 && (
                         <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", marginBottom: 10, background: C.border }}>
-                          {["critical","high","medium","low","info"].map(sev => {
+                          {["critical","high","warning","medium","info"].map(sev => {
                             const count = af.filter(f => f.severity === sev).length;
                             if (count === 0) return null;
                             return <div key={sev} style={{ width: `${(count / af.length) * 100}%`, background: SEV[sev].color }} />;
@@ -1032,7 +1039,7 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
                     <li>You'll receive notification when the review is complete</li>
                   </ol>
                   <p style={{ margin: 0 }}>
-                    <strong>{stats.critical + stats.high}</strong> critical/high findings and <strong>{stats.medium}</strong> medium findings were identified.
+                    <strong>{stats.critical + stats.high}</strong> critical/high findings and <strong>{stats.warning + stats.medium}</strong> warning/medium findings were identified.
                     {stats.critical + stats.high > 0 ? " Address critical and high items to expedite review." : ""}
                   </p>
                 </div>
