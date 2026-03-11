@@ -176,7 +176,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
       if (prompt.length <= 120000) {
         args = [
           "-p", prompt,
-          "-m", claudeModel,
+          "--model", claudeModel,
           "--output-format", "json",
           "--allowedTools", "Read,Glob,Grep,Bash(cat:*,ls:*,head:*,tail:*,wc:*,find:*,grep:*)",
         ];
@@ -192,7 +192,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
         const metaPrompt = `Read the file at ${promptFile} — it contains your full instructions and input data. Follow every instruction in that file exactly. Output ONLY the JSON as specified.`;
         args = [
           "-p", metaPrompt,
-          "-m", claudeModel,
+          "--model", claudeModel,
           "--output-format", "json",
           "--allowedTools", "Read,Glob,Grep,Bash(cat:*,ls:*,head:*,tail:*,wc:*,find:*,grep:*)",
         ];
