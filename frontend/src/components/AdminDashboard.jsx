@@ -554,13 +554,14 @@ function UsersTab() {
               </span>
               <span className="mono" style={{ fontSize: 12, textAlign: "center" }}>{u.tool_count}</span>
               <span style={{ textAlign: "center" }}>
-                <button type="button" aria-label={`${u.is_active ? "Deactivate" : "Activate"} ${u.netid}`}
+                <button type="button" role="switch" aria-checked={u.is_active}
+                  aria-label={`${u.is_active ? "Deactivate" : "Activate"} ${u.netid}`}
                   onClick={() => !isSelf && handleToggleActive(u.id, u.is_active, u.netid)}
                   disabled={isSelf}
-                  style={{ width: 36, height: 20, borderRadius: 10, border: "none", cursor: isSelf ? "not-allowed" : "pointer",
+                  style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: isSelf ? "not-allowed" : "pointer",
                     background: u.is_active ? C.accent : C.border, position: "relative", transition: "background .2s" }}>
-                  <span style={{ position: "absolute", top: 2, left: u.is_active ? 18 : 2,
-                    width: 16, height: 16, borderRadius: "50%", background: "#fff",
+                  <span style={{ position: "absolute", top: 2, left: u.is_active ? 22 : 2,
+                    width: 20, height: 20, borderRadius: "50%", background: "#fff",
                     transition: "left .2s", boxShadow: "0 1px 2px rgba(0,0,0,0.2)" }} />
                 </button>
               </span>

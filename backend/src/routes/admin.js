@@ -70,6 +70,7 @@ router.patch("/users/:id/role", validate(userRoleSchema), async (req, res) => {
     actorId: req.user.userId, actorNetid: req.user.netid,
     action: "change_role", entityType: "user", entityId: String(userId),
     details: { from: oldRole, to: role, targetNetid: user.netid },
+    ip: req.user.ip,
   });
 
   res.json({ user: updated });
@@ -97,6 +98,7 @@ router.patch("/users/:id/active", validate(userActiveSchema), async (req, res) =
     action: active ? "activate_user" : "deactivate_user",
     entityType: "user", entityId: String(userId),
     details: { targetNetid: user.netid },
+    ip: req.user.ip,
   });
 
   res.json({ user: updated });

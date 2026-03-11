@@ -7,6 +7,7 @@
   --surface-alt: #F1F3F6;
   --surface-hover: #EDF0F4;
   --border: #C5CBD6;
+  --border-interactive: #8E99A4;
   --border-focus: #1A6B4B;
   --text: #1A1F2B;
   --text-mid: #5F6B7A;
@@ -27,9 +28,9 @@
   --danger-bg: rgba(201,48,44,0.08);
   --gold: #8B7435;
   --gold-20: rgba(139,116,53,0.12);
-  --track-1: #16864E;
-  --track-2: #8A6508;
-  --track-3: #D35C1A;
+  --track-1: #14754A;
+  --track-2: #7A5A07;
+  --track-3: #A34414;
   --track-4: #C9302C;
   --shadow-sm: 0 1px 3px rgba(26,31,43,0.06), 0 1px 2px rgba(26,31,43,0.04);
   --shadow-md: 0 4px 12px rgba(26,31,43,0.08);
@@ -48,6 +49,7 @@
   --surface-alt: #222730;
   --surface-hover: #282D38;
   --border: #2E3440;
+  --border-interactive: #525C6A;
   --border-focus: #3DBF82;
   --text: #E2E6ED;
   --text-mid: #9CA5B2;
@@ -397,7 +399,7 @@ img, svg { display: block; }
 .text-field, .text-area, .search-field {
   width: 100%;
   border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--border-interactive);
   background: var(--surface);
   color: var(--text);
   padding: 10px 14px;
@@ -527,6 +529,12 @@ img, svg { display: block; }
   font-family: var(--font-mono);
 }
 
+.registry-table-header th {
+  text-align: left;
+  font-weight: 700;
+  padding: 0;
+}
+
 .registry-table-row {
   display: grid;
   grid-template-columns: 2fr 80px 1fr 1fr 100px 100px;
@@ -536,6 +544,16 @@ img, svg { display: block; }
   align-items: center;
   cursor: pointer;
   transition: background 0.15s;
+}
+
+.registry-table-row td {
+  padding: 0;
+}
+
+/* Sidebar layout (AgentsPage, FrameworkDoc) */
+.agents-page-sidebar {
+  width: 200px;
+  flex-shrink: 0;
 }
 
 /* Skeleton */
@@ -589,6 +607,8 @@ img, svg { display: block; }
   .summary-grid, .inline-score-grid, .report-grid, .findings-grid, .outputs-grid, .review-grid { grid-template-columns: 1fr 1fr; }
   .dashboard-grid, .wizard-layout, .framework-shell { grid-template-columns: 1fr; }
   .sticky-column, .framework-toc { position: static; }
+  .agents-page-layout { flex-direction: column; }
+  .agents-page-sidebar { width: 100%; }
 }
 
 @media (max-width: 640px) {

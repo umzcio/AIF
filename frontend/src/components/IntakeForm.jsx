@@ -46,12 +46,12 @@ function isAnswered(a, key) {
 
 function SelectOption({ label, value, selected, onClick }) {
   return (
-    <button type="button" onClick={() => onClick(value)} className="data-row" style={{
+    <button type="button" role="radio" aria-checked={selected} onClick={() => onClick(value)} className="data-row" style={{
       display: "block", width: "100%", textAlign: "left", cursor: "pointer",
       borderColor: selected ? C.accent : C.border, background: selected ? C.accentSoft : C.bg,
     }}>
       <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: `2px solid ${selected ? C.accent : C.border}`,
+        <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: `2px solid ${selected ? C.accent : C.border}`,
           background: selected ? C.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
           {selected && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff" }} />}
         </span>
@@ -63,12 +63,12 @@ function SelectOption({ label, value, selected, onClick }) {
 
 function CheckOption({ label, value, checked, onChange }) {
   return (
-    <button type="button" onClick={() => onChange(value)} className="data-row" style={{
+    <button type="button" role="checkbox" aria-checked={checked} onClick={() => onChange(value)} className="data-row" style={{
       display: "block", width: "100%", textAlign: "left", cursor: "pointer",
       borderColor: checked ? C.accent : C.border, background: checked ? C.accentSoft : C.bg,
     }}>
       <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: `2px solid ${checked ? C.accent : C.border}`,
+        <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: `2px solid ${checked ? C.accent : C.border}`,
           background: checked ? C.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 11, color: "#fff", fontWeight: 700 }}>{checked && <Check size={11} strokeWidth={3} />}</span>
         <span style={{ fontWeight: 500, fontSize: 13.5 }}>{label}</span>
@@ -77,10 +77,12 @@ function CheckOption({ label, value, checked, onChange }) {
   );
 }
 
-function Q({ n, label, req, routing, esc, hint, answered, children }) {
+function Q({ n, label, req, routing, esc, hint, answered, children, multi, error }) {
+  const qId = `q${n}-label`;
+  const errId = `q${n}-error`;
   return (
     <div style={{ marginBottom: 24 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+      <div id={qId} style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
         <span className="mono" style={{ fontSize: 11, color: answered ? C.success : C.accent, fontWeight: 600 }}>Q{n}</span>
         <span style={{ fontSize: 14, fontWeight: 600 }}>{label}</span>
         {req && !answered && <span style={{ fontSize: 9, color: TRACK_COLORS[3], fontWeight: 700, letterSpacing: 0.5 }}>REQUIRED</span>}
@@ -88,7 +90,10 @@ function Q({ n, label, req, routing, esc, hint, answered, children }) {
       </div>
       {routing && <p style={{ fontSize: 11.5, color: C.textMid, marginBottom: 8, fontStyle: "italic", lineHeight: 1.4, maxWidth: 600, marginTop: 0 }}>{routing}</p>}
       {hint && !answered && <p style={{ fontSize: 11.5, color: C.textDim, marginBottom: 6, lineHeight: 1.3, marginTop: 0 }}>{hint}</p>}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>{children}</div>
+      <div role={multi ? "group" : "radiogroup"} aria-labelledby={qId} aria-invalid={!!error || undefined}
+        aria-describedby={error ? errId : undefined}
+        style={{ display: "flex", flexDirection: "column", gap: 4 }}>{children}</div>
+      {error && <div id={errId} role="alert" style={{ fontSize: 12, color: TRACK_COLORS[4], marginTop: 4, fontWeight: 500 }}>{error}</div>}
       {esc && <div style={{ marginTop: 8, padding: "7px 12px", borderRadius: 6, background: "rgba(239,68,68,0.07)", border: `1px solid rgba(239,68,68,0.18)`,
         display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ color: TRACK_COLORS[4], fontWeight: 700, fontSize: 14, display: "flex" }}><AlertTriangle size={14} /></span>
@@ -123,7 +128,7 @@ function SaveIndicator({ status, lastSaved }) {
   const Icon = status === "saving" ? Loader : status === "saved" ? CheckCircle : Clock;
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color, fontWeight: 500, marginTop: 8 }}>
+    <div role="status" aria-live="polite" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color, fontWeight: 500, marginTop: 8 }}>
       <Icon size={12} className={status === "saving" ? "pulse" : ""} /> {label}
     </div>
   );
@@ -149,6 +154,7 @@ export default function IntakeForm({ draftId }) {
   const [showRecovery, setShowRecovery] = useState(false);
   const [recoveryData, setRecoveryData] = useState(null);
   const [loadingDraft, setLoadingDraft] = useState(!!draftId);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const changeCountRef = useRef(0);
   const localSaveTimerRef = useRef(null);
@@ -312,14 +318,41 @@ export default function IntakeForm({ draftId }) {
 
   const result = computeTrack(a);
 
+  // Clear field error when user answers
+  const clearFieldError = useCallback((key) => {
+    setFieldErrors(prev => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  // Watch for answers to clear field-level errors
+  useEffect(() => {
+    for (const key of Object.keys(fieldErrors)) {
+      if (key === "name" && name.trim()) clearFieldError("name");
+      else if (isAnswered(a, key)) clearFieldError(key);
+    }
+  }, [a, name, fieldErrors]);
+
   async function handleSubmit() {
     // Validate required fields
+    const errors = {};
+    if (!name.trim()) errors.name = "Tool name is required";
     const unanswered = REQUIRED_QUESTIONS.filter(q => visibleQuestions.includes(q) && !isAnswered(a, q));
-    if (!name.trim()) { toast.error("Tool name is required"); return; }
-    if (unanswered.length > 0) {
-      toast.error(`${unanswered.length} required question${unanswered.length > 1 ? "s" : ""} not answered`);
+    for (const q of unanswered) errors[q] = `Question ${q.replace("q", "")} is required`;
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      // Focus first invalid field
+      const firstKey = !name.trim() ? "tool-name" : `q${unanswered[0]?.replace("q", "")}-label`;
+      const el = document.getElementById(firstKey);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast.error(`${Object.keys(errors).length} field${Object.keys(errors).length > 1 ? "s" : ""} need attention`);
       return;
     }
+    setFieldErrors({});
 
     setSubmitting(true);
     try {
@@ -393,8 +426,10 @@ export default function IntakeForm({ draftId }) {
           <div style={{ marginBottom: 24 }}>
             <div className="field" style={{ marginBottom: 14 }}>
               <label htmlFor="tool-name">Tool name <span style={{ fontSize: 9, color: TRACK_COLORS[3], fontWeight: 700 }}>REQUIRED</span></label>
-              <input id="tool-name" className="text-field" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Advising assistant" />
-              {!name.trim() && <div style={{ fontSize: 11, color: C.textDim, marginTop: 3 }}>Give your tool a descriptive name.</div>}
+              <input id="tool-name" className="text-field" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Advising assistant"
+                aria-invalid={!!fieldErrors.name || undefined} aria-describedby={fieldErrors.name ? "tool-name-error" : undefined} />
+              {fieldErrors.name && <div id="tool-name-error" role="alert" style={{ fontSize: 12, color: TRACK_COLORS[4], marginTop: 3, fontWeight: 500 }}>{fieldErrors.name}</div>}
+              {!name.trim() && !fieldErrors.name && <div style={{ fontSize: 11, color: C.textDim, marginTop: 3 }}>Give your tool a descriptive name.</div>}
             </div>
             <div className="field">
               <label htmlFor="tool-desc">Description</label>
@@ -403,34 +438,34 @@ export default function IntakeForm({ draftId }) {
           </div>
 
           <SectionDivider num="1" title="What Did You Build?" sub="Classifies artifact type and sets dimension weight profile." />
-          <Q n={1} label="What best describes what you built?" req answered={isAnswered(a,"q1")} hint={FIELD_HINTS.q1}>
+          <Q n={1} label="What best describes what you built?" req answered={isAnswered(a,"q1")} hint={FIELD_HINTS.q1} error={fieldErrors.q1}>
             {[["public-site","Public-facing website or web app"],["internal-app","Internal web app (requires auth)"],["script-api","Script, automation, or API integration"],
               ["ai-agent","AI-powered tool or agent"],["data-pipeline","Data pipeline or reporting tool"],["other","Something else"]
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q1===v} onClick={x=>s("q1",x)} />)}
           </Q>
-          <Q n={2} label="Is this tool already in production?" req answered={isAnswered(a,"q2")} hint={FIELD_HINTS.q2}>
+          <Q n={2} label="Is this tool already in production?" req answered={isAnswered(a,"q2")} hint={FIELD_HINTS.q2} error={fieldErrors.q2}>
             {[["no","No — new and not in use"],["yes","Yes — already being used"],["partial","Partially — using but not shared"]
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q2===v} onClick={x=>s("q2",x)} />)}
           </Q>
-          <Q n={3} label="Who will use this tool?" req routing="Informs Blast Radius. Student/public use activates elevated review." answered={isAnswered(a,"q3")} hint={FIELD_HINTS.q3}>
+          <Q n={3} label="Who will use this tool?" req multi routing="Informs Blast Radius. Student/public use activates elevated review." answered={isAnswered(a,"q3")} hint={FIELD_HINTS.q3} error={fieldErrors.q3}>
             {[["just-me","Just me"],["team","My immediate team (<10)"],["department","A department or unit"],["students","Students"],["public","The general public"],["external","External partners"]
             ].map(([v,l]) => <CheckOption key={v} value={v} label={l} checked={(a.q3||[]).includes(v)} onChange={x=>tm("q3",x)} />)}
           </Q>
-          <Q n={4} label="Describe what this tool does and what problem it solves." req answered={isAnswered(a,"q4")} hint={FIELD_HINTS.q4}>
+          <Q n={4} label="Describe what this tool does and what problem it solves." req answered={isAnswered(a,"q4")} hint={FIELD_HINTS.q4} error={fieldErrors.q4}>
             <textarea className="text-area" value={a.q4 || ""} onChange={e=>s("q4",e.target.value)} placeholder="3-5 sentences..." style={{ minHeight: 80 }} aria-label="Describe what this tool does" />
           </Q>
 
           <SectionDivider num="2" title="Deployment and Access" sub="How and where the tool will run." />
-          <Q n={5} label="Where will this tool be accessible?" req answered={isAnswered(a,"q5")} hint={FIELD_HINTS.q5}
+          <Q n={5} label="Where will this tool be accessible?" req answered={isAnswered(a,"q5")} hint={FIELD_HINTS.q5} error={fieldErrors.q5}
             esc={a.q5==="public-noauth" && showData && (a.q10||[]).some(d=>d!=="public") ? "Public-facing + non-public data = Track 4" : null}>
             {[["public-noauth","Public internet — no auth"],["public-auth","Public internet — requires auth"],["campus-vpn","Campus network / VPN only"],["internal-server","Internal server — no UI"],["undetermined","Not yet determined"]
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q5===v} onClick={x=>s("q5",x)} />)}
           </Q>
-          <Q n={6} label="Does this tool use campus SSO?" req esc={a.q6==="custom-auth"?"Auth outside campus SSO — escalation":null} answered={isAnswered(a,"q6")} hint={FIELD_HINTS.q6}>
+          <Q n={6} label="Does this tool use campus SSO?" req esc={a.q6==="custom-auth"?"Auth outside campus SSO — escalation":null} answered={isAnswered(a,"q6")} hint={FIELD_HINTS.q6} error={fieldErrors.q6}>
             {[["sso","Yes — campus SSO"],["no-auth","No auth required"],["custom-auth","Custom or third-party auth"],["not-implemented","Not yet implemented"]
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q6===v} onClick={x=>s("q6",x)} />)}
           </Q>
-          <Q n={7} label="What infrastructure does this tool require?" req answered={isAnswered(a,"q7")} hint={FIELD_HINTS.q7}>
+          <Q n={7} label="What infrastructure does this tool require?" req multi answered={isAnswered(a,"q7")} hint={FIELD_HINTS.q7} error={fieldErrors.q7}>
             {[["web-hosting","Web hosting"],["server-runtime","Server-side runtime"],["database","Database"],["cron","Scheduled jobs"],["api-endpoints","API endpoints"],
               ["file-storage","File storage"],["email","Email / notifications"],["third-party","Third-party services"],["unknown","Unknown — need help"]
             ].map(([v,l]) => <CheckOption key={v} value={v} label={l} checked={(a.q7||[]).includes(v)} onChange={x=>tm("q7",x)} />)}
@@ -441,18 +476,18 @@ export default function IntakeForm({ draftId }) {
           </Q>
 
           <SectionDivider num="3" title="Data" sub="What data the tool handles, where it lives." />
-          <Q n={9} label="Does this tool collect, store, access, process, or transmit any data?" req answered={isAnswered(a,"q9")} hint={FIELD_HINTS.q9}>
+          <Q n={9} label="Does this tool collect, store, access, process, or transmit any data?" req answered={isAnswered(a,"q9")} hint={FIELD_HINTS.q9} error={fieldErrors.q9}>
             {[["no","No — generates outputs only"],["yes","Yes — handles data"]
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q9===v} onClick={x=>s("q9",x)} />)}
           </Q>
           {showData && <>
-            <Q n={10} label="What kind of data?" req esc={(a.q10||[]).some(d=>["hipaa","irb","export","tribal"].includes(d))?"Regulated data = Track 4":null} answered={isAnswered(a,"q10")} hint={FIELD_HINTS.q10}>
+            <Q n={10} label="What kind of data?" req multi esc={(a.q10||[]).some(d=>["hipaa","irb","export","tribal"].includes(d))?"Regulated data = Track 4":null} answered={isAnswered(a,"q10")} hint={FIELD_HINTS.q10}>
               {[["public","Public / non-sensitive"],["internal","Internal institutional"],["ferpa","FERPA student records"],["hr","Employee / HR"],["hipaa","HIPAA health data"],
                 ["irb","IRB research / human subjects"],["export","Export-controlled / CUI"],["tribal","Tribal / indigenous community"],["payment","Payment / financial"],
                 ["credentials","Auth credentials / identity"],["behavioral","Behavioral / performance data"]
               ].map(([v,l]) => <CheckOption key={v} value={v} label={l} checked={(a.q10||[]).includes(v)} onChange={x=>tm("q10",x)} />)}
             </Q>
-            <Q n={11} label="Where does the data live?" req esc={(a.q11||[]).includes("personal")?"Personal accounts = Track 4":null} answered={isAnswered(a,"q11")} hint={FIELD_HINTS.q11}>
+            <Q n={11} label="Where does the data live?" req multi esc={(a.q11||[]).includes("personal")?"Personal accounts = Track 4":null} answered={isAnswered(a,"q11")} hint={FIELD_HINTS.q11}>
               {[["campus","Campus IT infrastructure"],["approved-third","Third-party with DPA"],["unknown-third","Third-party — DPA unknown"],["personal","Personal accounts"],["ephemeral","Process and discard"]
               ].map(([v,l]) => <CheckOption key={v} value={v} label={l} checked={(a.q11||[]).includes(v)} onChange={x=>tm("q11",x)} />)}
             </Q>
@@ -466,23 +501,23 @@ export default function IntakeForm({ draftId }) {
           </>}
 
           <SectionDivider num="4" title="Maintenance & Ownership" sub="Who owns it, what happens when you leave." />
-          <Q n={14} label="Who owns this tool?" req answered={isAnswered(a,"q14")} hint={FIELD_HINTS.q14}>
+          <Q n={14} label="Who owns this tool?" req answered={isAnswered(a,"q14")} hint={FIELD_HINTS.q14} error={fieldErrors.q14}>
             {[["me","I built it and own it"],["department","Built for a department"],["vendor","Vendor / contractor built"],["unclear","Ownership unclear"]
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q14===v} onClick={x=>s("q14",x)} />)}
           </Q>
-          <Q n={15} label="Is the code in version control?" req esc={a.q15==="no-vc"?"No version control — blocks approval at Track 2+":null} answered={isAnswered(a,"q15")} hint={FIELD_HINTS.q15}>
+          <Q n={15} label="Is the code in version control?" req esc={a.q15==="no-vc"?"No version control — blocks approval at Track 2+":null} answered={isAnswered(a,"q15")} hint={FIELD_HINTS.q15} error={fieldErrors.q15}>
             {[["campus-repo","Campus code repository"],["personal-repo","Personal GitHub/GitLab"],["dept-repo","Department repo"],["no-vc","No version control"]
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q15===v} onClick={x=>s("q15",x)} />)}
           </Q>
-          <Q n={16} label="If you left UM tomorrow, what happens to this tool?" req answered={isAnswered(a,"q16")} hint={FIELD_HINTS.q16}>
+          <Q n={16} label="If you left UM tomorrow, what happens to this tool?" req answered={isAnswered(a,"q16")} hint={FIELD_HINTS.q16} error={fieldErrors.q16}>
             {[["successor","Designated successor exists"],["documented","Documented for handoff"],["nobody","Nobody else knows how it works"],["stop","Would stop being maintained"]
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q16===v} onClick={x=>s("q16",x)} />)}
           </Q>
-          <Q n={17} label="Expected maintenance model?" req answered={isAnswered(a,"q17")} hint={FIELD_HINTS.q17}>
+          <Q n={17} label="Expected maintenance model?" req answered={isAnswered(a,"q17")} hint={FIELD_HINTS.q17} error={fieldErrors.q17}>
             {[["set-forget","Set and forget"],["occasional","Occasional updates"],["active","Active development"],["third-party-dep","Dependent on third-party"]
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q17===v} onClick={x=>s("q17",x)} />)}
           </Q>
-          <Q n={18} label="If this tool breaks, who fixes it?" req answered={isAnswered(a,"q18")} hint={FIELD_HINTS.q18}>
+          <Q n={18} label="If this tool breaks, who fixes it?" req answered={isAnswered(a,"q18")} hint={FIELD_HINTS.q18} error={fieldErrors.q18}>
             {[["me-available","Me — available to respond"],["team-runbooks","Team with documented processes"],["only-me","Me — only one who knows"],["unknown","Unknown"]
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q18===v} onClick={x=>s("q18",x)} />)}
           </Q>

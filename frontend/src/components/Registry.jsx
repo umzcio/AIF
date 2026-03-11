@@ -79,31 +79,36 @@ export default function Registry() {
         <EmptyState heading="No tools found" body="Adjust filters or submit a new tool." action={<Btn onClick={() => navigate("/intake")}>Submit tool</Btn>} />
       ) : (
         <div style={{ borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          {/* Header */}
-          <div className="registry-table-header">
-            <span>Tool Name</span><span>Track</span><span>Owner</span><span>Type</span><span>Status</span><span>Date</span>
-          </div>
-          {filtered.map((item, i) => (
-            <div key={item.id} className="registry-table-row" role={user ? "button" : undefined} tabIndex={user ? 0 : undefined}
-              style={{ background: i % 2 === 0 ? "transparent" : C.surface, cursor: user ? "pointer" : "default" }}
-              onClick={user ? () => navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`) : undefined}
-              onKeyDown={user ? (e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`); }}) : undefined}
-              onMouseEnter={user ? (e => e.currentTarget.style.background = C.surfaceHover) : undefined}
-              onMouseLeave={user ? (e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface) : undefined}>
-              <span style={{ fontWeight: 600 }}>{item.name}</span>
-              <span>{item.track ? <TrackBadge track={item.track} /> : <span style={{ color: C.textDim }}>—</span>}</span>
-              <span style={{ color: C.textMid }}>{item.owner_name || item.owner_netid || "—"}</span>
-              <span style={{ color: C.textMid }}>{item.artifact_type || "—"}</span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusColors[item.status] || C.textDim,
-                  ...(item.status === "in_progress" ? { animation: "pulse 1.5s infinite" } : {}) }} />
-                <span style={{ fontSize: 12, color: statusColors[item.status] || C.textDim, fontWeight: 600 }}>{statusLabels[item.status] || item.status}</span>
-              </span>
-              <span className="mono" style={{ fontSize: 12, color: C.textMid }}>
-                {item.created_at ? new Date(item.created_at).toLocaleDateString() : "—"}
-              </span>
-            </div>
-          ))}
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr className="registry-table-header" style={{ display: "grid", gridTemplateColumns: "2fr 80px 1fr 1fr 100px 100px" }}>
+                <th scope="col">Tool Name</th><th scope="col">Track</th><th scope="col">Owner</th><th scope="col">Type</th><th scope="col">Status</th><th scope="col">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((item, i) => (
+                <tr key={item.id} className="registry-table-row" tabIndex={user ? 0 : undefined}
+                  style={{ background: i % 2 === 0 ? "transparent" : C.surface, cursor: user ? "pointer" : "default" }}
+                  onClick={user ? () => navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`) : undefined}
+                  onKeyDown={user ? (e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`); }}) : undefined}
+                  onMouseEnter={user ? (e => e.currentTarget.style.background = C.surfaceHover) : undefined}
+                  onMouseLeave={user ? (e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface) : undefined}>
+                  <td style={{ fontWeight: 600 }}>{item.name}</td>
+                  <td>{item.track ? <TrackBadge track={item.track} /> : <span style={{ color: C.textDim }}>—</span>}</td>
+                  <td style={{ color: C.textMid }}>{item.owner_name || item.owner_netid || "—"}</td>
+                  <td style={{ color: C.textMid }}>{item.artifact_type || "—"}</td>
+                  <td style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusColors[item.status] || C.textDim,
+                      ...(item.status === "in_progress" ? { animation: "pulse 1.5s infinite" } : {}) }} />
+                    <span style={{ fontSize: 12, color: statusColors[item.status] || C.textDim, fontWeight: 600 }}>{statusLabels[item.status] || item.status}</span>
+                  </td>
+                  <td className="mono" style={{ fontSize: 12, color: C.textMid }}>
+                    {item.created_at ? new Date(item.created_at).toLocaleDateString() : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

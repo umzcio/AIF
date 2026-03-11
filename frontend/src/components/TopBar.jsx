@@ -9,7 +9,7 @@ function activeTab(route) {
   if (route === "welcome") return "welcome";
   if (["registry", "detail"].includes(route)) return "registry";
   if (["intake", "intake-edit"].includes(route)) return "intake";
-  if (["upload", "pipeline", "report"].includes(route)) return "pipeline";
+  if (["upload", "review", "pipeline", "report"].includes(route)) return "pipeline";
   if (route === "agents") return "agents";
   if (route === "framework") return "framework";
   if (route === "admin") return "admin";
@@ -116,7 +116,7 @@ function MenuLink({ icon, label, onClick }) {
 export default function TopBar({ route, params }) {
   const { user, logout, config } = useAuth();
   const current = activeTab(route);
-  const onToolPage = ["upload", "pipeline", "report", "detail"].includes(route);
+  const onToolPage = ["upload", "review", "pipeline", "report", "detail"].includes(route);
 
   // Track the active tool for the Code Review tab
   const toolId = params?.toolId;
@@ -124,7 +124,7 @@ export default function TopBar({ route, params }) {
     sessionStorage.setItem("aif-active-tool", toolId);
   }
   const savedToolId = sessionStorage.getItem("aif-active-tool");
-  const pipelinePath = savedToolId ? `/upload/${savedToolId}` : null;
+  const pipelinePath = savedToolId ? `/review/${savedToolId}` : null;
 
   const tabs = [
     { id: "welcome", path: "/welcome", label: "Home", Icon: Home },

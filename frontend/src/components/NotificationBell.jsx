@@ -265,11 +265,13 @@ export default function NotificationBell() {
             /* Settings tab */
             <div style={{ padding: 16 }}>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: C.textMid, display: "block", marginBottom: 6 }}>
+                <label htmlFor="notification-email" style={{ fontSize: 12, fontWeight: 600, color: C.textMid, display: "block", marginBottom: 6 }}>
                   Email Address
                 </label>
                 <input
+                  id="notification-email"
                   type="email"
+                  autoComplete="email"
                   value={emailInput}
                   onChange={e => setEmailInput(e.target.value)}
                   placeholder="netid@umontana.edu"

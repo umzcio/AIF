@@ -35,7 +35,7 @@ export const C = {
   gold20: "var(--gold-20)",
 };
 
-export const TRACK_COLORS = { 1: "#16864E", 2: "#8A6508", 3: "#B34A10", 4: "#B22B27" };
+export const TRACK_COLORS = { 1: "#14754A", 2: "#7A5A07", 3: "#A34414", 4: "#B22B27" };
 export const TRACK_LABELS = { 1: "Register & Go", 2: "Self-Certify", 3: "IT Review", 4: "Formal Project" };
 
 export const WEIGHT_MATRIX = {
@@ -56,8 +56,8 @@ export const AGENTS = [
 
 export const SEVERITY_CONFIG = {
   critical: { color: "#B22B27", bg: "rgba(178,43,39,0.08)", label: "CRITICAL" },
-  high:     { color: "#B34A10", bg: "rgba(179,74,16,0.08)", label: "HIGH" },
-  medium:   { color: "#8A6508", bg: "rgba(138,101,8,0.08)", label: "MEDIUM" },
+  high:     { color: "#A34414", bg: "rgba(163,68,20,0.08)", label: "HIGH" },
+  medium:   { color: "#7A5A07", bg: "rgba(122,90,7,0.08)", label: "MEDIUM" },
   low:      { color: "#1A6B4B", bg: "rgba(26,107,75,0.08)", label: "LOW" },
   info:     { color: "#546070", bg: "rgba(84,96,112,0.06)", label: "INFO" },
 };
@@ -148,15 +148,15 @@ export function computeTrack(a) {
 export const STATUS_META = {
   draft: { label: "Draft", color: "#6B5A2A", bg: "rgba(107,90,42,0.1)" },
   pending: { label: "Pending", color: "#1A6B4B", bg: "rgba(26,107,75,0.08)" },
-  in_progress: { label: "In Progress", color: "#B34A10", bg: "rgba(179,74,16,0.08)" },
-  active: { label: "Active", color: "#16864E", bg: "rgba(22,134,78,0.08)" },
-  under_review: { label: "Under Review", color: "#8A6508", bg: "rgba(138,101,8,0.08)" },
-  approved: { label: "Approved", color: "#16864E", bg: "rgba(22,134,78,0.08)" },
-  changes_requested: { label: "Changes Requested", color: "#8A6508", bg: "rgba(138,101,8,0.08)" },
+  in_progress: { label: "In Progress", color: "#A34414", bg: "rgba(163,68,20,0.08)" },
+  active: { label: "Active", color: "#14754A", bg: "rgba(20,117,74,0.08)" },
+  under_review: { label: "Under Review", color: "#7A5A07", bg: "rgba(122,90,7,0.08)" },
+  approved: { label: "Approved", color: "#14754A", bg: "rgba(20,117,74,0.08)" },
+  changes_requested: { label: "Changes Requested", color: "#7A5A07", bg: "rgba(122,90,7,0.08)" },
   suspended: { label: "Suspended", color: "#B22B27", bg: "rgba(178,43,39,0.08)" },
   retired: { label: "Retired", color: "#546070", bg: "rgba(84,96,112,0.06)" },
   running: { label: "Running", color: "#1A6B4B", bg: "rgba(26,107,75,0.08)" },
-  completed: { label: "Completed", color: "#16864E", bg: "rgba(22,134,78,0.08)" },
+  completed: { label: "Completed", color: "#14754A", bg: "rgba(20,117,74,0.08)" },
   failed: { label: "Failed", color: "#B22B27", bg: "rgba(178,43,39,0.08)" },
   queued: { label: "Queued", color: "#546070", bg: "rgba(84,96,112,0.06)" },
 };
@@ -213,9 +213,9 @@ export const ROUTE_META = {
     description: "Upload code and run the review pipeline.",
   },
   review: {
-    label: "Review Queue",
-    title: "Review Queue",
-    description: "Tools awaiting reviewer action.",
+    label: "Code Review",
+    title: "Code Review",
+    description: "Review pipeline findings for a submitted tool.",
   },
   admin: {
     label: "Admin",

@@ -4,18 +4,34 @@ import log from "../logger.js";
 import { emitProgress, removeAllForRun } from "./events.js";
 import { notify, notifyRole } from "../notifications.js";
 import { killRunProcesses } from "../agents/shared/cli.js";
-import { resolve } from "path";
+import { join, resolve } from "path";
 import { execFileSync } from "child_process";
 import { existsSync, mkdirSync, readFileSync } from "fs";
 
 /**
  * Validate a URL for safe use in subprocess arguments.
  * Must be https://, no shell metacharacters.
+ * If GIT_ALLOWED_HOSTS is set, hostname must be in the allowlist.
  */
+const GIT_ALLOWED_HOSTS = process.env.GIT_ALLOWED_HOSTS
+  ? process.env.GIT_ALLOWED_HOSTS.split(",").map(h => h.trim().toLowerCase())
+  : null;
+
 function validateUrl(url) {
   if (typeof url !== "string") throw new Error("Invalid URL: not a string");
   if (!url.startsWith("https://")) throw new Error("Invalid URL: must start with https://");
   if (/[;|&`$()\n\r]/.test(url)) throw new Error("Invalid URL: contains shell metacharacters");
+  if (GIT_ALLOWED_HOSTS) {
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      if (!GIT_ALLOWED_HOSTS.includes(hostname)) {
+        throw new Error(`Invalid URL: hostname "${hostname}" not in allowed hosts (${GIT_ALLOWED_HOSTS.join(", ")})`);
+      }
+    } catch (err) {
+      if (err.message.includes("not in allowed hosts")) throw err;
+      throw new Error("Invalid URL: could not parse hostname");
+    }
+  }
   return url;
 }
 

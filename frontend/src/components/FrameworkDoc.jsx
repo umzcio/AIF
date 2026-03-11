@@ -35,9 +35,9 @@ export default function FrameworkDoc() {
   const sectionStyle = { marginBottom: 40 };
 
   return (
-    <div style={{ display: "flex", gap: 32 }}>
+    <div className="agents-page-layout" style={{ display: "flex", gap: 32 }}>
       {/* Sidebar nav */}
-      <div style={{ width: 200, flexShrink: 0 }}>
+      <div className="agents-page-sidebar">
         <div style={{ position: "sticky", top: 16 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 12, fontFamily: "'JetBrains Mono', monospace" }}>On This Page</div>
           {sections.map(s => (
