@@ -145,8 +145,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
         "exec", prompt,
         "-m", process.env.CODEX_MODEL || "gpt-5.4-2026-03-05",
         "-C", codebasePath,
-        "--full-auto",
-        "--sandbox", "read-only",
+        "--dangerously-bypass-approvals-and-sandbox",
         "--skip-git-repo-check",
         "-o", outputFile,
         "--ephemeral",
@@ -208,7 +207,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
       args = [
         "-p", prompt,
         "-m", process.env.QWEN_MODEL || "openrouter/qwen/qwen3-coder",
-        "--approval-mode", "suggest",
+        "--approval-mode", "yolo",
       ];
       proc = spawn("qwen", args, {
         timeout,
