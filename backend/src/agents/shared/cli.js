@@ -56,7 +56,7 @@ export const MODEL_TIMEOUTS = {
   "opencode:grok":  3 * 60 * 1000,  // 3 min (fastest model)
   "opencode:kimi": 12 * 60 * 1000,  // 12 min (can be slow)
   qwen:             8 * 60 * 1000,  // 8 min
-  claude:          15 * 60 * 1000,  // 15 min (synthesis)
+  claude:          25 * 60 * 1000,  // 25 min (synthesis — processes large merged reports)
 };
 
 /** Map of runId → Set<ChildProcess> for cancellation support. */

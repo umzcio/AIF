@@ -195,9 +195,16 @@ export async function runCodeAnalysis(codebasePath, passKeys, outputDir, onProgr
     throw new Error("All passes failed: " + failures.join("; "));
   }
 
-  // Build synthesis input with partial-results caveat
+  // Build synthesis input — trim bloat fields to keep prompt manageable
   const synthesisInput = Object.entries(reports).map(([key, r]) => {
-    const content = r.parsed ? JSON.stringify(r.parsed, null, 2) : r.raw.slice(0, 50000);
+    let content;
+    if (r.parsed) {
+      const trimmed = { ...r.parsed };
+      delete trimmed.filesReviewed; // large array, not needed for synthesis
+      content = JSON.stringify(trimmed);
+    } else {
+      content = r.raw.slice(0, 50000);
+    }
     return `## ${r.name} (${key})\n\n${content}`;
   }).join("\n\n---\n\n");
 
