@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS finding_statuses (
   finding_id TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'open'
     CHECK (status IN ('open', 'resolved', 'wontfix')),
-  updated_by UUID REFERENCES users(id),
+  updated_by INTEGER REFERENCES users(id),
   updated_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE (tool_id, finding_id)
 );
