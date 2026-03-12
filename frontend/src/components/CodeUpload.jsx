@@ -78,23 +78,9 @@ function extractFindings(agentId, data) {
     return normalize(findings, agentId);
   }
   if (agentId === "hecvat") {
-    // HECVAT assessment (now from Agent 4): { highRiskFindings: [...], nonNegotiableFailures: [...], questions: [...] }
-    const results = [];
-    for (const f of (data.nonNegotiableFailures || [])) {
-      results.push({ ...f, severity: "critical", title: `${f.id}: ${f.question || f.finding || "Non-negotiable failure"}` });
-    }
-    for (const f of (data.highRiskFindings || [])) {
-      results.push({ ...f, title: `${f.id || f.area}: ${f.finding || f.title || "High risk finding"}` });
-    }
-    // Also include failed/partial questions as findings
-    for (const q of (data.questions || [])) {
-      if (q.status === "no") {
-        results.push({ severity: "high", title: `${q.id}: Non-compliant`, detail: q.answer, evidence: q.evidence, remediation: null });
-      } else if (q.status === "partial") {
-        results.push({ severity: "medium", title: `${q.id}: Partially compliant`, detail: q.answer, evidence: q.evidence, remediation: null });
-      }
-    }
-    return normalize(results, "hec");
+    // HECVAT is a self-assessment document, not an audit — questions that can't be
+    // answered from code are left blank for human input. Not findings.
+    return [];
   }
   if (agentId === "documentation") {
     // Agent 4 generates documents, not findings — return empty
@@ -110,7 +96,6 @@ const FINDING_CATEGORIES = [
   { id: "security", name: "Security", Icon: Shield, color: "#D35C1A" },
   { id: "accessibility", name: "Accessibility", Icon: Eye, color: "#7C3AED" },
   { id: "qa", name: "QA / Bugs", Icon: ClipboardCheck, color: "#06B6D4" },
-  { id: "hecvat", name: "HECVAT Compliance", Icon: ClipboardCheck, color: "#06B6D4" },
   { id: "docs", name: "Documentation", Icon: FileText, color: "#16864E" },
 ];
 
@@ -118,7 +103,6 @@ const AGENT_SOURCE_LABEL = {
   security: "Code / Security",
   accessibility: "Accessibility",
   qa: "QA / Bug Detection",
-  hecvat: "HECVAT",
   documentation: "Documentation",
 };
 
@@ -136,7 +120,7 @@ function isSecurityFinding(f) {
 
 // Remap agent findings into display categories
 function remapFindings(agentFindings) {
-  const mapped = { code: [], security: [], accessibility: [], qa: [], hecvat: [], docs: [] };
+  const mapped = { code: [], security: [], accessibility: [], qa: [], docs: [] };
   for (const [agentId, findings] of Object.entries(agentFindings)) {
     for (const f of findings) {
       if (agentId === "security") {
@@ -147,8 +131,6 @@ function remapFindings(agentFindings) {
         mapped.accessibility.push(f);
       } else if (agentId === "qa") {
         mapped.qa.push(f);
-      } else if (agentId === "hecvat") {
-        mapped.hecvat.push(f);
       } else {
         mapped.docs.push(f);
       }
