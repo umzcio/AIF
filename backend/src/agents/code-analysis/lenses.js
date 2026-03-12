@@ -71,6 +71,18 @@ Do not wrap in markdown code fences. Output ONLY the JSON.
   "findings": [
     { "severity": "critical|warning|info", "category": "string", "title": "string", "detail": "string", "evidence": "file:line" }
   ],
+  "sectionCoverage": {
+    "inventory": "complete|partial|skipped",
+    "externalServices": "complete|partial|skipped",
+    "dataOperations": "complete|partial|skipped",
+    "authentication": "complete|partial|skipped",
+    "secrets": "complete|partial|skipped",
+    "aiUsage": "complete|partial|skipped",
+    "agentSecurity": "complete|partial|skipped",
+    "escalationSignals": "complete|partial|skipped",
+    "scoringSignals": "complete|partial|skipped",
+    "findings": "complete|partial|skipped"
+  },
   "filesReviewed": ["string — every file path you examined"],
   "summary": "string — 2-3 sentence summary of what this codebase does and its primary risk areas"
 }
@@ -99,6 +111,7 @@ For each external service, API, or database the code connects to:
 - Cite the file and line where the connection is made
 - Determine if it is INSTITUTIONAL (university-hosted, e.g., campus PostgreSQL, UM CAS, Banner) or THIRD-PARTY (external cloud/SaaS: AWS, OpenAI, Google, etc.)
 - NOTE: Third-party does NOT automatically mean non-compliant. The institution may have approved contracts, DPAs, or enterprise agreements with third-party providers. Flag the data flow for reviewer verification but do NOT assert that a DPA is missing — you cannot determine contractual status from code alone.
+- SEVERITY RULE: Data flows to major providers (OpenAI, Google, Anthropic, AWS, Microsoft, OpenRouter) must NEVER be assigned severity=critical for DPA/contract reasons. These are WARNING at most with needs_verification=true. You CANNOT determine procurement or contractual status from code. Only assign critical if the code sends regulated data (HIPAA/FERPA) to clearly inappropriate destinations (personal Gmail, unknown domains, unencrypted HTTP endpoints).
 
 =====================================================================
 SECTION 3: DATA OPERATIONS (what data moves where?)
@@ -185,7 +198,7 @@ SECTION 8: ESCALATION CONDITION CHECKS
 
 These are binary yes/no checks. Each one is a potential automatic escalation trigger in the UM framework. For each, determine if it is triggered and cite evidence:
 
-1. "Institutional data in third-party cloud — DPA status unknown" — Is FERPA/PII/sensitive data sent to third-party cloud services? NOTE: You CANNOT determine DPA/contract status from code. Flag the data flow for reviewer verification, but set triggered=true ONLY if the code itself shows clearly inappropriate handling (e.g., sending FERPA data to an unapproved personal account). If data goes to a major provider (OpenAI, Google, Anthropic, AWS), flag as "needs_verification" — the institution may have enterprise agreements.
+1. "Institutional data in third-party cloud — DPA status unknown" — Is FERPA/PII/sensitive data sent to third-party cloud services? NOTE: You CANNOT determine DPA/contract status from code. Set triggered=false and needs_verification=true if data goes to major providers (OpenAI, Google, Anthropic, AWS, Microsoft, OpenRouter) — the institution likely has enterprise agreements and you have no evidence otherwise. Set triggered=true ONLY if the code sends regulated data to clearly inappropriate destinations (personal accounts, unknown domains, unapproved services). Do NOT generate a critical finding for this signal — contractual/procurement status is ALWAYS a reviewer verification item, never an automated judgment.
 2. "Authentication outside institutional SSO/IdP" — Is primary auth NOT institutional SSO?
 3. "Vendor accessing institutional data — procurement review needed" — Does a third party receive institutional data? NOTE: Flag for reviewer verification. Do NOT assert that procurement review is missing — you cannot determine this from code. Only flag if the vendor is unusual or the data flow is unexpected.
 4. "No visibility into AI model training or version updates" — Are AI models used without version pinning or training opt-out?
@@ -255,6 +268,8 @@ INFO — Note for reviewers. Architecture observations, positive findings (e.g.,
 
 You MUST read every single file. Do not skip files. Do not sample. Do not summarize file contents without reading them. After reviewing ALL files, produce your report.
 
+COMPLETENESS REQUIREMENT: Your output MUST contain substantive content for EVERY section (1-10). If a section has no findings (e.g., no MCP configs found, no secrets exposed), explicitly state that in the relevant field. An empty or missing section means the audit is incomplete and will be rejected. The user may only run this pipeline once — nothing can fall through the cracks.
+
 ${OUTPUT_SCHEMA}`;
 
 // All 5 passes use the same prompt — each model runs its own independent analysis
@@ -317,7 +332,11 @@ For EVERY case where models disagree, you MUST:
 
 IMPORTANT: Do not just list disputes and move on. You must actively investigate each one. Read files. Check .gitignore. Look at the actual code. The whole point of having filesystem access is to settle factual questions definitively.
 
-IMPORTANT: You CANNOT determine contractual/procurement status from code. If models flag "no DPA" or "non-institutional provider" for major vendors (OpenAI, Google, Anthropic, AWS, Microsoft), set needs_verification=true on the escalation signal. The institution may have enterprise agreements. Only assert a DPA problem if the code sends regulated data to clearly inappropriate destinations (personal accounts, unknown services, unencrypted channels).
+IMPORTANT: You CANNOT determine contractual/procurement status from code. If models flag "no DPA" or "non-institutional provider" for major vendors (OpenAI, Google, Anthropic, AWS, Microsoft, OpenRouter):
+- Set triggered=false, needs_verification=true on the escalation signal
+- Downgrade any critical finding about DPA/contract status to WARNING
+- Do NOT include "DPA missing" or "no data processing agreement" as a critical finding — this is ALWAYS a reviewer verification item
+- Only assert a DPA problem (critical) if the code sends regulated data to clearly inappropriate destinations (personal accounts, unknown domains, unencrypted HTTP)
 
 =====================================================================
 PHASE 3: OUTPUT

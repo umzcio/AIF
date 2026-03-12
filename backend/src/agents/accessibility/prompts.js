@@ -26,17 +26,20 @@ Do not wrap in markdown code fences. Output ONLY the JSON.
     "dynamicContentAreas": 0,
     "hasDesignSystem": true|false
   },
-  "wcagFindings": [
+  "wcagChecklist": [
     {
       "criterion": "string -- WCAG SC number e.g. 1.1.1",
       "title": "string -- SC title e.g. Non-text Content",
       "level": "A|AA",
       "status": "pass|fail|warning|not_applicable",
+      "checked": true,
+      "evidence": "string -- for pass: what you verified; for fail/warning: file:line + issue; for na: why not applicable",
       "instances": [
         { "file": "string", "line": 0, "element": "string -- the tag/component", "issue": "string", "recommendation": "string" }
       ]
     }
   ],
+  "COMPLETENESS_NOTE": "The wcagChecklist MUST contain one entry for EVERY success criterion listed in Section 2 of this prompt (all A and AA criteria). If any criterion is missing, the report will be rejected as incomplete. There are approximately 50 criteria to evaluate.",
   "ariaAudit": {
     "totalAriaAttributes": 0,
     "misusedRoles": [{ "file": "string", "line": 0, "element": "string", "role": "string", "issue": "string" }],
@@ -167,7 +170,9 @@ Before auditing, inventory all UI components:
 SECTION 2: WCAG 2.2 AA SUCCESS CRITERIA AUDIT
 =====================================================================
 
-Evaluate the codebase against each applicable WCAG 2.2 success criterion at Level A and AA. For each criterion, determine: pass, fail, warning (potential issue but uncertain), or not_applicable.
+Evaluate the codebase against EVERY WCAG 2.2 success criterion at Level A and AA listed below. You MUST report a status for EVERY SINGLE criterion — no exceptions. If you skip a criterion, the report is incomplete and will be rejected.
+
+For each criterion, determine: pass, fail, warning (potential issue but uncertain), or not_applicable. You must include evidence for every fail and warning (file:line + description). For pass, briefly state what you verified. For not_applicable, state why.
 
 PERCEIVABLE (Principle 1):
 - 1.1.1 Non-text Content: Every img, svg, icon, canvas has appropriate alt text or is marked decorative (alt="", role="presentation")
@@ -351,6 +356,16 @@ SCORING SIGNAL: Also provide an overall accessibility score from 0-3:
 
 You MUST read every file containing UI markup, styles, or interaction logic. After reviewing ALL relevant files, produce your report.
 
+COMPLETENESS REQUIREMENT: Your wcagChecklist MUST contain one entry for EVERY success criterion listed in Section 2 above. Count them — there are approximately 50 Level A and AA criteria. If your checklist has fewer than 45 entries, you have missed criteria. Go back and check.
+
+The user may only run this pipeline once. Every criterion that you skip is a potential violation that goes undetected. Nothing can fall through the cracks.
+
+For each criterion:
+- pass: State what you verified (e.g., "All images have alt attributes, checked 12 img elements across 8 files")
+- fail: Cite every instance with file:line
+- warning: Cite the concern and why it needs manual testing
+- not_applicable: State why (e.g., "No video/audio content in codebase")
+
 ${OUTPUT_SCHEMA}`;
 
 // All passes use the same prompt
@@ -379,7 +394,7 @@ CONVERGENCE RULES:
 
 MERGE RULES:
 - UI Inventory: union and consolidate across models
-- WCAG Findings: for each success criterion, if models agree on status, use it. If they disagree, resolve in Phase 2.
+- WCAG Checklist: EVERY success criterion from the prompt must appear in the merged output. For each criterion, merge statuses from all models. If all agree, use that status. If they disagree, resolve in Phase 2. If a model omitted a criterion, note it as a gap and check the code yourself.
 - ARIA Audit: union all misuses, missing labels, invalid patterns found by any model
 - Keyboard Access: union all issues. A single model finding a keyboard trap is sufficient.
 - Color/Contrast: include all color pairs identified. Mark estimated ratios.
@@ -416,17 +431,20 @@ For EVERY case where models disagree on a WCAG criterion (one says pass, another
 PHASE 3: OUTPUT
 =====================================================================
 
+COMPLETENESS CHECK: Before outputting, verify that wcagChecklist contains an entry for every SC listed in the analysis prompt (~50 criteria). If any model omitted criteria, you MUST check those criteria yourself by reading the code and fill in the gaps. An incomplete checklist means the audit is unreliable.
+
 For the SUMMARY, focus on:
 1. Overall accessibility posture (none/partial/substantial/full WCAG 2.2 AA)
 2. The top 3-5 most impactful issues to fix first
 3. Which WCAG principles (Perceivable/Operable/Understandable/Robust) have the most failures
 4. How many disputes were resolved vs. need manual testing
+5. Checklist completeness: how many of ~50 criteria were evaluated by all models, how many had gaps that you filled
 
 OUTPUT the merged report as JSON with this schema:
 
 {
   "uiInventory": { "technologies": [], "cssApproach": [], "componentFiles": [], "routeCount": 0, "formCount": 0, "modalDialogCount": 0, "tableCount": 0, "imageCount": 0, "videoAudioCount": 0, "dynamicContentAreas": 0, "hasDesignSystem": false },
-  "wcagFindings": [{ "criterion": "", "title": "", "level": "A|AA", "status": "pass|fail|warning|not_applicable", "confirmedBy": 0, "instances": [{ "file": "", "line": 0, "element": "", "issue": "", "recommendation": "" }] }],
+  "wcagChecklist": [{ "criterion": "", "title": "", "level": "A|AA", "status": "pass|fail|warning|not_applicable", "confirmedBy": 0, "modelStatuses": { "codex": "pass|fail|warning|na|omitted", "gemini": "...", "grok": "...", "kimi": "...", "qwen": "..." }, "evidence": "", "instances": [{ "file": "", "line": 0, "element": "", "issue": "", "recommendation": "" }] }],
   "ariaAudit": {
     "totalAriaAttributes": 0,
     "misusedRoles": [],

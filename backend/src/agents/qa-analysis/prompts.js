@@ -69,6 +69,18 @@ Do not wrap in markdown code fences. Output ONLY the JSON.
       "remediation": "string"
     }
   ],
+  "sectionCoverage": {
+    "null_undefined": { "filesChecked": ["string"], "findingsCount": 0, "status": "clean|issues_found" },
+    "error_handling": { "filesChecked": ["string"], "findingsCount": 0, "status": "clean|issues_found" },
+    "async_concurrency": { "filesChecked": ["string"], "findingsCount": 0, "status": "clean|issues_found" },
+    "edge_cases": { "filesChecked": ["string"], "findingsCount": 0, "status": "clean|issues_found" },
+    "type_safety": { "filesChecked": ["string"], "findingsCount": 0, "status": "clean|issues_found" },
+    "resource_management": { "filesChecked": ["string"], "findingsCount": 0, "status": "clean|issues_found" },
+    "logic_errors": { "filesChecked": ["string"], "findingsCount": 0, "status": "clean|issues_found" },
+    "api_contract": { "filesChecked": ["string"], "findingsCount": 0, "status": "clean|issues_found" },
+    "state_management": { "filesChecked": ["string"], "findingsCount": 0, "status": "clean|issues_found" },
+    "failure_modes": { "filesChecked": ["string"], "findingsCount": 0, "status": "clean|issues_found" }
+  },
   "filesReviewed": ["string"],
   "summary": "string -- 2-3 sentence summary of overall code quality and top correctness concerns"
 }
@@ -215,6 +227,13 @@ Provide a maintenance score from 0-3:
 =====================================================================
 
 You MUST read every source file in the codebase. After reviewing ALL files, produce your report.
+
+COMPLETENESS REQUIREMENT: Your output MUST contain analysis for EVERY section (1-10). For each section, you must either report findings OR explicitly state "No issues found in [category] after reviewing [files examined]." An empty or omitted section means the audit is incomplete and will be rejected. The user may only run this pipeline once — nothing can fall through the cracks.
+
+For each section, use this approach:
+1. List the files you examined for that category
+2. Describe the patterns you checked
+3. Report findings or confirm clean
 
 ${OUTPUT_SCHEMA}`;
 
