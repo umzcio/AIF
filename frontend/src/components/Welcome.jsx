@@ -131,7 +131,7 @@ export default function Welcome() {
           governance frameworks. Designed to enable AI-assisted development at{" "}
           {config.institutionName} — not restrict it.
         </p>
-        <p style={{ fontSize: 12, color: C.textDim, margin: "8px 0 0" }}>v1.0 Draft · Office of the CIO · 2026</p>
+        <p style={{ fontSize: 12, color: C.textDim, margin: "8px 0 0" }}>v1.5 Draft · Office of the CIO · 2026</p>
       </div>
     </div>
   );

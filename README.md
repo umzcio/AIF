@@ -34,14 +34,15 @@ Builders submit tools via a 21-question intake form → the system scores them o
 │                                                                  │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
 │  │ Agent 1  │  │ Agent 2  │  │ Agent 3  │  │ Agent 4  │          │
-│  │ Code &   │  │ Access-  │  │ HECVAT   │  │  Docs    │          │
-│  │ Security │  │ ibility  │  │ 4 Lite   │  │Generation│          │
+│  │ Code &   │  │ Access-  │  │ QA / Bug │  │Docs +    │          │
+│  │ Security │  │ ibility  │  │Detection │  │ HECVAT   │          │
 │  │          │  │          │  │          │  │          │          │
-│  │ 5 models │  │ 5 models │  │ 1 Claude │  │ 1 Claude │          │
-│  │+synthesis│  │+synthesis│  │  pass    │  │  pass    │          │
+│  │ 5 models │  │ 5 models │  │ 5 models │  │ Claude   │          │
+│  │+synthesis│  │+synthesis│  │+synthesis│  │  × 2     │          │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘          │
 │       │             │             │              │               │
-│       └──────┬──────┘      reads 1+2      reads 1-3              │
+│       └──────┬──────┘             │              │               │
+│              │           reads 1+2       reads 1-3              │
 │              │                                                   │
 │              ▼                                                   │
 │  ┌────────────────────────────────────────────────────────┐      │
@@ -68,7 +69,7 @@ Builders submit tools via a 21-question intake form → the system scores them o
                              ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                         OUTPUT                                   │
-│  Security findings · A11y audit · HECVAT XLSX                    │
+│  Security findings · A11y audit · QA / Bugs · HECVAT XLSX        │
 │  User Guide · Admin Guide · Compliance Summary (.docx)           │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -126,13 +127,13 @@ Multi-model (5 passes + Claude synthesis). 10-section rubric: technology invento
 
 Multi-model (5 passes + Claude synthesis). WCAG 2.2 Level AA audit: ARIA, keyboard navigation, color contrast, semantic structure, forms, images, dynamic content, modals, responsive design.
 
-### Agent 3: HECVAT 4 Lite Self-Assessment
+### Agent 3: QA / Bug Detection
 
-Single Claude pass (reads Agent 1+2 output). Pre-populates 87 Critical Importance questions from HECVAT 4.15 across 23 categories. ~60% answerable from code; remainder flagged for human input. Exports to official HECVAT XLSX template.
+Multi-model (5 passes + Claude synthesis). Finds logic bugs, correctness issues, and quality problems: null handling, error paths, async/concurrency, edge cases, type safety, resource management, API contract violations, state management, failure modes. Reads Agent 1+2 output for context.
 
-### Agent 4: Documentation Generation
+### Agent 4: Documentation + HECVAT
 
-Single Claude pass (reads Agent 1-3 output). Generates three documents: User Guide, Admin Guide, Compliance Summary. Output as Markdown and .docx (via Pandoc).
+Single pass (Claude × 2, reads Agent 1-3 output). Two calls: (1) generates User Guide, Admin Guide, Compliance Summary as Markdown and .docx via Pandoc; (2) pre-populates HECVAT 4.15 Lite 87 critical questions with XLSX export.
 
 ### Multi-Model Convergence
 
@@ -216,8 +217,8 @@ AIF/
 │   │   │   ├── shared/cli.js       ← CLI execution, JSON extraction, per-model timeouts, process tracking
 │   │   │   ├── code-analysis/      ← Agent 1 (prompts + runner)
 │   │   │   ├── accessibility/      ← Agent 2 (prompts + runner)
-│   │   │   ├── hecvat/             ← Agent 3 (prompts + runner + XLSX export)
-│   │   │   └── documentation/      ← Agent 4 (prompts + runner)
+│   │   │   ├── qa-analysis/         ← Agent 3 (prompts + runner)
+│   │   │   └── documentation/      ← Agent 4 (prompts + runner + HECVAT + XLSX export)
 │   │   ├── routes/
 │   │   │   ├── auth.js             ← CAS login, JWT, refresh
 │   │   │   ├── intake.js           ← Draft/submit, score computation
@@ -311,15 +312,15 @@ CAS_SERVICE_URL=...                # CAS callback URL
 
 | Component | Status |
 |-----------|--------|
-| Framework document (v1.0) | Done |
+| Framework document (v1.5) | Done |
 | Scoring model (7 dimensions, weight profiles, track routing) | Done |
 | Frontend portal (intake, registry, pipeline, report, framework, agents) | Done |
 | Dark mode + WCAG 2.2 AA compliance | Done |
 | Backend API (auth, intake, pipeline, registry, review, admin) | Done |
 | Agent 1: Code & Security (5-model + Snyk) | Done |
 | Agent 2: Accessibility / WCAG 2.2 AA (5-model) | Done |
-| Agent 3: HECVAT 4 Lite (87 questions + XLSX export) | Done |
-| Agent 4: Documentation (3 docs + Pandoc) | Done |
+| Agent 3: QA / Bug Detection (5-model) | Done |
+| Agent 4: Documentation + HECVAT (3 docs + 87 questions + XLSX) | Done |
 | Docker deployment | Done |
 | RBAC (builder/reviewer/admin) | Done |
 | Review workflow (approve/reject, self-certify, track override) | Done |
