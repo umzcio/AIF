@@ -1,13 +1,19 @@
 /**
  * Documentation Generation Prompts
  *
- * Unlike Agents 1-2, this is a SINGLE Claude pass (not multi-model).
+ * Unlike Agents 1-3, this is a SINGLE Claude pass (not multi-model).
  * Documentation is generation, not analysis — convergence doesn't apply.
  *
  * Claude reads the codebase + all prior agent outputs and produces
  * structured documentation: User Guide, Admin/Deployment Guide,
- * and a Compliance Summary derived from agent findings.
+ * Compliance Summary, and HECVAT 4 Lite Self-Assessment.
+ *
+ * HECVAT was moved here from the former Agent 3 — it runs as a separate
+ * Claude call inside the doc runner to keep prompts focused.
  */
+
+// Re-export HECVAT prompt (moved from agents/hecvat/prompts.js)
+export { HECVAT_PROMPT } from "./hecvat-prompt.js";
 
 export const DOC_PROMPT = `You are the documentation generation agent for the University of Montana AI Production Readiness Framework. Your job is to produce complete, actionable documentation for the tool under review.
 

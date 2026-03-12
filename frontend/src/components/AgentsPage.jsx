@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Shield, Eye, ClipboardCheck, FileText, GitBranch, ExternalLink, Cpu, Layers, ChevronRight, Zap, Users, Terminal, Brain, Github } from "lucide-react";
 import { C } from "../constants.js";
 import { useAuth } from "../hooks/useAuth.jsx";
@@ -66,29 +66,30 @@ const AGENT_DETAILS = [
     ],
   },
   {
-    id: "hecvat",
+    id: "qa",
     num: 3,
-    name: "HECVAT 4 Lite Self-Assessment",
+    name: "QA / Bug Detection",
     Icon: ClipboardCheck,
     color: "#06B6D4",
-    type: "Single pass (Claude, reads Agent 1+2 output)",
-    desc: "Pre-populates a HECVAT 4.15 Lite self-assessment by reading the codebase and prior agent reports. Answers 87 Critical Importance questions across 23 categories, filling the official EDUCAUSE HECVAT Excel template. About 60% of questions are answerable from code; the rest are flagged for human input.",
+    type: "Multi-model (5 passes + synthesis)",
+    desc: "Finds logic bugs, correctness issues, and quality problems that security analysis doesn't cover. Five AI models independently review the code for null handling, error paths, async issues, edge cases, type safety, resource management, logic errors, API contract violations, state management, and failure modes. Claude synthesizes with convergence-based confidence.",
     sections: [
-      "23 HECVAT categories (DOCU through QUAL)",
-      "87 Critical Importance questions pre-filled",
-      "Non-negotiable failure detection",
-      "High-risk finding identification",
-      "Code evidence with file:line references",
-      "Human-input flags for policy questions",
-      "XLSX export to official HECVAT 4.15 template",
+      "Null/undefined handling and missing checks",
+      "Error handling gaps and silent failures",
+      "Async/concurrency bugs and race conditions",
+      "Edge cases and boundary conditions",
+      "Type safety and coercion bugs",
+      "Resource management (leaks, cleanup)",
+      "Logic errors and incorrect conditions",
+      "API contract violations (frontend/backend)",
+      "State management issues",
+      "Failure mode analysis per feature",
     ],
-    tools: [
-      { name: "ExcelJS", desc: "HECVAT template XLSX manipulation", url: "https://github.com/exceljs/exceljs" },
-    ],
+    tools: [],
     inspirations: [
-      { name: "EDUCAUSE HECVAT", desc: "Higher Education Community Vendor Assessment Toolkit", url: "https://library.educause.edu/resources/2020/4/higher-education-community-vendor-assessment-toolkit" },
-      { name: "HECVAT 4.15 Template", desc: "Official HECVAT Lite questionnaire template", url: "https://www.educause.edu/hecvat" },
-      { name: "Cloud Broker Project", desc: "HECVAT automation and vendor assessment workflows", url: "https://github.com/nickolaev/cloudbroker" },
+      { name: "SonarQube", desc: "Static analysis bug detection patterns", url: "https://github.com/SonarSource/sonarqube" },
+      { name: "ESLint", desc: "JavaScript linting rules for correctness", url: "https://github.com/eslint/eslint" },
+      { name: "TypeScript", desc: "Type safety and null checking patterns", url: "https://github.com/microsoft/TypeScript" },
     ],
   },
   {
@@ -97,12 +98,13 @@ const AGENT_DETAILS = [
     name: "Documentation Generation",
     Icon: FileText,
     color: "#22C55E",
-    type: "Single pass (Claude, reads Agent 1-3 output)",
-    desc: "Reads the codebase and all prior agent outputs to generate three production-ready documents: a User Guide, an Admin/Deployment Guide, and a Compliance Summary. Outputs are converted from Markdown to .docx via Pandoc.",
+    type: "Single pass (Claude × 2, reads Agent 1-3 output)",
+    desc: "Reads the codebase and all prior agent outputs to generate three production-ready documents plus a HECVAT 4.15 Lite self-assessment. Two Claude calls: one for documentation, one for HECVAT. Outputs are converted from Markdown to .docx via Pandoc; HECVAT fills the official EDUCAUSE Excel template.",
     sections: [
       "USER_GUIDE.md / .docx — end-user documentation",
       "ADMIN_GUIDE.md / .docx — deployment, configuration, operations",
-      "COMPLIANCE_SUMMARY.md / .docx — security posture, WCAG status, HECVAT readiness",
+      "COMPLIANCE_SUMMARY.md / .docx — security posture, WCAG status, QA findings",
+      "HECVAT 4.15 Lite — 87 critical questions, XLSX export",
       "TODO markers for missing information",
       "Cross-references to agent findings",
     ],
@@ -149,7 +151,7 @@ const TOC = [
   { id: "convergence", label: "Multi-Model Convergence" },
   { id: "agent-1", label: "Agent 1: Code & Security" },
   { id: "agent-2", label: "Agent 2: Accessibility" },
-  { id: "agent-3", label: "Agent 3: HECVAT" },
+  { id: "agent-3", label: "Agent 3: QA / Bugs" },
   { id: "agent-4", label: "Agent 4: Documentation" },
   { id: "why-models", label: "Why These Models" },
   { id: "cli-tools", label: "CLI Tools" },
@@ -283,18 +285,17 @@ function PipelineDiagram({ onScrollTo }) {
         {arrow("Agent 1 + 2 findings")}
 
         {/* Agent 3 */}
-        {agentNode(3, "HECVAT 4 Lite", "#06B6D4", "SINGLE PASS",
-          <div style={{ fontSize: 11, color: C.textMid, lineHeight: 1.5 }}>
-            87 critical questions &middot; 23 categories &middot; ~60% pre-filled from code
-          </div>
-        )}
+        {agentNode(3, "QA / Bug Detection", "#06B6D4", "MULTI-MODEL", <>
+          {modelChips}
+          {synthBar("3+ agree = confirmed bug \u00b7 1\u20132 = potential")}
+        </>)}
 
         {arrow("Agent 1\u20133 output")}
 
         {/* Agent 4 */}
         {agentNode(4, "Documentation", "#22C55E", "SINGLE PASS",
           <div style={{ fontSize: 11, color: C.textMid, lineHeight: 1.5 }}>
-            User Guide &middot; Admin Guide &middot; Compliance Summary &rarr; .docx via Pandoc
+            User Guide &middot; Admin Guide &middot; Compliance Summary &middot; HECVAT &rarr; .docx/.xlsx
           </div>
         )}
 
@@ -305,7 +306,7 @@ function PipelineDiagram({ onScrollTo }) {
           background: C.accentSoft }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.accent, marginBottom: 8 }}>Final Report &amp; Artifacts</div>
           <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
-            {["Security Findings", "A11y Audit", "HECVAT XLSX", "User Guide", "Admin Guide", "Compliance"].map(a => (
+            {["Security Findings", "A11y Audit", "QA / Bugs", "HECVAT XLSX", "User Guide", "Admin Guide", "Compliance"].map(a => (
               <span key={a} style={{ padding: "3px 8px", borderRadius: 4, background: C.successBg,
                 border: `1px solid ${C.accent25}`, fontSize: 9, color: C.accent,
                 fontFamily: "'JetBrains Mono', monospace" }}>{a}</span>
@@ -411,10 +412,31 @@ function AgentCard({ agent }) {
 export default function AgentsPage() {
   const [activeSection, setActiveSection] = useState("overview");
   const { config } = useAuth();
+  const scrollingTo = useRef(null);
+
+  const sectionIds = TOC.map(s => s.id);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      if (scrollingTo.current) return;
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          setActiveSection(entry.target.id.replace("ap-", ""));
+        }
+      }
+    }, { rootMargin: "-20% 0px -70% 0px" });
+    sectionIds.forEach(id => {
+      const el = document.getElementById(`ap-${id}`);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, []);
 
   function scrollTo(id) {
     setActiveSection(id);
+    scrollingTo.current = id;
     document.getElementById(`ap-${id}`)?.scrollIntoView({ behavior: "smooth" });
+    setTimeout(() => { scrollingTo.current = null; }, 800);
   }
 
   return (
@@ -468,7 +490,7 @@ export default function AgentsPage() {
             <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Multi-Model Convergence</span>
           </div>
           <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, margin: "0 0 12px" }}>
-            Agents 1 and 2 use a convergence-based approach: five different AI models receive the <strong>same prompt</strong> and
+            Agents 1, 2, and 3 use a convergence-based approach: five different AI models receive the <strong>same prompt</strong> and
             independently analyze the entire codebase. A finding is <strong>confirmed</strong> if 3+ models flag it,
             <strong> potential</strong> if 1-2 models flag it, and <strong>clean</strong> if zero models flag it. Claude synthesizes
             the results and can re-read source files to resolve disputes between models.

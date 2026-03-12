@@ -50,8 +50,8 @@ export const WEIGHT_MATRIX = {
 export const AGENTS = [
   { id: "security", name: "Code / Security", color: "#F97316", desc: "Static analysis, dependency audit, secrets scan, OWASP checks" },
   { id: "accessibility", name: "Accessibility", color: "#8B5CF6", desc: "WCAG 2.2 AA compliance, Section 508, screen reader audit" },
-  { id: "hecvat", name: "HECVAT-Lite", color: "#06B6D4", desc: "Higher Ed vendor assessment — data handling, auth, privacy" },
-  { id: "documentation", name: "Documentation", color: "#22C55E", desc: "User guide, admin guide, findings report generation" },
+  { id: "qa", name: "QA / Bug Detection", color: "#06B6D4", desc: "Logic bugs, error handling, async issues, edge cases, failure modes" },
+  { id: "documentation", name: "Documentation", color: "#22C55E", desc: "User guide, admin guide, findings report, HECVAT assessment" },
 ];
 
 export const SEVERITY_CONFIG = {

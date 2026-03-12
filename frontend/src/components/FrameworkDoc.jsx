@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ChevronRight, AlertTriangle, Github } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Github } from "lucide-react";
 import { C, TRACK_COLORS, TRACK_LABELS } from "../constants.js";
 import { useAuth } from "../hooks/useAuth.jsx";
 import { TrackBadge } from "./primitives.jsx";
@@ -7,6 +7,25 @@ import { TrackBadge } from "./primitives.jsx";
 export default function FrameworkDoc() {
   const { config } = useAuth();
   const [activeSection, setActiveSection] = useState("purpose");
+  const scrollingTo = useRef(null);
+
+  const sectionIds = ["purpose", "quickstart", "lineage", "ethics", "existing", "multi-tool", "weights", "escalations", "tiers", "post-prod", "not", "adopting"];
+
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      if (scrollingTo.current) return;
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          setActiveSection(entry.target.id.replace("fw-", ""));
+        }
+      }
+    }, { rootMargin: "-20% 0px -70% 0px" });
+    sectionIds.forEach(id => {
+      const el = document.getElementById(`fw-${id}`);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, []);
 
   const sections = [
     { id: "purpose", label: "Purpose & Framing" },
@@ -23,10 +42,12 @@ export default function FrameworkDoc() {
     { id: "adopting", label: "Adopting This Framework" },
   ];
 
+  const bulletStyle = { width: 16, minWidth: 16, textAlign: "center", lineHeight: "24px", flexShrink: 0, fontSize: 13, fontFamily: "'JetBrains Mono', monospace" };
+  const bulletTextStyle = { fontSize: 13.5, color: C.textMid, lineHeight: "24px", margin: 0 };
   const h2Style = { fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 12, marginTop: 0, paddingBottom: 10, borderBottom: `1px solid ${C.border}` };
   const h3Style = { fontSize: 14, fontWeight: 700, color: C.accent, marginBottom: 8, marginTop: 20 };
-  const pStyle = { fontSize: 13.5, color: C.textMid, lineHeight: 1.75, marginBottom: 12 };
-  const liStyle = { fontSize: 13.5, color: C.textMid, lineHeight: 1.75, marginBottom: 6, paddingLeft: 4 };
+  const pStyle = { fontSize: 13.5, color: C.textMid, lineHeight: 1.75, marginTop: 0, marginBottom: 12 };
+  const liStyle = { fontSize: 13.5, color: C.textMid, lineHeight: 1.75, marginTop: 0, marginBottom: 6, paddingLeft: 4 };
   const calloutStyle = { padding: "14px 18px", borderRadius: 8, background: C.accentSoft, border: `1px solid ${C.accent30}`, marginBottom: 16 };
   const tableWrap = { borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden", marginBottom: 16 };
   const thStyle = { padding: "10px 14px", background: C.surfaceAlt, fontSize: 11, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'JetBrains Mono', monospace", textAlign: "left", borderBottom: `1px solid ${C.border}` };
@@ -41,7 +62,7 @@ export default function FrameworkDoc() {
         <div style={{ position: "sticky", top: 16 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 12, fontFamily: "'JetBrains Mono', monospace" }}>On This Page</div>
           {sections.map(s => (
-            <a key={s.id} href={`#fw-${s.id}`} onClick={(e) => { e.preventDefault(); setActiveSection(s.id); document.getElementById(`fw-${s.id}`)?.scrollIntoView({ behavior: "smooth" }); }}
+            <a key={s.id} href={`#fw-${s.id}`} onClick={(e) => { e.preventDefault(); setActiveSection(s.id); scrollingTo.current = s.id; document.getElementById(`fw-${s.id}`)?.scrollIntoView({ behavior: "smooth" }); setTimeout(() => { scrollingTo.current = null; }, 800); }}
               style={{ display: "block", padding: "6px 12px", marginBottom: 2, borderRadius: 6, fontSize: 12, fontWeight: 500,
                 color: activeSection === s.id ? C.accent : C.textMid, background: activeSection === s.id ? C.accentSoft : "transparent",
                 textDecoration: "none", cursor: "pointer", borderLeft: `2px solid ${activeSection === s.id ? C.accent : "transparent"}`, transition: "all .15s" }}>
@@ -108,9 +129,9 @@ export default function FrameworkDoc() {
             ["EDUCAUSE AI Governance (2024)", "Three-part institutional structure of governance, operations, and pedagogy."],
             ["EDUCAUSE AI Ethics (2025)", "Beneficence, Respect for Autonomy, Transparency, and Accountability."],
           ].map(([title, desc], i) => (
-            <div key={i} style={{ display: "flex", gap: 12, marginBottom: 10, paddingLeft: 4 }}>
-              <ChevronRight size={14} color={C.accent} style={{ marginTop: 3, flexShrink: 0 }} />
-              <p style={{ ...pStyle, marginBottom: 0 }}><span style={{ color: C.text, fontWeight: 600 }}>{title}:</span> {desc}</p>
+            <div key={i} style={{ display: "flex", gap: 10, marginBottom: 10, paddingLeft: 4 }}>
+              <span style={{ ...bulletStyle, color: C.accent }}>›</span>
+              <span style={bulletTextStyle}><span style={{ color: C.text, fontWeight: 600 }}>{title}:</span> {desc}</span>
             </div>
           ))}
           <div style={{ padding: "14px 18px", borderRadius: 8, background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.2)", marginTop: 16 }}>
@@ -205,8 +226,8 @@ export default function FrameworkDoc() {
             "Deployed where campus has no visibility into AI model training or updates",
           ].map((item, i) => (
             <div key={i} style={{ display: "flex", gap: 10, marginBottom: 6, paddingLeft: 4 }}>
-              <AlertTriangle size={13} color={TRACK_COLORS[4]} style={{ marginTop: 3, flexShrink: 0 }} />
-              <p style={{ ...pStyle, marginBottom: 0 }}>{item}</p>
+              <span style={{ ...bulletStyle, color: TRACK_COLORS[4] }}>⚠</span>
+              <span style={bulletTextStyle}>{item}</span>
             </div>
           ))}
           <h3 style={h3Style}>Pedagogy and Academic Integrity</h3>
@@ -216,8 +237,8 @@ export default function FrameworkDoc() {
             "Student behavioral/performance data beyond FERPA authorization",
           ].map((item, i) => (
             <div key={i} style={{ display: "flex", gap: 10, marginBottom: 6, paddingLeft: 4 }}>
-              <AlertTriangle size={13} color={TRACK_COLORS[3]} style={{ marginTop: 3, flexShrink: 0 }} />
-              <p style={{ ...pStyle, marginBottom: 0 }}>{item}</p>
+              <span style={{ ...bulletStyle, color: TRACK_COLORS[3] }}>⚠</span>
+              <span style={bulletTextStyle}>{item}</span>
             </div>
           ))}
         </div>
@@ -226,7 +247,7 @@ export default function FrameworkDoc() {
           <h2 style={h2Style}>Routing Tiers</h2>
           {[
             { t: 1, title: "Automated review. Register and go.", when: ["Low band score", "No institutional data", "Builder or immediate team only", "No escalations"],
-              req: ["Automated pipeline: Code/Security, Accessibility, HECVAT-Lite, Documentation", "Register in IT tool registry", "Record builder, purpose, and owner", "Review and acknowledge findings", "No human sign-off unless material change"] },
+              req: ["Automated pipeline: Code/Security, Accessibility, QA / Bug Detection, Documentation + HECVAT", "Register in IT tool registry", "Record builder, purpose, and owner", "Review and acknowledge findings", "No human sign-off unless material change"] },
             { t: 2, title: "Automated review plus builder self-certification.", when: ["Medium band score", "Internal non-sensitive data", "Team or department use", "No escalations"],
               req: ["Automated pipeline runs", "Complete Self-Assessment (length scales with score)", "Plain-language explanation of tool behavior", "Document data access and storage", "Confirm auth and access controls", "Identify tool successor", "Department head sign-off", "Builder self-certifies"] },
             { t: 3, title: "Automated review plus IT human review.", when: ["High band score", "PII, FERPA, or HR data", "Serves students or public", "Significant blast radius"],
@@ -241,16 +262,16 @@ export default function FrameworkDoc() {
               </div>
               <h4 style={{ fontSize: 11, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase", margin: "12px 0 6px" }}>Route here when</h4>
               {tier.when.map((w, i) => (
-                <div key={i} style={{ display: "flex", gap: 8, marginBottom: 3, paddingLeft: 8 }}>
-                  <ChevronRight size={12} color={TRACK_COLORS[tier.t]} style={{ marginTop: 3, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: C.textMid, lineHeight: 1.5 }}>{w}</span>
+                <div key={i} style={{ display: "flex", gap: 10, marginBottom: 3, paddingLeft: 8 }}>
+                  <span style={{ ...bulletStyle, color: TRACK_COLORS[tier.t], fontSize: 12 }}>›</span>
+                  <span style={{ fontSize: 13, color: C.textMid, lineHeight: "24px" }}>{w}</span>
                 </div>
               ))}
               <h4 style={{ fontSize: 11, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase", margin: "14px 0 6px" }}>Required before proceeding</h4>
               {tier.req.map((r, i) => (
-                <div key={i} style={{ display: "flex", gap: 8, marginBottom: 3, paddingLeft: 8 }}>
-                  <span style={{ fontSize: 12, color: TRACK_COLORS[tier.t], fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", width: 18, flexShrink: 0 }}>{i + 1}.</span>
-                  <span style={{ fontSize: 13, color: C.textMid, lineHeight: 1.5 }}>{r}</span>
+                <div key={i} style={{ display: "flex", gap: 10, marginBottom: 3, paddingLeft: 8 }}>
+                  <span style={{ fontSize: 12, color: TRACK_COLORS[tier.t], fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", width: 18, flexShrink: 0, lineHeight: "24px" }}>{i + 1}.</span>
+                  <span style={{ fontSize: 13, color: C.textMid, lineHeight: "24px" }}>{r}</span>
                 </div>
               ))}
             </div>
@@ -271,8 +292,8 @@ export default function FrameworkDoc() {
             "Runtime anomalies reported through standard incident management.",
           ].map((item, i) => (
             <div key={i} style={{ display: "flex", gap: 10, marginBottom: 6, paddingLeft: 4 }}>
-              <ChevronRight size={13} color={C.accent} style={{ marginTop: 3, flexShrink: 0 }} />
-              <p style={{ ...pStyle, marginBottom: 0 }}>{item}</p>
+              <span style={{ ...bulletStyle, color: C.accent }}>›</span>
+              <span style={bulletTextStyle}>{item}</span>
             </div>
           ))}
         </div>
@@ -286,8 +307,8 @@ export default function FrameworkDoc() {
             "Not final. Thresholds, escalation conditions, and requirements will be refined through stress-testing.",
           ].map((item, i) => (
             <div key={i} style={{ display: "flex", gap: 10, marginBottom: 10, paddingLeft: 4 }}>
-              <ChevronRight size={13} color={C.textMid} style={{ marginTop: 3, flexShrink: 0 }} />
-              <p style={{ ...pStyle, marginBottom: 0 }}>{item}</p>
+              <span style={{ ...bulletStyle, color: C.textMid }}>›</span>
+              <span style={bulletTextStyle}>{item}</span>
             </div>
           ))}
         </div>
@@ -309,8 +330,8 @@ export default function FrameworkDoc() {
             "Complete stress test before enforcing tier routing. Do not publish as policy until validated.",
           ].map((item, i) => (
             <div key={i} style={{ display: "flex", gap: 10, marginBottom: 10, paddingLeft: 4 }}>
-              <span style={{ fontSize: 12, color: C.accent, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", width: 18, flexShrink: 0 }}>{i + 1}.</span>
-              <p style={{ ...pStyle, marginBottom: 0 }}>{item}</p>
+              <span style={{ fontSize: 12, color: C.accent, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", width: 18, flexShrink: 0, lineHeight: "24px" }}>{i + 1}.</span>
+              <span style={bulletTextStyle}>{item}</span>
             </div>
           ))}
         </div>

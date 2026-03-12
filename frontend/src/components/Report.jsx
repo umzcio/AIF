@@ -15,6 +15,7 @@ const ACTIONS = {
 const AGENT_TABS = [
   { key: "codeAnalysis", label: "Code & Security" },
   { key: "accessibility", label: "Accessibility" },
+  { key: "qaAnalysis", label: "QA / Bugs" },
   { key: "hecvat", label: "HECVAT" },
   { key: "documentation", label: "Documentation" },
 ];

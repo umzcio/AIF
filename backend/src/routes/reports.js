@@ -66,8 +66,29 @@ function loadFindings(outputDir) {
     }
   }
 
-  // Agent 3: HECVAT
-  const hecvatPath = join(outputDir, "agent3_hecvat", "hecvat_assessment.json");
+  // Agent 3: QA / Bug Detection
+  const qaPath = join(outputDir, "agent3_qa", "synthesis.json");
+  if (existsSync(qaPath)) {
+    const data = JSON.parse(readFileSync(qaPath, "utf-8"));
+    for (const f of (data.findings || [])) {
+      findings.push({
+        agent: "QA / Bug Detection",
+        severity: f.severity || "info",
+        category: f.category || "",
+        title: f.title || "",
+        detail: f.detail || "",
+        file: f.evidence || "",
+        recommendation: f.remediation || f.suggestedFix || "",
+        convergence: f.convergenceCount ?? "",
+        confidence: f.confidence || "",
+        reportedBy: Array.isArray(f.reportedBy) ? f.reportedBy.join(", ") : "",
+      });
+    }
+  }
+
+  // HECVAT findings (from Agent 4 output, with backward-compat fallback to old Agent 3)
+  let hecvatPath = join(outputDir, "agent4_documentation", "hecvat_assessment.json");
+  if (!existsSync(hecvatPath)) hecvatPath = join(outputDir, "agent3_hecvat", "hecvat_assessment.json");
   if (existsSync(hecvatPath)) {
     const data = JSON.parse(readFileSync(hecvatPath, "utf-8"));
     for (const f of (data.nonNegotiableFailures || [])) {
@@ -153,7 +174,13 @@ router.get("/:runId", async (req, res) => {
   const a11yPath = join(dir, "agent2_accessibility", "synthesis.json");
   if (existsSync(a11yPath)) report.agents.accessibility = JSON.parse(readFileSync(a11yPath, "utf-8"));
 
-  const hecvatPath = join(dir, "agent3_hecvat", "hecvat_assessment.json");
+  // Agent 3: QA Analysis (new)
+  const qaPath = join(dir, "agent3_qa", "synthesis.json");
+  if (existsSync(qaPath)) report.agents.qaAnalysis = JSON.parse(readFileSync(qaPath, "utf-8"));
+
+  // HECVAT: now from Agent 4, with backward-compat fallback to old Agent 3
+  let hecvatPath = join(dir, "agent4_documentation", "hecvat_assessment.json");
+  if (!existsSync(hecvatPath)) hecvatPath = join(dir, "agent3_hecvat", "hecvat_assessment.json");
   if (existsSync(hecvatPath)) report.agents.hecvat = JSON.parse(readFileSync(hecvatPath, "utf-8"));
 
   const docsPath = join(dir, "agent4_documentation", "documentation.json");
@@ -202,7 +229,9 @@ router.get("/:runId/hecvat.xlsx", async (req, res) => {
   const run = await requireRunAccess(req, res);
   if (!run) return;
 
-  const xlsxPath = join(run.output_dir, "agent3_hecvat", "hecvat_assessment.xlsx");
+  // Try new location (Agent 4) first, fall back to old location (Agent 3)
+  let xlsxPath = join(run.output_dir, "agent4_documentation", "hecvat_assessment.xlsx");
+  if (!existsSync(xlsxPath)) xlsxPath = join(run.output_dir, "agent3_hecvat", "hecvat_assessment.xlsx");
   if (!existsSync(xlsxPath)) return res.status(404).json({ error: "HECVAT XLSX not found" });
 
   res.download(xlsxPath, "hecvat_assessment.xlsx");

@@ -4,15 +4,15 @@
  * Takes an intake (codebase path + track) and runs the appropriate agents.
  * Agent 1: Code & Security Analysis (multi-model)
  * Agent 2: Accessibility / WCAG 2.2 AA (multi-model)
- * Agent 3: HECVAT 4 Lite Self-Assessment (single Claude pass)
- * Agent 4: Documentation Generation (single Claude pass)
+ * Agent 3: QA / Bug Detection (multi-model)
+ * Agent 4: Documentation Generation + HECVAT (single Claude pass × 2)
  *
  * Supports: cancellation via AbortSignal, process tracking by runId.
  */
 
 import { runCodeAnalysis } from "../agents/code-analysis/runner.js";
 import { runAccessibilityAudit } from "../agents/accessibility/runner.js";
-import { runHecvatAssessment } from "../agents/hecvat/runner.js";
+import { runQAAnalysis } from "../agents/qa-analysis/runner.js";
 import { runDocGeneration } from "../agents/documentation/runner.js";
 import { join } from "path";
 import { mkdirSync } from "fs";
@@ -63,7 +63,7 @@ export async function runPipeline({ codebasePath, track, toolName, outputBase, o
   const AGENTS = [
     { name: "code-analysis", label: "Code & Security Analysis", index: 0 },
     { name: "accessibility", label: "Accessibility Audit", index: 1 },
-    { name: "hecvat", label: "HECVAT 4 Lite", index: 2 },
+    { name: "qa-analysis", label: "QA / Bug Detection", index: 2 },
     { name: "documentation", label: "Documentation Generation", index: 3 },
   ];
 
@@ -94,21 +94,19 @@ export async function runPipeline({ codebasePath, track, toolName, outputBase, o
   const a11ySummary = summarizeFindings(accessibility.synthesis);
   emit({ type: "agent_complete", agent: AGENTS[1].name, index: 1, passes: Object.keys(accessibility.passes).length, failures: accessibility.failures.length, summary: a11ySummary, partial: accessibility.partial });
 
-  // Agent 3: HECVAT 4 Lite Self-Assessment (single Claude pass, reads Agent 1+2 outputs)
+  // Agent 3: QA / Bug Detection (multi-model, reads Agent 1+2 outputs for context)
   checkCancel();
-  emit({ type: "agent_start", agent: AGENTS[2].name, label: AGENTS[2].label, index: 2, passesTotal: 1 });
-  pipelineLog.info("Agent started", { agent: "hecvat", passes: 1 });
-  const hecvatDir = join(runDir, "agent3_hecvat");
-  const hecvat = await runHecvatAssessment(codebasePath, runDir, hecvatDir, agentOpts);
-  const hecvatSummary = hecvat.assessment ? {
-    total: hecvat.assessment.questions?.length || 0,
-    answeredFromCode: hecvat.assessment.questions?.filter(q => q.source === "code").length || 0,
-    nonNegotiable: hecvat.assessment.nonNegotiableFailures?.length || 0,
-    highRisk: hecvat.assessment.highRiskFindings?.length || 0,
-  } : null;
-  emit({ type: "agent_complete", agent: AGENTS[2].name, index: 2, passes: 1, failures: hecvat.assessment ? 0 : 1, summary: hecvatSummary });
+  emit({ type: "agent_start", agent: AGENTS[2].name, label: AGENTS[2].label, index: 2, passesTotal: passes.length });
+  pipelineLog.info("Agent started", { agent: "qa-analysis", passes: passes.length });
+  const qaDir = join(runDir, "agent3_qa");
+  const qaAnalysis = await runQAAnalysis(codebasePath, passes, qaDir, emit, { ...agentOpts, runDir });
 
-  // Agent 4: Documentation Generation (single Claude pass, reads all prior agent outputs)
+  const qaSummary = summarizeFindings(qaAnalysis.synthesis);
+  emit({ type: "agent_complete", agent: AGENTS[2].name, index: 2,
+    passes: Object.keys(qaAnalysis.passes).length, failures: qaAnalysis.failures.length,
+    summary: qaSummary, partial: qaAnalysis.partial });
+
+  // Agent 4: Documentation Generation + HECVAT (two Claude passes, reads all prior agent outputs)
   checkCancel();
   emit({ type: "agent_start", agent: AGENTS[3].name, label: AGENTS[3].label, index: 3, passesTotal: 1 });
   pipelineLog.info("Agent started", { agent: "documentation", passes: 1 });
@@ -121,6 +119,7 @@ export async function runPipeline({ codebasePath, track, toolName, outputBase, o
       documentation.documentation.complianceSummary ? "Compliance Summary" : null,
     ].filter(Boolean),
     todoCount: documentation.documentation.metadata?.todoCount || 0,
+    hecvat: !!documentation.hecvat,
   } : null;
   emit({ type: "agent_complete", agent: AGENTS[3].name, index: 3, passes: 1, failures: documentation.documentation ? 0 : 1, summary: docSummary });
 
@@ -143,11 +142,15 @@ export async function runPipeline({ codebasePath, track, toolName, outputBase, o
         synthesis: accessibility.synthesis,
         partial: accessibility.partial,
       },
-      hecvat: {
-        assessment: hecvat.assessment,
+      qaAnalysis: {
+        passes: Object.keys(qaAnalysis.passes).length,
+        failures: qaAnalysis.failures,
+        synthesis: qaAnalysis.synthesis,
+        partial: qaAnalysis.partial,
       },
       documentation: {
         documentation: documentation.documentation,
+        hecvat: documentation.hecvat,
       },
     },
   };

@@ -9,7 +9,7 @@ import Breadcrumb from "./Breadcrumb.jsx";
 const PIPELINE_AGENTS = [
   { name: "Code & Security Analysis", key: "code-analysis", passes: 5 },
   { name: "Accessibility Audit", key: "accessibility", passes: 5 },
-  { name: "HECVAT 4 Lite", key: "hecvat", passes: 1 },
+  { name: "QA / Bug Detection", key: "qa-analysis", passes: 5 },
   { name: "Documentation Generation", key: "documentation", passes: 1 },
 ];
 

@@ -86,9 +86,9 @@ export async function enqueue(toolId, track, parentRunId = null) {
   );
 
   // Create agent_results rows
-  const agents = ["code-analysis", "accessibility", "hecvat", "documentation"];
+  const agents = ["code-analysis", "accessibility", "qa-analysis", "documentation"];
   for (let i = 0; i < agents.length; i++) {
-    const passesTotal = i < 2 ? 5 : 1;
+    const passesTotal = i < 3 ? 5 : 1;
     await pool.query(
       `INSERT INTO agent_results (run_id, agent_name, agent_index, passes_total) VALUES ($1, $2, $3, $4)`,
       [run.id, agents[i], i, passesTotal]
@@ -212,9 +212,11 @@ async function processNext() {
         const prevA11yPath = join(prevRun.output_dir, "agent2_accessibility", "synthesis.json");
         const codePrev = existsSync(prevCodePath) ? JSON.parse(readFileSync(prevCodePath, "utf-8")) : null;
         const a11yPrev = existsSync(prevA11yPath) ? JSON.parse(readFileSync(prevA11yPath, "utf-8")) : null;
-        if (codePrev || a11yPrev) {
-          previousFindings = { codeAnalysis: codePrev?.findings || [], accessibility: a11yPrev?.findings || [] };
-          log.info("Loaded previous findings for differential review", { runId, prevRunDir: prevRun.output_dir, codeCount: previousFindings.codeAnalysis.length, a11yCount: previousFindings.accessibility.length });
+        const prevQaPath = join(prevRun.output_dir, "agent3_qa", "synthesis.json");
+        const qaPrev = existsSync(prevQaPath) ? JSON.parse(readFileSync(prevQaPath, "utf-8")) : null;
+        if (codePrev || a11yPrev || qaPrev) {
+          previousFindings = { codeAnalysis: codePrev?.findings || [], accessibility: a11yPrev?.findings || [], qaAnalysis: qaPrev?.findings || [] };
+          log.info("Loaded previous findings for differential review", { runId, prevRunDir: prevRun.output_dir, codeCount: previousFindings.codeAnalysis.length, a11yCount: previousFindings.accessibility.length, qaCount: previousFindings.qaAnalysis.length });
         }
       }
     } catch (err) {
@@ -423,8 +425,8 @@ async function computePipelineMetrics(runId) {
     const toolKey = Object.keys(MODEL_COST_USD).find(k => p.tool?.includes(k) || p.model_name?.toLowerCase().includes(k));
     if (toolKey) estimatedCost += MODEL_COST_USD[toolKey];
   }
-  // Add synthesis costs (2 Claude synthesis for agents 1+2)
-  estimatedCost += (MODEL_COST_USD.claude || 0) * 2;
+  // Add synthesis costs (3 Claude synthesis for agents 1-3, plus HECVAT call in agent 4)
+  estimatedCost += (MODEL_COST_USD.claude || 0) * 4;
 
   await pool.query(
     `INSERT INTO pipeline_metrics (run_id, total_elapsed_seconds, queue_wait_seconds, estimated_cost_usd,

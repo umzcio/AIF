@@ -1,8 +1,8 @@
 /**
- * HECVAT 4 Lite Self-Assessment Prompts
+ * HECVAT 4 Lite Self-Assessment Prompt
  *
- * Agent 3: Generates a HECVAT 4 Lite self-assessment by answering the 87
- * Critical Importance questions from the HECVAT 4.15 spreadsheet.
+ * Moved from agents/hecvat/prompts.js into the Documentation agent (Agent 4).
+ * HECVAT runs as a second Claude call inside the doc runner.
  *
  * Single Claude pass. Reads codebase + prior agent reports.
  * Answers what it can from code, flags the rest as REQUIRES_HUMAN_INPUT.

@@ -26,17 +26,17 @@ const AGENTS = [
   { id: "accessibility", name: "Accessibility", Icon: Eye, color: "#7C3AED",
     desc: "WCAG 2.2 AA compliance, Section 508, screen reader compatibility",
     phases: ["Parsing HTML/JSX templates", "Color contrast analysis", "ARIA attribute check", "Keyboard navigation audit", "Screen reader simulation", "Generating report"] },
-  { id: "hecvat", name: "HECVAT-Lite", Icon: ClipboardCheck, color: "#0891B2",
-    desc: "Higher Ed vendor assessment — data handling, auth, encryption, privacy",
-    phases: ["Mapping data flows", "Authentication review", "Encryption assessment", "Privacy policy check", "Compliance mapping", "Generating report"] },
+  { id: "qa", name: "QA / Bug Detection", Icon: ClipboardCheck, color: "#0891B2",
+    desc: "Logic bugs, error handling, async issues, edge cases, failure modes",
+    phases: ["Analyzing control flow", "Checking error paths", "Async/concurrency audit", "Edge case detection", "State management review", "Generating report"] },
   { id: "documentation", name: "Documentation", Icon: FileText, color: "#16864E",
-    desc: "Auto-generate user guide, admin guide, and consolidated findings report",
-    phases: ["Analyzing codebase structure", "Extracting API surface", "Writing user guide", "Writing admin guide", "Compiling findings report", "Final review"] },
+    desc: "Auto-generate user guide, admin guide, findings report, and HECVAT assessment",
+    phases: ["Analyzing codebase structure", "Extracting API surface", "Writing user guide", "Writing admin guide", "HECVAT assessment", "Final review"] },
 ];
 
-const AGENT_INDEX_MAP = { 0: "security", 1: "accessibility", 2: "hecvat", 3: "documentation" };
-const AGENT_ID_MAP = { "code-analysis": "security", "accessibility": "accessibility", "hecvat": "hecvat", "documentation": "documentation" };
-const REPORT_KEY_MAP = { codeAnalysis: "security", accessibility: "accessibility", hecvat: "hecvat", documentation: "documentation" };
+const AGENT_INDEX_MAP = { 0: "security", 1: "accessibility", 2: "qa", 3: "documentation" };
+const AGENT_ID_MAP = { "code-analysis": "security", "accessibility": "accessibility", "qa-analysis": "qa", "documentation": "documentation" };
+const REPORT_KEY_MAP = { codeAnalysis: "security", accessibility: "accessibility", qaAnalysis: "qa", hecvat: "hecvat", documentation: "documentation" };
 
 // Extract findings from each agent's output format into a uniform shape
 function extractFindings(agentId, data) {
@@ -62,12 +62,23 @@ function extractFindings(agentId, data) {
     };
   });
 
-  if (agentId === "security" || agentId === "accessibility") {
-    // Agents 1 & 2: synthesis.json → { findings: [...] }
-    return normalize(data.findings || data.issues || [], agentId);
+  if (agentId === "security" || agentId === "accessibility" || agentId === "qa") {
+    // Agents 1, 2, 3: synthesis.json → { findings: [...] }
+    const findings = data.findings || data.issues || [];
+    // For QA agent, also merge bugFindings if present
+    if (agentId === "qa" && data.bugFindings?.length) {
+      const bugs = data.bugFindings.map(b => ({
+        ...b,
+        title: b.title || b.finding,
+        severity: b.severity || "warning",
+      }));
+      const merged = [...findings, ...bugs.filter(b => !findings.some(f => f.title === b.title))];
+      return normalize(merged, agentId);
+    }
+    return normalize(findings, agentId);
   }
   if (agentId === "hecvat") {
-    // Agent 3: hecvat_assessment.json → { highRiskFindings: [...], nonNegotiableFailures: [...], questions: [...] }
+    // HECVAT assessment (now from Agent 4): { highRiskFindings: [...], nonNegotiableFailures: [...], questions: [...] }
     const results = [];
     for (const f of (data.nonNegotiableFailures || [])) {
       results.push({ ...f, severity: "critical", title: `${f.id}: ${f.question || f.finding || "Non-negotiable failure"}` });
@@ -98,6 +109,7 @@ const FINDING_CATEGORIES = [
   { id: "code", name: "Code Quality", Icon: FileCode, color: "#8B5CF6" },
   { id: "security", name: "Security", Icon: Shield, color: "#D35C1A" },
   { id: "accessibility", name: "Accessibility", Icon: Eye, color: "#7C3AED" },
+  { id: "qa", name: "QA / Bugs", Icon: ClipboardCheck, color: "#06B6D4" },
   { id: "hecvat", name: "HECVAT Compliance", Icon: ClipboardCheck, color: "#06B6D4" },
   { id: "docs", name: "Documentation", Icon: FileText, color: "#16864E" },
 ];
@@ -105,6 +117,7 @@ const FINDING_CATEGORIES = [
 const AGENT_SOURCE_LABEL = {
   security: "Code / Security",
   accessibility: "Accessibility",
+  qa: "QA / Bug Detection",
   hecvat: "HECVAT",
   documentation: "Documentation",
 };
@@ -123,7 +136,7 @@ function isSecurityFinding(f) {
 
 // Remap agent findings into display categories
 function remapFindings(agentFindings) {
-  const mapped = { code: [], security: [], accessibility: [], hecvat: [], docs: [] };
+  const mapped = { code: [], security: [], accessibility: [], qa: [], hecvat: [], docs: [] };
   for (const [agentId, findings] of Object.entries(agentFindings)) {
     for (const f of findings) {
       if (agentId === "security") {
@@ -132,6 +145,8 @@ function remapFindings(agentFindings) {
         else mapped.code.push(f);
       } else if (agentId === "accessibility") {
         mapped.accessibility.push(f);
+      } else if (agentId === "qa") {
+        mapped.qa.push(f);
       } else if (agentId === "hecvat") {
         mapped.hecvat.push(f);
       } else {
@@ -334,9 +349,9 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
 
   // Phase: upload | running | review
   const [phase, setPhase] = useState("upload");
-  const [agentStates, setAgentStates] = useState({ security: "idle", accessibility: "idle", hecvat: "idle", documentation: "idle" });
-  const [agentProgress, setAgentProgress] = useState({ security: 0, accessibility: 0, hecvat: 0, documentation: 0 });
-  const [agentLogs, setAgentLogs] = useState({ security: [], accessibility: [], hecvat: [], documentation: [] });
+  const [agentStates, setAgentStates] = useState({ security: "idle", accessibility: "idle", qa: "idle", documentation: "idle" });
+  const [agentProgress, setAgentProgress] = useState({ security: 0, accessibility: 0, qa: 0, documentation: 0 });
+  const [agentLogs, setAgentLogs] = useState({ security: [], accessibility: [], qa: [], documentation: [] });
   const [expandedAgent, setExpandedAgent] = useState("security");
 
   // Queue position
@@ -409,8 +424,8 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
               }
               setFindings(mapped);
             }
-            setAgentStates({ security: "complete", accessibility: "complete", hecvat: "complete", documentation: "complete" });
-            setAgentProgress({ security: 1, accessibility: 1, hecvat: 1, documentation: 1 });
+            setAgentStates({ security: "complete", accessibility: "complete", qa: "complete", documentation: "complete" });
+            setAgentProgress({ security: 1, accessibility: 1, qa: 1, documentation: 1 });
             setPhase("review");
           }).catch(() => {});
         }
@@ -483,12 +498,9 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
             if (s.topFindings) for (const f of s.topFindings.slice(0, 3)) {
               logs.push(`  ${(f.severity || "").toUpperCase()}: ${f.title}`);
             }
-          } else if (s && s.nonNegotiable != null) {
-            logs.push(`[result] ${s.total} HECVAT questions assessed, ${s.answeredFromCode} from code`);
-            if (s.nonNegotiable > 0) logs.push(`  CRITICAL: ${s.nonNegotiable} non-negotiable failures`);
-            if (s.highRisk > 0) logs.push(`  HIGH: ${s.highRisk} high-risk findings`);
           } else if (s && s.docs) {
             logs.push(`[result] Generated: ${s.docs.join(", ")}`);
+            if (s.hecvat) logs.push(`[result] HECVAT assessment generated`);
             if (s.todoCount > 0) logs.push(`  ${s.todoCount} TODO items need human review`);
           } else {
             logs.push(`[done] Analysis complete.`);
@@ -499,7 +511,7 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
       if (event.type === "pass_complete") {
         const agentId = AGENT_ID_MAP[event.agent] || event.agent;
         if (agentId) {
-          const maxPasses = (agentId === "security" || agentId === "accessibility") ? 5 : 1;
+          const maxPasses = (agentId === "security" || agentId === "accessibility" || agentId === "qa") ? 5 : 1;
           setAgentProgress(p => ({ ...p, [agentId]: Math.min((p[agentId] || 0) + 1 / maxPasses, 0.95) }));
           const model = event.model || `Pass ${event.pass || ""}`;
           const elapsed = event.elapsed ? ` (${event.elapsed}s)` : "";
@@ -530,8 +542,8 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
   // Transition to review when completed (not failed)
   useEffect(() => {
     if (phase === "running" && sseDone && !sseFailed) {
-      setAgentStates({ security: "complete", accessibility: "complete", hecvat: "complete", documentation: "complete" });
-      setAgentProgress({ security: 1, accessibility: 1, hecvat: 1, documentation: 1 });
+      setAgentStates({ security: "complete", accessibility: "complete", qa: "complete", documentation: "complete" });
+      setAgentProgress({ security: 1, accessibility: 1, qa: 1, documentation: 1 });
       Promise.all([
         getReport(runId),
         getTool(toolId).then(d => { setTool(d.tool); setCompletedRuns((d.runs || []).filter(r => r.status === "completed")); }),
@@ -765,7 +777,7 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
             <div style={{ padding: "14px 16px", borderRadius: 8, background: "rgba(201,48,44,0.07)", border: `1px solid rgba(201,48,44,0.2)`, marginBottom: 16 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: TRACK_COLORS[4], marginBottom: 4 }}>Pipeline Failed</div>
               <div style={{ fontSize: 13, color: C.text, marginBottom: 10 }}>{pipelineError}</div>
-              <button onClick={() => { setPipelineError(null); setRunId(null); setPhase("upload"); setAgentStates({ security: "idle", accessibility: "idle", hecvat: "idle", documentation: "idle" }); setAgentProgress({ security: 0, accessibility: 0, hecvat: 0, documentation: 0 }); setAgentLogs({ security: [], accessibility: [], hecvat: [], documentation: [] }); }}
+              <button onClick={() => { setPipelineError(null); setRunId(null); setPhase("upload"); setAgentStates({ security: "idle", accessibility: "idle", qa: "idle", documentation: "idle" }); setAgentProgress({ security: 0, accessibility: 0, qa: 0, documentation: 0 }); setAgentLogs({ security: [], accessibility: [], qa: [], documentation: [] }); }}
                 style={{ padding: "8px 16px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent",
                   cursor: "pointer", fontSize: 13, fontWeight: 600, color: C.text, fontFamily: "'DM Sans', sans-serif" }}>
                 Back to Upload
