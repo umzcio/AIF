@@ -19,7 +19,7 @@ Do not wrap in markdown code fences. Output ONLY the JSON.
     "packages": [{ "name": "string", "version": "string" }]
   },
   "externalServices": [
-    { "name": "string", "type": "database|api|cloud|messaging|auth|other", "evidence": "file:line", "isInstitutional": true|false }
+    { "name": "string", "type": "database|api|cloud|messaging|auth|other", "evidence": "file:line", "hosting": "institutional|third_party|unknown" }
   ],
   "dataOperations": [
     { "type": "read|write|delete|transmit", "what": "description", "where": "file:line", "classification": "public|internal|PII|FERPA|HIPAA|financial|research" }
@@ -44,9 +44,9 @@ Do not wrap in markdown code fences. Output ONLY the JSON.
     "hasTrainingOptOut": true|false
   },
   "escalationSignals": {
-    "nonInstitutionalCloudWithData": { "triggered": true|false, "evidence": "file:line or null", "detail": "string or null" },
+    "thirdPartyCloudWithData": { "triggered": true|false, "needs_verification": true|false, "evidence": "file:line or null", "detail": "string or null" },
     "noInstitutionalSSO": { "triggered": true|false, "evidence": "file:line or null", "detail": "string or null" },
-    "vendorDataAccessNoDPA": { "triggered": true|false, "evidence": "file:line or null", "detail": "string or null" },
+    "vendorDataAccess": { "triggered": true|false, "needs_verification": true|false, "evidence": "file:line or null", "detail": "string or null" },
     "opaqueAIModel": { "triggered": true|false, "evidence": "file:line or null", "detail": "string or null" },
     "studentFacingNoDisclosure": { "triggered": true|false, "evidence": "file:line or null", "detail": "string or null" },
     "autoCompletesAssignments": { "triggered": true|false, "evidence": "file:line or null", "detail": "string or null" },
@@ -97,7 +97,8 @@ SECTION 2: EXTERNAL SERVICES (what does this connect to?)
 For each external service, API, or database the code connects to:
 - Name the service
 - Cite the file and line where the connection is made
-- Determine if it is INSTITUTIONAL (university-hosted, e.g., campus PostgreSQL, UM CAS, Banner) or NON-INSTITUTIONAL (third-party cloud: AWS, OpenAI, Google, etc.)
+- Determine if it is INSTITUTIONAL (university-hosted, e.g., campus PostgreSQL, UM CAS, Banner) or THIRD-PARTY (external cloud/SaaS: AWS, OpenAI, Google, etc.)
+- NOTE: Third-party does NOT automatically mean non-compliant. The institution may have approved contracts, DPAs, or enterprise agreements with third-party providers. Flag the data flow for reviewer verification but do NOT assert that a DPA is missing — you cannot determine contractual status from code alone.
 
 =====================================================================
 SECTION 3: DATA OPERATIONS (what data moves where?)
@@ -184,9 +185,9 @@ SECTION 8: ESCALATION CONDITION CHECKS
 
 These are binary yes/no checks. Each one is a potential automatic escalation trigger in the UM framework. For each, determine if it is triggered and cite evidence:
 
-1. "Institutional data in non-institutional cloud without approved DPA" — Is FERPA/PII/sensitive data sent to third-party cloud services?
+1. "Institutional data in third-party cloud — DPA status unknown" — Is FERPA/PII/sensitive data sent to third-party cloud services? NOTE: You CANNOT determine DPA/contract status from code. Flag the data flow for reviewer verification, but set triggered=true ONLY if the code itself shows clearly inappropriate handling (e.g., sending FERPA data to an unapproved personal account). If data goes to a major provider (OpenAI, Google, Anthropic, AWS), flag as "needs_verification" — the institution may have enterprise agreements.
 2. "Authentication outside institutional SSO/IdP" — Is primary auth NOT institutional SSO?
-3. "Vendor accessing institutional data without legal/procurement review" — Does a third party receive institutional data?
+3. "Vendor accessing institutional data — procurement review needed" — Does a third party receive institutional data? NOTE: Flag for reviewer verification. Do NOT assert that procurement review is missing — you cannot determine this from code. Only flag if the vendor is unusual or the data flow is unexpected.
 4. "No visibility into AI model training or version updates" — Are AI models used without version pinning or training opt-out?
 5. "Students unaware they're interacting with or being evaluated by AI" — Is this student-facing with no AI disclosure?
 6. "Tool auto-completes assignments or generates assessments without faculty oversight" — Does it generate academic work?
@@ -316,6 +317,8 @@ For EVERY case where models disagree, you MUST:
 
 IMPORTANT: Do not just list disputes and move on. You must actively investigate each one. Read files. Check .gitignore. Look at the actual code. The whole point of having filesystem access is to settle factual questions definitively.
 
+IMPORTANT: You CANNOT determine contractual/procurement status from code. If models flag "no DPA" or "non-institutional provider" for major vendors (OpenAI, Google, Anthropic, AWS, Microsoft), set needs_verification=true on the escalation signal. The institution may have enterprise agreements. Only assert a DPA problem if the code sends regulated data to clearly inappropriate destinations (personal accounts, unknown services, unencrypted channels).
+
 =====================================================================
 PHASE 3: OUTPUT
 =====================================================================
@@ -330,7 +333,7 @@ OUTPUT the merged report as JSON with this schema:
 
 {
   "inventory": { "languages": [], "frameworks": [], "entryPoints": [], "packageManager": "", "packages": [] },
-  "externalServices": [{ "name": "", "type": "", "evidence": "", "isInstitutional": true, "confirmedBy": 0 }],
+  "externalServices": [{ "name": "", "type": "", "evidence": "", "hosting": "institutional|third_party|unknown", "confirmedBy": 0 }],
   "dataOperations": [{ "type": "", "what": "", "where": "", "classification": "", "confirmedBy": 0 }],
   "authentication": {
     "primary": "",
@@ -344,9 +347,9 @@ OUTPUT the merged report as JSON with this schema:
   "secrets": [{ "type": "", "location": "", "isLiveValue": true, "isInGitignore": false, "detail": "", "reportedBy": [] }],
   "aiUsage": { "modelsUsed": [], "dataTransmittedToAI": true, "confirmedBy": 0 },
   "escalationSignals": {
-    "nonInstitutionalCloudWithData": { "triggered": true, "confirmedBy": 0, "evidence": "" },
+    "thirdPartyCloudWithData": { "triggered": true, "needs_verification": true, "confirmedBy": 0, "evidence": "" },
     "noInstitutionalSSO": { "triggered": false, "confirmedBy": 0, "evidence": "" },
-    "vendorDataAccessNoDPA": { "triggered": true, "confirmedBy": 0, "evidence": "" },
+    "vendorDataAccess": { "triggered": true, "needs_verification": true, "confirmedBy": 0, "evidence": "" },
     "opaqueAIModel": { "triggered": false, "confirmedBy": 0, "evidence": "" },
     "studentFacingNoDisclosure": { "triggered": false, "confirmedBy": 0, "evidence": "" },
     "autoCompletesAssignments": { "triggered": false, "confirmedBy": 0, "evidence": "" },

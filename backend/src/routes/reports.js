@@ -2,8 +2,24 @@ import { Router } from "express";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 import pool from "../db/pool.js";
+import { extractJSON } from "../agents/shared/cli.js";
 
 const router = Router();
+
+/**
+ * Read and unwrap a synthesis JSON file. Handles Claude CLI wrapper objects
+ * where the actual report is embedded in a `result` string field.
+ */
+function readSynthesis(filePath) {
+  const raw = readFileSync(filePath, "utf-8");
+  const parsed = JSON.parse(raw);
+  // If it's a Claude CLI wrapper, extract the inner report
+  if (parsed.type === "result" && typeof parsed.result === "string") {
+    const inner = extractJSON(raw);
+    return inner || parsed;
+  }
+  return parsed;
+}
 
 /**
  * Verify the requesting user can access reports for this run.
@@ -29,7 +45,7 @@ function loadFindings(outputDir) {
   // Agent 1: Code & Security
   const synthPath = join(outputDir, "agent1_code_analysis", "synthesis.json");
   if (existsSync(synthPath)) {
-    const data = JSON.parse(readFileSync(synthPath, "utf-8"));
+    const data = readSynthesis(synthPath);
     for (const f of (data.findings || [])) {
       findings.push({
         agent: "Code & Security",
@@ -49,7 +65,7 @@ function loadFindings(outputDir) {
   // Agent 2: Accessibility
   const a11yPath = join(outputDir, "agent2_accessibility", "synthesis.json");
   if (existsSync(a11yPath)) {
-    const data = JSON.parse(readFileSync(a11yPath, "utf-8"));
+    const data = readSynthesis(a11yPath);
     for (const f of (data.findings || [])) {
       findings.push({
         agent: "Accessibility",
@@ -69,7 +85,7 @@ function loadFindings(outputDir) {
   // Agent 3: QA / Bug Detection
   const qaPath = join(outputDir, "agent3_qa", "synthesis.json");
   if (existsSync(qaPath)) {
-    const data = JSON.parse(readFileSync(qaPath, "utf-8"));
+    const data = readSynthesis(qaPath);
     for (const f of (data.findings || [])) {
       findings.push({
         agent: "QA / Bug Detection",
@@ -169,22 +185,22 @@ router.get("/:runId", async (req, res) => {
   const dir = run.output_dir;
 
   const synthPath = join(dir, "agent1_code_analysis", "synthesis.json");
-  if (existsSync(synthPath)) report.agents.codeAnalysis = JSON.parse(readFileSync(synthPath, "utf-8"));
+  if (existsSync(synthPath)) report.agents.codeAnalysis = readSynthesis(synthPath);
 
   const a11yPath = join(dir, "agent2_accessibility", "synthesis.json");
-  if (existsSync(a11yPath)) report.agents.accessibility = JSON.parse(readFileSync(a11yPath, "utf-8"));
+  if (existsSync(a11yPath)) report.agents.accessibility = readSynthesis(a11yPath);
 
   // Agent 3: QA Analysis (new)
   const qaPath = join(dir, "agent3_qa", "synthesis.json");
-  if (existsSync(qaPath)) report.agents.qaAnalysis = JSON.parse(readFileSync(qaPath, "utf-8"));
+  if (existsSync(qaPath)) report.agents.qaAnalysis = readSynthesis(qaPath);
 
   // HECVAT: now from Agent 4, with backward-compat fallback to old Agent 3
   let hecvatPath = join(dir, "agent4_documentation", "hecvat_assessment.json");
   if (!existsSync(hecvatPath)) hecvatPath = join(dir, "agent3_hecvat", "hecvat_assessment.json");
-  if (existsSync(hecvatPath)) report.agents.hecvat = JSON.parse(readFileSync(hecvatPath, "utf-8"));
+  if (existsSync(hecvatPath)) report.agents.hecvat = readSynthesis(hecvatPath);
 
   const docsPath = join(dir, "agent4_documentation", "documentation.json");
-  if (existsSync(docsPath)) report.agents.documentation = JSON.parse(readFileSync(docsPath, "utf-8"));
+  if (existsSync(docsPath)) report.agents.documentation = readSynthesis(docsPath);
 
   res.json({ report });
 });

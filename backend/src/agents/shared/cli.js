@@ -368,10 +368,16 @@ export function extractJSON(text) {
       if (fenceMatch) {
         try { return JSON.parse(fenceMatch[1]); } catch {}
       }
-      const bStart = parsed.result.indexOf("{");
+      // Try progressively later { positions — Claude often prefixes JSON with narrative text
       const bEnd = parsed.result.lastIndexOf("}");
-      if (bStart !== -1 && bEnd > bStart) {
-        try { return JSON.parse(parsed.result.slice(bStart, bEnd + 1)); } catch {}
+      if (bEnd !== -1) {
+        let pos = 0;
+        while (pos < bEnd) {
+          const bStart = parsed.result.indexOf("{", pos);
+          if (bStart === -1 || bStart >= bEnd) break;
+          try { return JSON.parse(parsed.result.slice(bStart, bEnd + 1)); } catch {}
+          pos = bStart + 1;
+        }
       }
     }
     return parsed;
@@ -420,11 +426,16 @@ export function extractJSON(text) {
     try { return JSON.parse(fenceMatch[1]); } catch {}
   }
 
-  // Try first { ... } block
-  const braceStart = text.indexOf("{");
+  // Try progressively later { positions — narrative text before JSON is common
   const braceEnd = text.lastIndexOf("}");
-  if (braceStart !== -1 && braceEnd > braceStart) {
-    try { return JSON.parse(text.slice(braceStart, braceEnd + 1)); } catch {}
+  if (braceEnd !== -1) {
+    let pos = 0;
+    while (pos < braceEnd) {
+      const braceStart = text.indexOf("{", pos);
+      if (braceStart === -1 || braceStart >= braceEnd) break;
+      try { return JSON.parse(text.slice(braceStart, braceEnd + 1)); } catch {}
+      pos = braceStart + 1;
+    }
   }
 
   return null;
