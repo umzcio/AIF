@@ -79,13 +79,13 @@ export default function Registry() {
         <EmptyState heading="No tools found" body="Adjust filters or submit a new tool." action={<Btn onClick={() => navigate("/intake")}>Submit tool</Btn>} />
       ) : (
         <div style={{ borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
+          <table className="registry-grid" role="table" style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead role="rowgroup">
               <tr className="registry-table-header" style={{ display: "grid", gridTemplateColumns: "2fr 80px 1fr 1fr 100px 100px" }}>
                 <th scope="col">Tool Name</th><th scope="col">Track</th><th scope="col">Owner</th><th scope="col">Type</th><th scope="col">Status</th><th scope="col">Date</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup">
               {filtered.map((item, i) => (
                 <tr key={item.id} className="registry-table-row" tabIndex={user ? 0 : undefined}
                   style={{ background: i % 2 === 0 ? "transparent" : C.surface, cursor: user ? "pointer" : "default" }}

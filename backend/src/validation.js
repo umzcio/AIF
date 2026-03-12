@@ -62,3 +62,12 @@ export const emailUpdateSchema = z.object({
 export const pipelineRunSchema = z.object({
   track: z.number().int().min(1).max(4).optional(),
 });
+
+export const findingStatusSchema = z.object({
+  statuses: z.record(
+    z.string().min(1),
+    z.enum(["open", "resolved", "wontfix"])
+  ).refine(obj => Object.keys(obj).length > 0 && Object.keys(obj).length <= 500, {
+    message: "Must contain 1-500 finding statuses",
+  }),
+});

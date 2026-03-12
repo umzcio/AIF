@@ -3,6 +3,8 @@ import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 import pool from "../db/pool.js";
 import { extractJSON } from "../agents/shared/cli.js";
+import { validate, findingStatusSchema } from "../validation.js";
+import { requireOwnerOrRole } from "../auth/middleware.js";
 
 const router = Router();
 
@@ -273,6 +275,44 @@ router.get("/:runId/docs/:name", async (req, res) => {
   } else {
     res.status(404).json({ error: "Document not found" });
   }
+});
+
+// ─── Finding status persistence ────────────────────────────────────
+
+// GET /reports/tools/:toolId/finding-statuses
+router.get("/tools/:toolId/finding-statuses", requireOwnerOrRole("reviewer", "admin"), async (req, res) => {
+  const { rows } = await pool.query(
+    "SELECT finding_id, status FROM finding_statuses WHERE tool_id = $1",
+    [req.params.toolId]
+  );
+  const statuses = {};
+  for (const r of rows) statuses[r.finding_id] = r.status;
+  res.json({ statuses });
+});
+
+// PUT /reports/tools/:toolId/finding-statuses
+router.put("/tools/:toolId/finding-statuses", requireOwnerOrRole("reviewer", "admin"), validate(findingStatusSchema), async (req, res) => {
+  const toolId = req.params.toolId;
+  const { statuses } = req.validated;
+  const entries = Object.entries(statuses);
+
+  // Upsert all statuses in a single query
+  const values = [];
+  const placeholders = [];
+  let idx = 1;
+  for (const [findingId, status] of entries) {
+    placeholders.push(`($${idx++}, $${idx++}, $${idx++}, $${idx++})`);
+    values.push(toolId, findingId, status, req.user.userId);
+  }
+
+  await pool.query(`
+    INSERT INTO finding_statuses (tool_id, finding_id, status, updated_by)
+    VALUES ${placeholders.join(", ")}
+    ON CONFLICT (tool_id, finding_id)
+    DO UPDATE SET status = EXCLUDED.status, updated_by = EXCLUDED.updated_by, updated_at = now()
+  `, values);
+
+  res.json({ saved: entries.length });
 });
 
 export default router;

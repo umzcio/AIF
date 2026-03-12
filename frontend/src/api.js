@@ -201,6 +201,20 @@ export function getFindingsCsvUrl(runId) {
   return `${BASE}/reports/${runId}/findings.csv`;
 }
 
+// Finding statuses
+export async function getFindingStatuses(toolId) {
+  const res = await request(`/reports/tools/${toolId}/finding-statuses`);
+  return res.json();
+}
+
+export async function saveFindingStatuses(toolId, statuses) {
+  const res = await request(`/reports/tools/${toolId}/finding-statuses`, {
+    method: "PUT",
+    body: JSON.stringify({ statuses }),
+  });
+  return res.json();
+}
+
 // Auth
 export async function refreshAuth() {
   const res = await fetch(`${BASE}/auth/refresh`, { credentials: "same-origin" });

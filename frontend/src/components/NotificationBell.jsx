@@ -64,13 +64,30 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  // Escape key handler + focus management on open
+  // Escape key, focus trap, and focus management on open
   useEffect(() => {
     if (!open) return;
     function handleKeyDown(e) {
       if (e.key === "Escape") {
         setOpen(false);
         bellRef.current?.focus();
+        return;
+      }
+      // Focus trap: keep Tab within the dialog panel
+      if (e.key === "Tab" && panelRef.current) {
+        const focusables = panelRef.current.querySelectorAll(
+          "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])"
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     }
     document.addEventListener("keydown", handleKeyDown);
@@ -171,7 +188,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div ref={panelRef} role="dialog" aria-label="Notifications" style={{
+        <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Notifications" style={{
           position: "absolute", right: 0, top: "calc(100% + 6px)", width: 360,
           background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12,
           boxShadow: "0 12px 40px rgba(0,0,0,0.15)", zIndex: 200, overflow: "hidden",

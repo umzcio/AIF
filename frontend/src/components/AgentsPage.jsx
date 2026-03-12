@@ -565,7 +565,7 @@ export default function AgentsPage() {
             <strong> reproducible environments</strong> (consistent analysis regardless of codebase),
             and <strong>clean teardown</strong> (container is destroyed after analysis, no artifacts persist).
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          <div className="responsive-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
             {[
               { name: "Codex CLI", by: "OpenAI", desc: "Sandboxed execution, autonomous exploration, structured output", url: "https://github.com/openai/codex" },
               { name: "Gemini CLI", by: "Google", desc: "1M token context, multimodal analysis, filesystem access", url: "https://github.com/google-gemini/gemini-cli" },
@@ -590,7 +590,7 @@ export default function AgentsPage() {
             <Users size={16} color={C.accent} aria-hidden="true" />
             <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Standards & Frameworks Referenced</span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          <div className="responsive-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
             {FRAMEWORKS.map((fw, i) => (
               <div key={i} style={{ padding: 14, borderRadius: 8, background: C.surface, border: `1px solid ${C.border}`,
                 display: "flex", alignItems: "center", gap: 10 }}>

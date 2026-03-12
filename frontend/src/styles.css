@@ -550,9 +550,13 @@ img, svg { display: block; }
   padding: 0;
 }
 
-/* Semantic tables: allow table/thead/tbody/tr to use grid layout */
+/* Semantic tables */
 table { border-spacing: 0; }
-table thead, table tbody { display: contents; }
+/* Registry grid layout: display:contents on thead/tbody so grid rows work.
+   Role="rowgroup" on <thead>/<tbody> in markup restores a11y semantics. */
+table.registry-grid { display: grid; }
+table.registry-grid > thead,
+table.registry-grid > tbody { display: contents; }
 table tr.registry-table-header, table tr.registry-table-row { display: grid; }
 
 /* Sidebar layout (AgentsPage, FrameworkDoc) */
@@ -623,11 +627,28 @@ table tr.registry-table-header, table tr.registry-table-row { display: grid; }
   .page-header, .data-row-main, .card-header, .filter-bar, .page-actions { flex-direction: column; align-items: stretch; }
   .report-highlight-top { grid-template-columns: 1fr; }
   .report-highlight-score { border-left: none; border-top: 1px solid var(--border); }
-  .responsive-grid-4, .responsive-grid-5 { grid-template-columns: 1fr !important; }
+  .responsive-grid-3, .responsive-grid-4, .responsive-grid-5 { grid-template-columns: 1fr !important; }
   .responsive-grid-2 { grid-template-columns: 1fr !important; }
   .responsive-flex-process { flex-direction: column !important; }
   .responsive-flex-process .process-arrow { transform: rotate(90deg); }
   .responsive-pipeline-layout { grid-template-columns: 1fr !important; }
+
+  /* Registry table → stacked cards */
+  .registry-table-header { display: none !important; }
+  table thead tr.registry-table-header { display: none !important; }
+  .registry-table-row,
+  table tr.registry-table-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 4px 12px;
+    padding: 12px 16px;
+    position: relative;
+  }
+  /* Tool name spans full width */
+  .registry-table-row th,
+  .registry-table-row td:first-of-type { grid-column: 1 / -1; }
+
+  /* Dense admin tables: horizontal scroll */
+  .table-scroll-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Shield, Eye, ClipboardCheck, FileText, Upload, Package, Check, ChevronRight, ChevronDown, Clock, FileCode, Folder, FolderOpen, ArrowRight, Terminal, CheckCircle, XCircle, MinusCircle } from "lucide-react";
 import { C, SEVERITY_CONFIG, TRACK_COLORS } from "../constants.js";
 import { navigate } from "../hooks/useHashRouter.js";
-import { getTool, startPipelineRun, getReport, getPipelineRun, updateToolStatus, uploadCodebase, cancelPipelineRun, getFindingsCsvUrl, getFindingsJsonUrl } from "../api.js";
+import { getTool, startPipelineRun, getReport, getPipelineRun, updateToolStatus, uploadCodebase, cancelPipelineRun, getFindingsCsvUrl, getFindingsJsonUrl, getFindingStatuses, saveFindingStatuses } from "../api.js";
 import { usePipelineStream } from "../hooks/useSSE.js";
 import { useToast } from "./Toast.jsx";
 import { TrackBadge, Skeleton, ErrorBanner, relativeTime } from "./primitives.jsx";
@@ -399,14 +399,18 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
           }).catch(() => {});
         } else if (initialPhase === "review" && completedRun) {
           setRunId(completedRun.id);
-          getReport(completedRun.id).then(reportData => {
+          Promise.all([
+            getReport(completedRun.id),
+            getFindingStatuses(toolId).catch(() => ({ statuses: {} })),
+          ]).then(([reportData, { statuses: saved }]) => {
             const report = reportData.report || reportData;
             if (report?.agents) {
-              const mapped = {};
+              let mapped = {};
               for (const [key, agentData] of Object.entries(report.agents)) {
                 const id = REPORT_KEY_MAP[key] || key;
                 mapped[id] = extractFindings(id, agentData);
               }
+              mapped = applyStatuses(mapped, saved);
               setFindings(mapped);
             }
             setAgentStates({ security: "complete", accessibility: "complete", qa: "complete", documentation: "complete" });
@@ -577,7 +581,20 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
     }
   }
 
-  // Status change on findings
+  // Apply saved statuses from DB to findings map
+  function applyStatuses(mapped, savedStatuses) {
+    if (!savedStatuses || Object.keys(savedStatuses).length === 0) return mapped;
+    const result = {};
+    for (const [agentId, agentFindings] of Object.entries(mapped)) {
+      result[agentId] = agentFindings.map(f => savedStatuses[f.id] ? { ...f, status: savedStatuses[f.id] } : f);
+    }
+    return result;
+  }
+
+  // Persist a single finding status change to the server
+  const saveTimerRef = useRef(null);
+  const pendingRef = useRef({});
+
   const handleStatusChange = (findingId, status) => {
     setFindings(prev => {
       const updated = {};
@@ -586,6 +603,15 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
       }
       return updated;
     });
+
+    // Debounced save — batch rapid clicks into one API call
+    pendingRef.current[findingId] = status;
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      const batch = { ...pendingRef.current };
+      pendingRef.current = {};
+      saveFindingStatuses(toolId, batch).catch(() => {});
+    }, 500);
   };
 
   // Computed — remap agent findings into display categories

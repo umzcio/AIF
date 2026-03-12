@@ -279,7 +279,7 @@ function AnalyticsTab() {
           </div>
 
           {/* Model detail table */}
-          <div style={{ borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+          <div className="table-scroll-wrapper" style={{ borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr className="registry-table-header" style={{ gridTemplateColumns: "140px 60px 60px 60px 80px 80px 80px 80px 80px" }}>
@@ -370,7 +370,7 @@ function AnalyticsTab() {
           <div className="card-header">
             <div><h2>Recent Pipeline Runs</h2></div>
           </div>
-          <div style={{ borderRadius: 0, overflow: "hidden" }}>
+          <div className="table-scroll-wrapper" style={{ borderRadius: 0, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr className="registry-table-header" style={{ gridTemplateColumns: "1fr 60px 80px 90px 80px 80px 80px" }}>
@@ -549,7 +549,7 @@ function UsersTab() {
       <div style={{ marginBottom: 16 }}>
         <span style={{ fontSize: 13, color: C.textMid }}>{users.length} users</span>
       </div>
-      <div style={{ borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+      <div className="table-scroll-wrapper" style={{ borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr className="registry-table-header" style={{ gridTemplateColumns: "1fr 1fr 120px 120px 80px 80px" }}>
@@ -658,7 +658,7 @@ function AuditTab() {
 
       {loading ? <Skeleton height={300} /> : (
         <>
-          <div style={{ borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+          <div className="table-scroll-wrapper" style={{ borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr className="registry-table-header" style={{ gridTemplateColumns: "160px 100px 140px 100px 1fr" }}>

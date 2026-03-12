@@ -48,6 +48,9 @@ export function extractArchive(file, destDir) {
     validateExtractedPaths(destDir);
 
     const entries = readdirSync(destDir);
+    if (entries.length === 0) {
+      throw new Error("Archive is empty — no files to analyze");
+    }
     return entries.length === 1 ? join(destDir, entries[0]) : destDir;
   } finally {
     try { rmSync(filePath, { force: true }); } catch {}
