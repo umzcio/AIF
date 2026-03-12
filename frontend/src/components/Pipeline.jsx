@@ -141,12 +141,12 @@ export default function Pipeline({ toolId, runId }) {
       </div>
 
       {error && <ErrorBanner message={error} />}
-      {connectionLost && <div className="error-banner"><div><strong>Connection lost.</strong> Refresh to check status.</div></div>}
-      {isLive && !cancelling && <div className="status-banner"><div><strong>Safe to leave.</strong> The pipeline continues server-side.</div></div>}
-      {cancelling && <div className="status-banner"><div><strong>Cancelling pipeline...</strong> Killing active processes.</div></div>}
+      {connectionLost && <div role="alert" className="error-banner"><div><strong>Connection lost.</strong> Refresh to check status.</div></div>}
+      {isLive && !cancelling && <div role="status" className="status-banner"><div><strong>Safe to leave.</strong> The pipeline continues server-side.</div></div>}
+      {cancelling && <div role="status" className="status-banner"><div><strong>Cancelling pipeline...</strong> Killing active processes.</div></div>}
 
       {isCancelled && (
-        <div className="error-banner" style={{ background: "var(--warning-bg)", borderColor: "var(--warning)" }}>
+        <div role="alert" className="error-banner" style={{ background: "var(--warning-bg)", borderColor: "var(--warning)" }}>
           <div><strong>Pipeline cancelled.</strong> No API charges for unstarted passes.</div>
           <div style={{ display: "flex", gap: 8 }}>
             {canRetry && <Btn onClick={handleRetry} disabled={retrying}>{retrying ? "Retrying..." : "Retry run"}</Btn>}
@@ -156,7 +156,7 @@ export default function Pipeline({ toolId, runId }) {
       )}
 
       {failed && !isCancelled && (
-        <div className="error-banner">
+        <div role="alert" className="error-banner">
           <div>
             <strong>Pipeline failed.</strong> {run?.error_message || "Check logs for details."}
             {retryCount >= 2 && <div style={{ marginTop: 4, fontSize: 12, color: C.textDim }}>Max retries reached. Investigate the issue before retrying.</div>}
@@ -197,7 +197,7 @@ export default function Pipeline({ toolId, runId }) {
                       <span className="section-label">Passes</span>
                       <span className="mono" style={{ fontSize: 12 }}>{passes}/{agent.passes}</span>
                     </div>
-                    <div className="score-bar">
+                    <div className="score-bar" role="progressbar" aria-valuenow={Math.round((passes / agent.passes) * 100)} aria-valuemin={0} aria-valuemax={100} aria-label={`${agent.name} progress`}>
                       <div className="score-bar-fill" style={{
                         width: `${(passes / agent.passes) * 100}%`,
                         background: isDone ? C.success : isFailed ? C.danger : C.accent,

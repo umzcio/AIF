@@ -41,6 +41,9 @@ export default function App() {
   useEffect(() => {
     const meta = ROUTE_META[route] || ROUTE_META.registry;
     document.title = `${meta.title} | ${APP_META.productName}`;
+    // C1: Focus main content on route change for screen readers
+    const main = document.getElementById("main-content");
+    if (main) main.focus({ preventScroll: false });
   }, [route]);
 
   if (loading) {
@@ -98,9 +101,9 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <a className="skip-link" href="#main-content">Skip to content</a>
+      <a className="skip-link" href="#main-content" onClick={e => { e.preventDefault(); document.getElementById("main-content")?.focus(); }}>Skip to content</a>
       <TopBar route={route} params={params} />
-      <main id="main-content" className="app-main">
+      <main id="main-content" tabIndex={-1} className="app-main">
         <div aria-live="polite" className="sr-only">
           {(ROUTE_META[route] || ROUTE_META.registry).title}
         </div>

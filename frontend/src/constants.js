@@ -35,7 +35,7 @@ export const C = {
   gold20: "var(--gold-20)",
 };
 
-export const TRACK_COLORS = { 1: "#14754A", 2: "#7A5A07", 3: "#C05E1A", 4: "#B22B27" };
+export const TRACK_COLORS = { 1: "#14754A", 2: "#5C4706", 3: "#C05E1A", 4: "#B22B27" };
 export const TRACK_LABELS = { 1: "Register & Go", 2: "Self-Certify", 3: "IT Review", 4: "Formal Project" };
 
 export const WEIGHT_MATRIX = {
@@ -57,8 +57,8 @@ export const AGENTS = [
 export const SEVERITY_CONFIG = {
   critical: { color: "#B22B27", bg: "rgba(178,43,39,0.08)", label: "CRITICAL" },
   high:     { color: "#A34414", bg: "rgba(163,68,20,0.08)", label: "HIGH" },
-  warning:  { color: "#7A5A07", bg: "rgba(122,90,7,0.08)", label: "WARNING" },
-  medium:   { color: "#7A5A07", bg: "rgba(122,90,7,0.08)", label: "MEDIUM" },
+  warning:  { color: "#5C4706", bg: "rgba(122,90,7,0.08)", label: "WARNING" },
+  medium:   { color: "#5C4706", bg: "rgba(122,90,7,0.08)", label: "MEDIUM" },
   low:      { color: "#1A6B4B", bg: "rgba(26,107,75,0.08)", label: "LOW" },
   info:     { color: "#546070", bg: "rgba(84,96,112,0.06)", label: "INFO" },
 };
@@ -151,9 +151,9 @@ export const STATUS_META = {
   pending: { label: "Pending", color: "#1A6B4B", bg: "rgba(26,107,75,0.08)" },
   in_progress: { label: "In Progress", color: "#A34414", bg: "rgba(163,68,20,0.08)" },
   active: { label: "Active", color: "#14754A", bg: "rgba(20,117,74,0.08)" },
-  under_review: { label: "Under Review", color: "#7A5A07", bg: "rgba(122,90,7,0.08)" },
+  under_review: { label: "Under Review", color: "#5C4706", bg: "rgba(122,90,7,0.08)" },
   approved: { label: "Approved", color: "#14754A", bg: "rgba(20,117,74,0.08)" },
-  changes_requested: { label: "Changes Requested", color: "#7A5A07", bg: "rgba(122,90,7,0.08)" },
+  changes_requested: { label: "Changes Requested", color: "#5C4706", bg: "rgba(122,90,7,0.08)" },
   suspended: { label: "Suspended", color: "#B22B27", bg: "rgba(178,43,39,0.08)" },
   retired: { label: "Retired", color: "#546070", bg: "rgba(84,96,112,0.06)" },
   running: { label: "Running", color: "#1A6B4B", bg: "rgba(26,107,75,0.08)" },

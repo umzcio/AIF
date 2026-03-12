@@ -92,8 +92,10 @@ export default function Registry() {
                   onClick={user ? () => navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`) : undefined}
                   onKeyDown={user ? (e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`); }}) : undefined}
                   onMouseEnter={user ? (e => e.currentTarget.style.background = C.surfaceHover) : undefined}
-                  onMouseLeave={user ? (e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface) : undefined}>
-                  <td style={{ fontWeight: 600 }}>{item.name}</td>
+                  onMouseLeave={user ? (e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface) : undefined}
+                  onFocus={user ? (e => e.currentTarget.style.background = C.surfaceHover) : undefined}
+                  onBlur={user ? (e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface) : undefined}>
+                  <th scope="row" style={{ fontWeight: 600, textAlign: "left", padding: 0 }}>{item.name}</th>
                   <td>{item.track ? <TrackBadge track={item.track} /> : <span style={{ color: C.textDim }}>—</span>}</td>
                   <td style={{ color: C.textMid }}>{item.owner_name || item.owner_netid || "—"}</td>
                   <td style={{ color: C.textMid }}>{item.artifact_type || "—"}</td>

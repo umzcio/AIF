@@ -18,7 +18,7 @@ export default function Welcome() {
         <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center",
           width: 64, height: 64, borderRadius: 16, marginBottom: 20,
           background: `linear-gradient(135deg, ${C.accent20}, ${C.gold20})`, border: `1px solid ${C.accent30}` }}>
-          <Shield size={28} color={C.accent} />
+          <Shield size={28} color={C.accent} aria-hidden="true" />
         </div>
         <h1 style={{ fontSize: 28, fontWeight: 700, color: C.text, margin: "0 0 10px", letterSpacing: -0.5 }}>
           AI-Built Tool Code Intake
@@ -36,7 +36,7 @@ export default function Welcome() {
           fontFamily: "'JetBrains Mono', monospace", marginBottom: 16, textAlign: "center" }}>
           How It Works
         </div>
-        <div style={{ display: "flex", gap: 12, alignItems: "stretch" }}>
+        <div className="responsive-flex-process" style={{ display: "flex", gap: 12, alignItems: "stretch" }}>
           {[
             { num: "1", color: C.accent, Icon: PenLine, title: "Intake Form",
               desc: "Answer 21 questions about your tool — what it does, who uses it, what data it touches, and how it's maintained. Your answers are scored automatically." },
@@ -51,12 +51,12 @@ export default function Welcome() {
               <div style={stepBoxStyle}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                   <div style={{ ...stepNumStyle, background: step.color }}>{step.num}</div>
-                  <step.Icon size={16} color={step.color} />
+                  <step.Icon size={16} color={step.color} aria-hidden="true" />
                   <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{step.title}</span>
                 </div>
                 <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.6, margin: 0 }}>{step.desc}</p>
               </div>
-              {i < 3 && <div style={arrowStyle}><ChevronRight size={18} /></div>}
+              {i < 3 && <div className="process-arrow" style={arrowStyle}><ChevronRight size={18} aria-hidden="true" /></div>}
             </div>
           ))}
         </div>
@@ -68,7 +68,7 @@ export default function Welcome() {
           fontFamily: "'JetBrains Mono', monospace", marginBottom: 16, textAlign: "center" }}>
           Risk-Tiered Routing
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+        <div className="responsive-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
           {[
             { t: 1, title: "Register & Go", desc: "Low risk. Automated review only. Acknowledge findings and you're done.",
               items: ["Builder or small team use", "No institutional data", "No escalation conditions"] },
@@ -86,7 +86,7 @@ export default function Welcome() {
               <p style={{ fontSize: 12, color: C.textMid, lineHeight: 1.55, marginBottom: 12, marginTop: 0 }}>{tier.desc}</p>
               {tier.items.map((item, i) => (
                 <div key={i} style={{ display: "flex", gap: 6, marginBottom: 4 }}>
-                  <ChevronRight size={11} color={TRACK_COLORS[tier.t]} style={{ marginTop: 3, flexShrink: 0 }} />
+                  <ChevronRight size={11} color={TRACK_COLORS[tier.t]} style={{ marginTop: 3, flexShrink: 0 }} aria-hidden="true" />
                   <span style={{ fontSize: 12, color: C.textMid, lineHeight: 1.45 }}>{item}</span>
                 </div>
               ))}
@@ -103,24 +103,30 @@ export default function Welcome() {
             fontFamily: "'DM Sans', sans-serif", boxShadow: `0 4px 24px ${C.accent35}`,
             display: "flex", alignItems: "center", gap: 8, transition: "transform .15s" }}
           onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
-          onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}>
-          Start Intake <ArrowRight size={16} />
+          onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
+          onFocus={e => e.currentTarget.style.transform = "translateY(-1px)"}
+          onBlur={e => e.currentTarget.style.transform = "translateY(0)"}>
+          Start Intake <ArrowRight size={16} aria-hidden="true" />
         </button>
         <button onClick={() => navigate("/registry")}
           style={{ padding: "14px 24px", borderRadius: 10, border: `1.5px solid ${C.border}`, cursor: "pointer",
             background: "transparent", color: C.textMid, fontSize: 14, fontWeight: 600,
             fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6, transition: "all .15s" }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.text; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMid; }}>
-          <LayoutGrid size={14} /> View Registry
+          onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMid; }}
+          onFocus={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.text; }}
+          onBlur={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMid; }}>
+          <LayoutGrid size={14} aria-hidden="true" /> View Registry
         </button>
         <button onClick={() => navigate("/framework")}
           style={{ padding: "14px 24px", borderRadius: 10, border: `1.5px solid ${C.border}`, cursor: "pointer",
             background: "transparent", color: C.textMid, fontSize: 14, fontWeight: 600,
             fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6, transition: "all .15s" }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.text; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMid; }}>
-          <BookOpen size={14} /> Read the Framework
+          onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMid; }}
+          onFocus={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.text; }}
+          onBlur={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMid; }}>
+          <BookOpen size={14} aria-hidden="true" /> Read the Framework
         </button>
       </div>
 

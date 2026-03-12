@@ -161,9 +161,7 @@ const TOC = [
 function ExtLink({ href, children }) {
   return (
     <a href={href} target="_blank" rel="noopener noreferrer"
-      style={{ color: C.accent, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}
-      onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
-      onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}>
+      style={{ color: C.accent, textDecoration: "underline", display: "inline-flex", alignItems: "center", gap: 4 }}>
       {children} <ExternalLink size={11} />
     </a>
   );
@@ -232,7 +230,9 @@ function PipelineDiagram({ onScrollTo }) {
         style={{ ...nodeBase, cursor: "pointer",
         border: `1px solid ${C.border}`, borderLeft: `3px solid ${color}`, transition: "background .15s" }}
         onMouseEnter={e => e.currentTarget.style.background = C.surfaceHover}
-        onMouseLeave={e => e.currentTarget.style.background = C.bg}>
+        onMouseLeave={e => e.currentTarget.style.background = C.bg}
+        onFocus={e => e.currentTarget.style.background = C.surfaceHover}
+        onBlur={e => e.currentTarget.style.background = C.bg}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: children ? 10 : 6 }}>
           <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
             color, background: `${color}15`, padding: "2px 8px", borderRadius: 4 }}>AGENT {num}</span>
@@ -359,7 +359,7 @@ function AgentCard({ agent }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 20px" }}>
           {agent.sections.map((s, i) => (
             <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-              <ChevronRight size={11} color={agent.color} style={{ marginTop: 4, flexShrink: 0 }} />
+              <ChevronRight size={11} color={agent.color} style={{ marginTop: 4, flexShrink: 0 }} aria-hidden="true" />
               <span style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>{s}</span>
             </div>
           ))}
@@ -377,7 +377,7 @@ function AgentCard({ agent }) {
             {agent.tools.map((t, i) => (
               <div key={i} style={{ padding: "8px 14px", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`,
                 display: "flex", alignItems: "center", gap: 8 }}>
-                <Zap size={12} color={agent.color} />
+                <Zap size={12} color={agent.color} aria-hidden="true" />
                 <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}><ExtLink href={t.url}>{t.name}</ExtLink></span>
                 <span style={{ fontSize: 12, color: C.textMid }}>{t.desc}</span>
               </div>
@@ -397,7 +397,7 @@ function AgentCard({ agent }) {
             {agent.inspirations.map((r, i) => (
               <div key={i} style={{ padding: "8px 14px", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`,
                 display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <GitBranch size={12} color={C.textDim} />
+                <GitBranch size={12} color={C.textDim} aria-hidden="true" />
                 <ExtLink href={r.url}>{r.name}</ExtLink>
                 <span style={{ fontSize: 12, color: C.textDim }}>&mdash; {r.desc}</span>
               </div>
@@ -443,7 +443,7 @@ export default function AgentsPage() {
     <div className="agents-page-layout" style={{ display: "flex", gap: 32 }}>
       {/* Sidebar nav */}
       <div className="agents-page-sidebar">
-        <div style={{ position: "sticky", top: 16 }}>
+        <nav aria-label="Page sections" style={{ position: "sticky", top: 16 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase",
             marginBottom: 12, fontFamily: "'JetBrains Mono', monospace" }}>
             On This Page
@@ -466,7 +466,7 @@ export default function AgentsPage() {
             <div style={{ fontSize: 11, color: C.textMid, marginTop: 4 }}>5 models per multi-model agent</div>
             <div style={{ fontSize: 11, color: C.textMid }}>Claude synthesis + dispute resolution</div>
           </div>
-        </div>
+        </nav>
       </div>
 
       {/* Content */}
@@ -486,7 +486,7 @@ export default function AgentsPage() {
         {/* Multi-model explainer */}
         <div id="ap-convergence" style={{ padding: 20, borderRadius: 10, background: C.surfaceAlt, border: `1px solid ${C.border}`, marginBottom: 32 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <Layers size={16} color={C.accent} />
+            <Layers size={16} color={C.accent} aria-hidden="true" />
             <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Multi-Model Convergence</span>
           </div>
           <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, margin: "0 0 12px" }}>
@@ -509,7 +509,7 @@ export default function AgentsPage() {
         {/* Why These Models */}
         <div id="ap-why-models" style={{ marginTop: 40, marginBottom: 32 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <Brain size={16} color={C.accent} />
+            <Brain size={16} color={C.accent} aria-hidden="true" />
             <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Why These Models</span>
           </div>
           <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, marginTop: 0, marginBottom: 8 }}>
@@ -555,7 +555,7 @@ export default function AgentsPage() {
         {/* CLI Tools */}
         <div id="ap-cli-tools" style={{ marginBottom: 32 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <Terminal size={16} color={C.accent} />
+            <Terminal size={16} color={C.accent} aria-hidden="true" />
             <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>CLI Tools</span>
           </div>
           <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, marginTop: 0, marginBottom: 16 }}>
@@ -587,14 +587,14 @@ export default function AgentsPage() {
         {/* Standards & Frameworks */}
         <div id="ap-standards" style={{ marginBottom: 32 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <Users size={16} color={C.accent} />
+            <Users size={16} color={C.accent} aria-hidden="true" />
             <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Standards & Frameworks Referenced</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
             {FRAMEWORKS.map((fw, i) => (
               <div key={i} style={{ padding: 14, borderRadius: 8, background: C.surface, border: `1px solid ${C.border}`,
                 display: "flex", alignItems: "center", gap: 10 }}>
-                <Users size={14} color={C.textDim} />
+                <Users size={14} color={C.textDim} aria-hidden="true" />
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
                     <ExtLink href={fw.url}>{fw.name}</ExtLink>

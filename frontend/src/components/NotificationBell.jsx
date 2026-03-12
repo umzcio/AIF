@@ -36,6 +36,8 @@ export default function NotificationBell() {
   const [emailInput, setEmailInput] = useState("");
   const [saving, setSaving] = useState(false);
   const ref = useRef(null);
+  const bellRef = useRef(null);
+  const panelRef = useRef(null);
   const intervalRef = useRef(null);
 
   const fetchNotifications = useCallback(async () => {
@@ -60,6 +62,28 @@ export default function NotificationBell() {
     }
     if (open) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  // Escape key handler + focus management on open
+  useEffect(() => {
+    if (!open) return;
+    function handleKeyDown(e) {
+      if (e.key === "Escape") {
+        setOpen(false);
+        bellRef.current?.focus();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    const timer = setTimeout(() => {
+      if (panelRef.current) {
+        const focusable = panelRef.current.querySelector("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])");
+        focusable?.focus();
+      }
+    }, 0);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      clearTimeout(timer);
+    };
   }, [open]);
 
   // Load prefs when settings tab opens
@@ -119,9 +143,12 @@ export default function NotificationBell() {
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button
+        ref={bellRef}
         type="button"
         onClick={() => { setOpen(o => !o); setTab("notifications"); }}
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
+        aria-expanded={open}
+        aria-haspopup="dialog"
         style={{
           position: "relative", width: 34, height: 34, borderRadius: "50%",
           border: "none", background: open ? C.surface : "transparent",
@@ -144,7 +171,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div style={{
+        <div ref={panelRef} role="dialog" aria-label="Notifications" style={{
           position: "absolute", right: 0, top: "calc(100% + 6px)", width: 360,
           background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12,
           boxShadow: "0 12px 40px rgba(0,0,0,0.15)", zIndex: 200, overflow: "hidden",
@@ -225,6 +252,8 @@ export default function NotificationBell() {
                     }}
                     onMouseEnter={e => { if (n.read) e.currentTarget.style.background = C.surface; }}
                     onMouseLeave={e => { e.currentTarget.style.background = n.read ? "transparent" : C.accentSoft; }}
+                    onFocus={e => { if (n.read) e.currentTarget.style.background = C.surface; }}
+                    onBlur={e => { e.currentTarget.style.background = n.read ? "transparent" : C.accentSoft; }}
                   >
                     <span style={{ fontSize: 16, lineHeight: 1.3, flexShrink: 0 }}>
                       {TYPE_ICONS[n.type] || "📌"}
@@ -241,7 +270,8 @@ export default function NotificationBell() {
                       {n.body && (
                         <div style={{
                           fontSize: 12, color: C.textDim, marginTop: 2,
-                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          overflow: "hidden", textOverflow: "ellipsis",
+                          display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical",
                         }}>
                           {n.body}
                         </div>

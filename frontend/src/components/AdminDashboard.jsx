@@ -25,9 +25,16 @@ export default function AdminDashboard() {
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 2, marginBottom: 24, borderBottom: `1px solid ${C.border}` }}>
+      <div role="tablist" aria-label="Admin sections" style={{ display: "flex", gap: 2, marginBottom: 24, borderBottom: `1px solid ${C.border}` }}
+        onKeyDown={e => {
+          const idx = TABS.findIndex(t => t.id === tab);
+          if (e.key === "ArrowRight") { e.preventDefault(); setTab(TABS[(idx + 1) % TABS.length].id); }
+          if (e.key === "ArrowLeft") { e.preventDefault(); setTab(TABS[(idx - 1 + TABS.length) % TABS.length].id); }
+        }}>
         {TABS.map(t => (
-          <button key={t.id} type="button" onClick={() => setTab(t.id)}
+          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} aria-controls={`tabpanel-${t.id}`}
+            id={`tab-${t.id}`} tabIndex={tab === t.id ? 0 : -1}
+            onClick={() => setTab(t.id)}
             style={{ padding: "8px 16px", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer",
               background: "transparent", color: tab === t.id ? C.accent : C.textMid,
               borderBottom: `2px solid ${tab === t.id ? C.accent : "transparent"}`,
@@ -38,10 +45,12 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {tab === "overview" && <OverviewTab />}
-      {tab === "analytics" && <AnalyticsTab />}
-      {tab === "users" && <UsersTab />}
-      {tab === "audit" && <AuditTab />}
+      <div role="tabpanel" id={`tabpanel-${tab}`} aria-labelledby={`tab-${tab}`}>
+        {tab === "overview" && <OverviewTab />}
+        {tab === "analytics" && <AnalyticsTab />}
+        {tab === "users" && <UsersTab />}
+        {tab === "audit" && <AuditTab />}
+      </div>
     </div>
   );
 }
@@ -67,7 +76,7 @@ function OverviewTab() {
   return (
     <>
       {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+      <div className="responsive-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
         <SummaryCard label="Total Tools" value={stats.totalTools} />
         <SummaryCard label="Pending Reviews" value={stats.pendingReviews} accent={stats.pendingReviews > 0 ? C.warning : null} />
         <SummaryCard label="Pipeline Runs (30d)" value={stats.recentPipelineRuns} />
@@ -75,7 +84,7 @@ function OverviewTab() {
       </div>
 
       {/* Tools by Track / Status */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+      <div className="responsive-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
         <section className="section-card" style={{ padding: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Tools by Track</div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -206,7 +215,7 @@ function AnalyticsTab() {
       </div>
 
       {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 24 }}>
+      <div className="responsive-grid-5" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 24 }}>
         <SummaryCard label="Total Runs" value={runs.total} />
         <SummaryCard label="Success Rate" value={pct(runs.completed, runs.total)}
           accent={runs.total > 0 && runs.completed / runs.total < 0.8 ? C.warning : C.success} />
@@ -271,35 +280,41 @@ function AnalyticsTab() {
 
           {/* Model detail table */}
           <div style={{ borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-            <div className="registry-table-header" style={{ gridTemplateColumns: "140px 60px 60px 60px 80px 80px 80px 80px 80px" }}>
-              <span>Model</span><span>Runs</span><span>OK</span><span>Fail</span>
-              <span>Avg Time</span><span>Min</span><span>Max</span>
-              <span>Timeouts</span><span>Parse Fail</span>
-            </div>
-            {models.map((m, i) => {
-              const meta = getModelMeta(m.name);
-              return (
-                <div key={m.name} className="registry-table-row"
-                  style={{ background: i % 2 === 0 ? "transparent" : C.surface,
-                    gridTemplateColumns: "140px 60px 60px 60px 80px 80px 80px 80px 80px", cursor: "default" }}>
-                  <span style={{ fontWeight: 600, color: meta.color, fontSize: 12 }}>{meta.short}</span>
-                  <span className="mono" style={{ fontSize: 12 }}>{m.totalRuns}</span>
-                  <span className="mono" style={{ fontSize: 12, color: C.success }}>{m.successes}</span>
-                  <span className="mono" style={{ fontSize: 12, color: m.failures > 0 ? C.danger : C.textDim }}>{m.failures}</span>
-                  <span className="mono" style={{ fontSize: 12 }}>{fmtDuration(m.avgSeconds)}</span>
-                  <span className="mono" style={{ fontSize: 12, color: C.textDim }}>{fmtDuration(m.minSeconds)}</span>
-                  <span className="mono" style={{ fontSize: 12, color: m.maxSeconds > 300 ? C.warning : C.textDim }}>{fmtDuration(m.maxSeconds)}</span>
-                  <span className="mono" style={{ fontSize: 12, color: m.timeouts > 0 ? C.danger : C.textDim }}>{m.timeouts}</span>
-                  <span className="mono" style={{ fontSize: 12, color: m.parseFailures > 0 ? C.warning : C.textDim }}>{m.parseFailures}</span>
-                </div>
-              );
-            })}
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr className="registry-table-header" style={{ gridTemplateColumns: "140px 60px 60px 60px 80px 80px 80px 80px 80px" }}>
+                  <th scope="col">Model</th><th scope="col">Runs</th><th scope="col">OK</th><th scope="col">Fail</th>
+                  <th scope="col">Avg Time</th><th scope="col">Min</th><th scope="col">Max</th>
+                  <th scope="col">Timeouts</th><th scope="col">Parse Fail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {models.map((m, i) => {
+                  const meta = getModelMeta(m.name);
+                  return (
+                    <tr key={m.name} className="registry-table-row"
+                      style={{ background: i % 2 === 0 ? "transparent" : C.surface,
+                        gridTemplateColumns: "140px 60px 60px 60px 80px 80px 80px 80px 80px", cursor: "default" }}>
+                      <td style={{ fontWeight: 600, color: meta.color, fontSize: 12 }}>{meta.short}</td>
+                      <td className="mono" style={{ fontSize: 12 }}>{m.totalRuns}</td>
+                      <td className="mono" style={{ fontSize: 12, color: C.success }}>{m.successes}</td>
+                      <td className="mono" style={{ fontSize: 12, color: m.failures > 0 ? C.danger : C.textDim }}>{m.failures}</td>
+                      <td className="mono" style={{ fontSize: 12 }}>{fmtDuration(m.avgSeconds)}</td>
+                      <td className="mono" style={{ fontSize: 12, color: C.textDim }}>{fmtDuration(m.minSeconds)}</td>
+                      <td className="mono" style={{ fontSize: 12, color: m.maxSeconds > 300 ? C.warning : C.textDim }}>{fmtDuration(m.maxSeconds)}</td>
+                      <td className="mono" style={{ fontSize: 12, color: m.timeouts > 0 ? C.danger : C.textDim }}>{m.timeouts}</td>
+                      <td className="mono" style={{ fontSize: 12, color: m.parseFailures > 0 ? C.warning : C.textDim }}>{m.parseFailures}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
 
       {/* Pipeline Runs + Trends side by side */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+      <div className="responsive-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
         {/* Run Status Breakdown */}
         <section className="section-card" style={{ padding: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Run Status Breakdown</div>
@@ -356,28 +371,34 @@ function AnalyticsTab() {
             <div><h2>Recent Pipeline Runs</h2></div>
           </div>
           <div style={{ borderRadius: 0, overflow: "hidden" }}>
-            <div className="registry-table-header" style={{ gridTemplateColumns: "1fr 60px 80px 90px 80px 80px 80px" }}>
-              <span>Tool</span><span>Track</span><span>Status</span><span>Duration</span>
-              <span>Models</span><span>Cost</span><span>When</span>
-            </div>
-            {recentRuns.slice(0, 20).map((r, i) => {
-              const statusMeta = STATUS_META[r.status] || {};
-              return (
-                <div key={r.id} className="registry-table-row"
-                  style={{ background: i % 2 === 0 ? "transparent" : C.surface,
-                    gridTemplateColumns: "1fr 60px 80px 90px 80px 80px 80px", cursor: "default" }}>
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>{r.tool_name || "—"}</span>
-                  <span><TrackBadge track={r.track} /></span>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: statusMeta.color || C.textMid }}>{statusMeta.label || r.status}</span>
-                  <span className="mono" style={{ fontSize: 12 }}>{fmtDuration(r.total_elapsed_seconds)}</span>
-                  <span className="mono" style={{ fontSize: 12 }}>
-                    {r.models_succeeded != null ? `${r.models_succeeded}/${(r.models_succeeded || 0) + (r.models_failed || 0)}` : "—"}
-                  </span>
-                  <span className="mono" style={{ fontSize: 12 }}>{fmtCost(r.estimated_cost_usd)}</span>
-                  <span style={{ fontSize: 11, color: C.textDim }}>{relativeTime(r.queued_at)}</span>
-                </div>
-              );
-            })}
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr className="registry-table-header" style={{ gridTemplateColumns: "1fr 60px 80px 90px 80px 80px 80px" }}>
+                  <th scope="col">Tool</th><th scope="col">Track</th><th scope="col">Status</th><th scope="col">Duration</th>
+                  <th scope="col">Models</th><th scope="col">Cost</th><th scope="col">When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentRuns.slice(0, 20).map((r, i) => {
+                  const statusMeta = STATUS_META[r.status] || {};
+                  return (
+                    <tr key={r.id} className="registry-table-row"
+                      style={{ background: i % 2 === 0 ? "transparent" : C.surface,
+                        gridTemplateColumns: "1fr 60px 80px 90px 80px 80px 80px", cursor: "default" }}>
+                      <td style={{ fontSize: 12, fontWeight: 600 }}>{r.tool_name || "—"}</td>
+                      <td><TrackBadge track={r.track} /></td>
+                      <td style={{ fontSize: 11, fontWeight: 600, color: statusMeta.color || C.textMid }}>{statusMeta.label || r.status}</td>
+                      <td className="mono" style={{ fontSize: 12 }}>{fmtDuration(r.total_elapsed_seconds)}</td>
+                      <td className="mono" style={{ fontSize: 12 }}>
+                        {r.models_succeeded != null ? `${r.models_succeeded}/${(r.models_succeeded || 0) + (r.models_failed || 0)}` : "—"}
+                      </td>
+                      <td className="mono" style={{ fontSize: 12 }}>{fmtCost(r.estimated_cost_usd)}</td>
+                      <td style={{ fontSize: 11, color: C.textDim }}>{relativeTime(r.queued_at)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
@@ -410,12 +431,12 @@ function TrendChart({ data }) {
       <div style={{ fontSize: 11, color: C.textDim, marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
         Runs (green = completed, red = failed)
       </div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 80, marginBottom: 12 }}>
+      <div role="img" aria-label="Runs trend chart: green bars for completed, red for failed" style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 80, marginBottom: 12 }}>
         {data.map((d, i) => {
           const h = (d.runs / maxRuns) * 72;
           const failH = (d.failed / maxRuns) * 72;
           return (
-            <div key={i} style={{ position: "relative", width: barW, height: 72 }}
+            <div key={i} aria-hidden="true" style={{ position: "relative", width: barW, height: 72 }}
               title={`${new Date(d.period).toLocaleDateString()}: ${d.runs} runs (${d.completed} ok, ${d.failed} failed)`}>
               <div style={{ position: "absolute", bottom: 0, width: "100%", height: h, borderRadius: 3, background: C.success, opacity: 0.3 }} />
               <div style={{ position: "absolute", bottom: 0, width: "100%", height: (d.completed / maxRuns) * 72, borderRadius: 3, background: C.success }} />
@@ -431,9 +452,9 @@ function TrendChart({ data }) {
       <div style={{ fontSize: 11, color: C.textDim, marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
         Avg Duration
       </div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 50, marginBottom: 12 }}>
+      <div role="img" aria-label="Average duration trend chart" style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 50, marginBottom: 12 }}>
         {data.map((d, i) => (
-          <div key={i} style={{ width: barW, borderRadius: 3,
+          <div key={i} aria-hidden="true" style={{ width: barW, borderRadius: 3,
             height: d.avgDuration ? `${(d.avgDuration / maxDur) * 44}px` : 0,
             background: C.accent, opacity: 0.6 }}
             title={`${new Date(d.period).toLocaleDateString()}: ${fmtDuration(d.avgDuration)}`} />
@@ -444,9 +465,9 @@ function TrendChart({ data }) {
       <div style={{ fontSize: 11, color: C.textDim, marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
         Cost per Period
       </div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 50 }}>
+      <div role="img" aria-label="Cost per period trend chart" style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 50 }}>
         {data.map((d, i) => (
-          <div key={i} style={{ width: barW, borderRadius: 3,
+          <div key={i} aria-hidden="true" style={{ width: barW, borderRadius: 3,
             height: d.totalCost ? `${(d.totalCost / maxCost) * 44}px` : 0,
             background: C.gold, opacity: 0.7 }}
             title={`${new Date(d.period).toLocaleDateString()}: ${fmtCost(d.totalCost)}`} />
@@ -529,45 +550,51 @@ function UsersTab() {
         <span style={{ fontSize: 13, color: C.textMid }}>{users.length} users</span>
       </div>
       <div style={{ borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-        <div className="registry-table-header" style={{ gridTemplateColumns: "1fr 1fr 120px 120px 80px 80px" }}>
-          <span>Name</span><span>NetID</span><span>Role</span><span>Last Login</span><span>Tools</span><span>Active</span>
-        </div>
-        {users.map((u, i) => {
-          const isSelf = currentUser?.userId === u.id;
-          return (
-            <div key={u.id} className="registry-table-row"
-              style={{ background: i % 2 === 0 ? "transparent" : C.surface, gridTemplateColumns: "1fr 1fr 120px 120px 80px 80px" }}>
-              <span style={{ fontWeight: 600 }}>{u.display_name || "—"}</span>
-              <span className="mono" style={{ fontSize: 12, color: C.textMid }}>{u.netid}</span>
-              <span>
-                <select value={u.role} aria-label={`Role for ${u.netid}`}
-                  onChange={e => handleRoleChange(u.id, e.target.value, u.netid)}
-                  disabled={isSelf}
-                  style={{ padding: "3px 6px", borderRadius: 4, border: `1px solid ${C.border}`,
-                    background: C.surface, color: C.text, fontSize: 12,
-                    fontFamily: "'DM Sans', sans-serif", cursor: isSelf ? "not-allowed" : "pointer" }}>
-                  {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </span>
-              <span style={{ fontSize: 12, color: C.textMid }}>
-                {u.last_login ? relativeTime(u.last_login) : "Never"}
-              </span>
-              <span className="mono" style={{ fontSize: 12, textAlign: "center" }}>{u.tool_count}</span>
-              <span style={{ textAlign: "center" }}>
-                <button type="button" role="switch" aria-checked={u.is_active}
-                  aria-label={`${u.is_active ? "Deactivate" : "Activate"} ${u.netid}`}
-                  onClick={() => !isSelf && handleToggleActive(u.id, u.is_active, u.netid)}
-                  disabled={isSelf}
-                  style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: isSelf ? "not-allowed" : "pointer",
-                    background: u.is_active ? C.accent : C.border, position: "relative", transition: "background .2s" }}>
-                  <span style={{ position: "absolute", top: 2, left: u.is_active ? 22 : 2,
-                    width: 20, height: 20, borderRadius: "50%", background: "#fff",
-                    transition: "left .2s", boxShadow: "0 1px 2px rgba(0,0,0,0.2)" }} />
-                </button>
-              </span>
-            </div>
-          );
-        })}
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr className="registry-table-header" style={{ gridTemplateColumns: "1fr 1fr 120px 120px 80px 80px" }}>
+              <th scope="col">Name</th><th scope="col">NetID</th><th scope="col">Role</th><th scope="col">Last Login</th><th scope="col">Tools</th><th scope="col">Active</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u, i) => {
+              const isSelf = currentUser?.userId === u.id;
+              return (
+                <tr key={u.id} className="registry-table-row"
+                  style={{ background: i % 2 === 0 ? "transparent" : C.surface, gridTemplateColumns: "1fr 1fr 120px 120px 80px 80px" }}>
+                  <td style={{ fontWeight: 600 }}>{u.display_name || "—"}</td>
+                  <td className="mono" style={{ fontSize: 12, color: C.textMid }}>{u.netid}</td>
+                  <td>
+                    <select value={u.role} aria-label={`Role for ${u.netid}`}
+                      onChange={e => handleRoleChange(u.id, e.target.value, u.netid)}
+                      disabled={isSelf}
+                      style={{ padding: "3px 6px", borderRadius: 4, border: `1px solid ${C.border}`,
+                        background: C.surface, color: C.text, fontSize: 12,
+                        fontFamily: "'DM Sans', sans-serif", cursor: isSelf ? "not-allowed" : "pointer" }}>
+                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </td>
+                  <td style={{ fontSize: 12, color: C.textMid }}>
+                    {u.last_login ? relativeTime(u.last_login) : "Never"}
+                  </td>
+                  <td className="mono" style={{ fontSize: 12, textAlign: "center" }}>{u.tool_count}</td>
+                  <td style={{ textAlign: "center" }}>
+                    <button type="button" role="switch" aria-checked={u.is_active}
+                      aria-label={`${u.is_active ? "Deactivate" : "Activate"} ${u.netid}`}
+                      onClick={() => !isSelf && handleToggleActive(u.id, u.is_active, u.netid)}
+                      disabled={isSelf}
+                      style={{ width: 44, height: 28, borderRadius: 14, border: "none", cursor: isSelf ? "not-allowed" : "pointer",
+                        background: u.is_active ? C.accent : C.border, position: "relative", transition: "background .2s" }}>
+                      <span style={{ position: "absolute", top: 3, left: u.is_active ? 22 : 3,
+                        width: 22, height: 22, borderRadius: "50%", background: "#fff",
+                        transition: "left .2s", boxShadow: "0 1px 2px rgba(0,0,0,0.2)" }} />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </>
   );
@@ -632,28 +659,34 @@ function AuditTab() {
       {loading ? <Skeleton height={300} /> : (
         <>
           <div style={{ borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-            <div className="registry-table-header" style={{ gridTemplateColumns: "160px 100px 140px 100px 1fr" }}>
-              <span>Timestamp</span><span>Actor</span><span>Action</span><span>Entity</span><span>Details</span>
-            </div>
-            {entries.length === 0 ? (
-              <div style={{ padding: 20, textAlign: "center", fontSize: 13, color: C.textDim }}>No entries found.</div>
-            ) : entries.map((entry, i) => (
-              <div key={entry.id} className="registry-table-row"
-                style={{ background: i % 2 === 0 ? "transparent" : C.surface,
-                  gridTemplateColumns: "160px 100px 140px 100px 1fr", cursor: "default" }}>
-                <span className="mono" style={{ fontSize: 11, color: C.textDim }}>
-                  {new Date(entry.created_at).toLocaleString()}
-                </span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: C.accent }}>{entry.actor_netid}</span>
-                <span style={{ fontSize: 12, color: C.textMid }}>{entry.action.replace(/_/g, " ")}</span>
-                <span style={{ fontSize: 11, color: C.textDim }}>
-                  {entry.entity_type}/{entry.entity_id?.slice(0, 8)}
-                </span>
-                <span style={{ fontSize: 11, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {entry.details ? JSON.stringify(entry.details) : ""}
-                </span>
-              </div>
-            ))}
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr className="registry-table-header" style={{ gridTemplateColumns: "160px 100px 140px 100px 1fr" }}>
+                  <th scope="col">Timestamp</th><th scope="col">Actor</th><th scope="col">Action</th><th scope="col">Entity</th><th scope="col">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.length === 0 ? (
+                  <tr><td colSpan={5} style={{ padding: 20, textAlign: "center", fontSize: 13, color: C.textDim }}>No entries found.</td></tr>
+                ) : entries.map((entry, i) => (
+                  <tr key={entry.id} className="registry-table-row"
+                    style={{ background: i % 2 === 0 ? "transparent" : C.surface,
+                      gridTemplateColumns: "160px 100px 140px 100px 1fr", cursor: "default" }}>
+                    <td className="mono" style={{ fontSize: 11, color: C.textDim }}>
+                      {new Date(entry.created_at).toLocaleString()}
+                    </td>
+                    <td style={{ fontSize: 12, fontWeight: 600, color: C.accent }}>{entry.actor_netid}</td>
+                    <td style={{ fontSize: 12, color: C.textMid }}>{entry.action.replace(/_/g, " ")}</td>
+                    <td style={{ fontSize: 11, color: C.textDim }}>
+                      {entry.entity_type}/{entry.entity_id?.slice(0, 8)}
+                    </td>
+                    <td style={{ fontSize: 11, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", minHeight: "auto" }}>
+                      {entry.details ? JSON.stringify(entry.details) : ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {totalPages > 1 && (

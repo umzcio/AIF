@@ -60,15 +60,17 @@ export default function FrameworkDoc() {
       {/* Sidebar nav */}
       <div className="agents-page-sidebar">
         <div style={{ position: "sticky", top: 16 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 12, fontFamily: "'JetBrains Mono', monospace" }}>On This Page</div>
-          {sections.map(s => (
-            <a key={s.id} href={`#fw-${s.id}`} onClick={(e) => { e.preventDefault(); setActiveSection(s.id); scrollingTo.current = s.id; document.getElementById(`fw-${s.id}`)?.scrollIntoView({ behavior: "smooth" }); setTimeout(() => { scrollingTo.current = null; }, 800); }}
-              style={{ display: "block", padding: "6px 12px", marginBottom: 2, borderRadius: 6, fontSize: 12, fontWeight: 500,
-                color: activeSection === s.id ? C.accent : C.textMid, background: activeSection === s.id ? C.accentSoft : "transparent",
-                textDecoration: "none", cursor: "pointer", borderLeft: `2px solid ${activeSection === s.id ? C.accent : "transparent"}`, transition: "all .15s" }}>
-              {s.label}
-            </a>
-          ))}
+          <nav aria-label="Table of contents">
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 12, fontFamily: "'JetBrains Mono', monospace" }}>On This Page</div>
+            {sections.map(s => (
+              <a key={s.id} href={`#fw-${s.id}`} aria-current={activeSection === s.id ? "true" : undefined} onClick={(e) => { e.preventDefault(); setActiveSection(s.id); scrollingTo.current = s.id; document.getElementById(`fw-${s.id}`)?.scrollIntoView({ behavior: "smooth" }); setTimeout(() => { scrollingTo.current = null; }, 800); }}
+                style={{ display: "block", padding: "6px 12px", marginBottom: 2, borderRadius: 6, fontSize: 12, fontWeight: 500,
+                  color: activeSection === s.id ? C.accent : C.textMid, background: activeSection === s.id ? C.accentSoft : "transparent",
+                  textDecoration: "none", cursor: "pointer", borderLeft: `2px solid ${activeSection === s.id ? C.accent : "transparent"}`, transition: "all .15s" }}>
+                {s.label}
+              </a>
+            ))}
+          </nav>
           <div style={{ marginTop: 20, padding: "10px 12px", borderRadius: 8, background: C.surface, border: `1px solid ${C.border}` }}>
             <div style={{ fontSize: 10, color: C.textDim, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>VERSION</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginTop: 2 }}>v1.5 Draft</div>
@@ -105,7 +107,7 @@ export default function FrameworkDoc() {
           </div>
           <div style={tableWrap}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr><th style={thStyle}>Weighted Score</th><th style={thStyle}>Tier</th><th style={thStyle}>What Happens Next</th></tr></thead>
+              <thead><tr><th scope="col" style={thStyle}>Weighted Score</th><th scope="col" style={thStyle}>Tier</th><th scope="col" style={thStyle}>What Happens Next</th></tr></thead>
               <tbody>
                 <tr><td style={tdBold}>Low</td><td style={tdStyle}><TrackBadge track={1} /></td><td style={tdStyle}>Automated review. Acknowledge findings and register.</td></tr>
                 <tr><td style={tdBold}>Medium</td><td style={tdStyle}><TrackBadge track={2} /></td><td style={tdStyle}>Automated review. Complete Self-Assessment and self-certify.</td></tr>
@@ -144,7 +146,7 @@ export default function FrameworkDoc() {
           <p style={pStyle}>This framework adopts the EDUCAUSE AI Ethical Guidelines (2025) as its normative foundation.</p>
           <div style={tableWrap}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr><th style={thStyle}>Principle</th><th style={thStyle}>What It Means</th><th style={thStyle}>Where It Applies</th></tr></thead>
+              <thead><tr><th scope="col" style={thStyle}>Principle</th><th scope="col" style={thStyle}>What It Means</th><th scope="col" style={thStyle}>Where It Applies</th></tr></thead>
               <tbody>
                 <tr><td style={tdBold}>Beneficence</td><td style={tdStyle}>The tool must produce genuine benefit for students, staff, or the institution — not just convenience for the builder.</td><td style={tdStyle}>Self-Assessment: intended beneficiaries and outcomes; Track 3: equity check.</td></tr>
                 <tr><td style={tdBold}>Respect for Autonomy</td><td style={tdStyle}>People affected must know the tool exists, understand what it does, and retain meaningful agency.</td><td style={tdStyle}>Pedagogy escalation conditions; Track 3 user disclosure assessment.</td></tr>
@@ -183,11 +185,11 @@ export default function FrameworkDoc() {
           <div style={tableWrap}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>
-                <th style={thStyle}>Dimension</th>
-                <th style={{ ...thStyle, textAlign: "center" }}>Public Site</th>
-                <th style={{ ...thStyle, textAlign: "center" }}>Internal App</th>
-                <th style={{ ...thStyle, textAlign: "center" }}>Script / API</th>
-                <th style={{ ...thStyle, textAlign: "center" }}>AI Agent</th>
+                <th scope="col" style={thStyle}>Dimension</th>
+                <th scope="col" style={{ ...thStyle, textAlign: "center" }}>Public Site</th>
+                <th scope="col" style={{ ...thStyle, textAlign: "center" }}>Internal App</th>
+                <th scope="col" style={{ ...thStyle, textAlign: "center" }}>Script / API</th>
+                <th scope="col" style={{ ...thStyle, textAlign: "center" }}>AI Agent</th>
               </tr></thead>
               <tbody>
                 {[
@@ -200,7 +202,7 @@ export default function FrameworkDoc() {
                   ["Maintenance / Supportability", "High (×3)", "High (×3)", "High (×3)", "High (×3)"],
                 ].map(([dim, ...vals], i) => (
                   <tr key={i}>
-                    <td style={tdBold}>{dim}</td>
+                    <th scope="row" style={tdBold}>{dim}</th>
                     {vals.map((v, j) => {
                       const isCrit = v.includes("Critical"); const isHigh = v.includes("High"); const isNA = v.includes("N/A");
                       return <td key={j} style={{ ...tdStyle, textAlign: "center", color: isCrit ? TRACK_COLORS[4] : isHigh ? TRACK_COLORS[3] : isNA ? C.textDim : C.textMid, fontWeight: isCrit ? 700 : 500 }}>{v}</td>;
@@ -317,9 +319,7 @@ export default function FrameworkDoc() {
           <h2 style={h2Style}>Adopting This Framework</h2>
           <p style={pStyle}>Designed to be adapted, not just adopted. The structure is portable across higher education institutions. The source code and framework documents are available on{" "}
             <a href="https://github.com/umzcio/AIF" target="_blank" rel="noopener noreferrer"
-              style={{ color: C.accent, textDecoration: "none", fontWeight: 600 }}
-              onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
-              onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}>
+              style={{ color: C.accent, textDecoration: "underline", fontWeight: 600 }}>
               <Github size={12} style={{ verticalAlign: "-1px", marginRight: 3 }} />GitHub</a>.
           </p>
           {["Calibrate the weight matrix against your tool landscape. Run intake against 5-10 existing tools.",

@@ -15,6 +15,7 @@ export default function ReviewPanel({ tool, onUpdate }) {
   const [overrideReason, setOverrideReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showOverride, setShowOverride] = useState(false);
+  const [overrideError, setOverrideError] = useState(false);
 
   const isReviewerOrAdmin = user && (user.role === "reviewer" || user.role === "admin");
   const isOwner = user && tool.owner_id === user.userId;
@@ -74,7 +75,7 @@ export default function ReviewPanel({ tool, onUpdate }) {
   }
 
   async function handleOverride() {
-    if (!overrideReason.trim()) { toast.error("Reason is required"); return; }
+    if (!overrideReason.trim()) { setOverrideError(true); return; }
     setSubmitting(true);
     try {
       const result = await overrideTrack(tool.id, overrideTrackVal, overrideReason.trim());
@@ -95,8 +96,8 @@ export default function ReviewPanel({ tool, onUpdate }) {
         {/* Decision buttons */}
         {canDecide && (
           <div style={{ padding: "0 16px" }}>
-            <textarea value={decisionNotes} onChange={e => setDecisionNotes(e.target.value)}
-              aria-label="Decision notes"
+            <label htmlFor="review-decision-notes" style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.textMid, marginBottom: 4 }}>Decision notes</label>
+            <textarea id="review-decision-notes" value={decisionNotes} onChange={e => setDecisionNotes(e.target.value)}
               placeholder="Decision notes (optional)..."
               style={{ width: "100%", minHeight: 60, padding: 10, borderRadius: 8,
                 border: `1px solid ${C.border}`, background: C.surface, color: C.text,
@@ -155,12 +156,15 @@ export default function ReviewPanel({ tool, onUpdate }) {
                     </button>
                   ))}
                 </div>
-                <textarea value={overrideReason} onChange={e => setOverrideReason(e.target.value)}
-                  aria-label="Reason for track override"
+                <label htmlFor="review-override-reason" style={{ display: "block", fontSize: 11, fontWeight: 600, color: C.textMid, marginBottom: 3 }}>Reason for override</label>
+                <textarea id="review-override-reason" value={overrideReason} onChange={e => { setOverrideReason(e.target.value); if (e.target.value.trim()) setOverrideError(false); }}
                   placeholder="Reason for override (required)..."
+                  aria-invalid={overrideError || undefined}
+                  aria-describedby={overrideError ? "override-reason-error" : undefined}
                   style={{ width: "100%", minHeight: 50, padding: 8, borderRadius: 6,
-                    border: `1px solid ${C.border}`, background: C.bg, color: C.text,
+                    border: `1px solid ${overrideError ? C.danger : C.border}`, background: C.bg, color: C.text,
                     fontSize: 12, fontFamily: "'DM Sans', sans-serif", resize: "vertical", boxSizing: "border-box" }} />
+                {overrideError && <div id="override-reason-error" role="alert" style={{ fontSize: 11, color: C.danger, marginTop: 3, fontWeight: 500 }}>Reason is required for track override.</div>}
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   <Btn size="sm" onClick={handleOverride} disabled={submitting}>Apply Override</Btn>
                   <Btn size="sm" variant="ghost" onClick={() => setShowOverride(false)}>Cancel</Btn>
@@ -199,14 +203,16 @@ export default function ReviewPanel({ tool, onUpdate }) {
 
           {/* New comment input */}
           {(isReviewerOrAdmin || isOwner) && (
-            <div style={{ display: "flex", gap: 8 }}>
-              <textarea value={newComment} onChange={e => setNewComment(e.target.value)}
-                aria-label="Add a comment"
-                placeholder="Add a comment..."
-                style={{ flex: 1, minHeight: 40, padding: 8, borderRadius: 6,
-                  border: `1px solid ${C.border}`, background: C.surface, color: C.text,
-                  fontSize: 12, fontFamily: "'DM Sans', sans-serif", resize: "vertical" }} />
-              <Btn size="sm" onClick={handleComment} disabled={submitting || !newComment.trim()}>Post</Btn>
+            <div>
+              <label htmlFor="review-new-comment" style={{ display: "block", fontSize: 11, fontWeight: 600, color: C.textMid, marginBottom: 3 }}>Add a comment</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <textarea id="review-new-comment" value={newComment} onChange={e => setNewComment(e.target.value)}
+                  placeholder="Add a comment..."
+                  style={{ flex: 1, minHeight: 40, padding: 8, borderRadius: 6,
+                    border: `1px solid ${C.border}`, background: C.surface, color: C.text,
+                    fontSize: 12, fontFamily: "'DM Sans', sans-serif", resize: "vertical" }} />
+                <Btn size="sm" onClick={handleComment} disabled={submitting || !newComment.trim()}>Post</Btn>
+              </div>
             </div>
           )}
         </div>

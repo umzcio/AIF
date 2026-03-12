@@ -82,7 +82,7 @@ function Q({ n, label, req, routing, esc, hint, answered, children, multi, error
   const errId = `q${n}-error`;
   return (
     <div style={{ marginBottom: 24 }}>
-      <div id={qId} style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+      <div id={qId} tabIndex={-1} style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
         <span className="mono" style={{ fontSize: 11, color: answered ? C.success : C.accent, fontWeight: 600 }}>Q{n}</span>
         <span style={{ fontSize: 14, fontWeight: 600 }}>{label}</span>
         {req && !answered && <span style={{ fontSize: 9, color: TRACK_COLORS[3], fontWeight: 700, letterSpacing: 0.5 }}>REQUIRED</span>}
@@ -348,7 +348,7 @@ export default function IntakeForm({ draftId }) {
       // Focus first invalid field
       const firstKey = !name.trim() ? "tool-name" : `q${unanswered[0]?.replace("q", "")}-label`;
       const el = document.getElementById(firstKey);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.focus({ preventScroll: true }); }
       toast.error(`${Object.keys(errors).length} field${Object.keys(errors).length > 1 ? "s" : ""} need attention`);
       return;
     }
@@ -452,7 +452,7 @@ export default function IntakeForm({ draftId }) {
             ].map(([v,l]) => <CheckOption key={v} value={v} label={l} checked={(a.q3||[]).includes(v)} onChange={x=>tm("q3",x)} />)}
           </Q>
           <Q n={4} label="Describe what this tool does and what problem it solves." req answered={isAnswered(a,"q4")} hint={FIELD_HINTS.q4} error={fieldErrors.q4}>
-            <textarea className="text-area" value={a.q4 || ""} onChange={e=>s("q4",e.target.value)} placeholder="3-5 sentences..." style={{ minHeight: 80 }} aria-label="Describe what this tool does" />
+            <textarea className="text-area" value={a.q4 || ""} onChange={e=>s("q4",e.target.value)} placeholder="3-5 sentences..." style={{ minHeight: 80 }} aria-labelledby="q4-label" />
           </Q>
 
           <SectionDivider num="2" title="Deployment and Access" sub="How and where the tool will run." />
@@ -496,7 +496,7 @@ export default function IntakeForm({ draftId }) {
               ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q12===v} onClick={x=>s("q12",x)} />)}
             </Q>
             <Q n={13} label="AI model provider and model?" routing="Used to assess model drift risk." answered={isAnswered(a,"q13")}>
-              <textarea className="text-area" value={a.q13 || ""} onChange={e=>s("q13",e.target.value)} placeholder="e.g., Anthropic Claude Sonnet via API..." style={{ minHeight: 60 }} aria-label="AI model provider and model" />
+              <textarea className="text-area" value={a.q13 || ""} onChange={e=>s("q13",e.target.value)} placeholder="e.g., Anthropic Claude Sonnet via API..." style={{ minHeight: 60 }} aria-labelledby="q13-label" />
             </Q>
           </>}
 
@@ -525,10 +525,10 @@ export default function IntakeForm({ draftId }) {
           {showAI && <>
             <SectionDivider num="5" title="AI-Specific Questions" sub="Your tool uses AI or sends data to an external AI model." />
             <Q n={19} label="Explain in plain language what the tool does and what happens when it fails." req routing="Builder Comprehension check." answered={isAnswered(a,"q19")} hint={FIELD_HINTS.q19}>
-              <textarea className="text-area" value={a.q19 || ""} onChange={e=>s("q19",e.target.value)} placeholder="Walk a non-technical reviewer through the tool..." style={{ minHeight: 100 }} aria-label="Explain what the tool does and what happens when it fails" />
+              <textarea className="text-area" value={a.q19 || ""} onChange={e=>s("q19",e.target.value)} placeholder="Walk a non-technical reviewer through the tool..." style={{ minHeight: 100 }} aria-labelledby="q19-label" />
             </Q>
             <Q n={20} label="What decisions does this tool make or influence? Human reviewer at decision point?" req answered={isAnswered(a,"q20")} hint={FIELD_HINTS.q20}>
-              <textarea className="text-area" value={a.q20 || ""} onChange={e=>s("q20",e.target.value)} placeholder="Describe decisions and human oversight..." style={{ minHeight: 80 }} aria-label="What decisions does this tool make or influence" />
+              <textarea className="text-area" value={a.q20 || ""} onChange={e=>s("q20",e.target.value)} placeholder="Describe decisions and human oversight..." style={{ minHeight: 80 }} aria-labelledby="q20-label" />
             </Q>
             <Q n={21} label="Will users know they're interacting with AI?" req esc={a.q21==="no"?"Users unaware of AI — pedagogy escalation":null} answered={isAnswered(a,"q21")} hint={FIELD_HINTS.q21}>
               {[["yes","Yes — clearly disclosed"],["no","No — users won't know"],["partial","Partially"],["na","N/A — no direct interaction"]
@@ -553,7 +553,7 @@ export default function IntakeForm({ draftId }) {
               {/* Progress bar */}
               <div className="section-label" style={{ marginBottom: 6 }}>Progress</div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.border, overflow: "hidden" }}>
+                <div role="progressbar" aria-valuenow={Math.round(progressPct)} aria-valuemin={0} aria-valuemax={100} aria-label="Form completion progress" style={{ flex: 1, height: 6, borderRadius: 3, background: C.border, overflow: "hidden" }}>
                   <div style={{ height: "100%", width: `${progressPct}%`, borderRadius: 3,
                     background: progressPct === 100 ? C.success : C.accent, transition: "width .3s" }} />
                 </div>

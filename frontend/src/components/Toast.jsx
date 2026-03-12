@@ -140,6 +140,10 @@ function ConfirmDialog({ title, message, destructive, confirmLabel, onConfirm, o
     const last = focusable[focusable.length - 1];
     first?.focus();
 
+    // Make background inert
+    const appShell = document.querySelector(".app-shell");
+    if (appShell) appShell.setAttribute("inert", "");
+
     function handleKeyDown(event) {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -158,7 +162,10 @@ function ConfirmDialog({ title, message, destructive, confirmLabel, onConfirm, o
     }
 
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      if (appShell) appShell.removeAttribute("inert");
+    };
   }, [onCancel]);
 
   return (

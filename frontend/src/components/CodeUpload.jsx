@@ -14,8 +14,8 @@ import { TrackBadge, Skeleton, ErrorBanner, relativeTime } from "./primitives.js
 const SEV = {
   critical: { color: "#C9302C", bg: "rgba(201,48,44,0.07)", label: "CRITICAL", order: 0 },
   high:     { color: "#A34414", bg: "rgba(163,68,20,0.07)", label: "HIGH", order: 1 },
-  warning:  { color: "#7A5A07", bg: "rgba(122,90,7,0.07)", label: "WARNING", order: 2 },
-  medium:   { color: "#7A5A07", bg: "rgba(122,90,7,0.07)", label: "MEDIUM", order: 3 },
+  warning:  { color: "#5C4706", bg: "rgba(122,90,7,0.07)", label: "WARNING", order: 2 },
+  medium:   { color: "#5C4706", bg: "rgba(122,90,7,0.07)", label: "MEDIUM", order: 3 },
   info:     { color: "#5F6B7A", bg: "rgba(95,107,122,0.05)", label: "INFO", order: 4 },
 };
 
@@ -178,9 +178,9 @@ function FileTreeNode({ node, depth = 0, onSelect, selectedFile, path = "" }) {
   const handleKeyDown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleClick(); } };
   return (
     <div>
-      <div role="button" tabIndex={0} onClick={handleClick} onKeyDown={handleKeyDown}
+      <div role="treeitem" tabIndex={0} onClick={handleClick} onKeyDown={handleKeyDown}
         aria-expanded={isDir ? open : undefined}
-        aria-selected={isSelected || undefined}
+        aria-current={isSelected ? "true" : undefined}
         aria-label={`${isDir ? (open ? "Collapse" : "Expand") + " folder" : "File"} ${node.name}${hasFindings ? `, ${node.findings} findings` : ""}`}
         style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", paddingLeft: 8 + depth * 16,
           borderRadius: 4, cursor: "pointer", fontSize: 12, color: hasFindings ? C.text : C.textMid,
@@ -193,9 +193,9 @@ function FileTreeNode({ node, depth = 0, onSelect, selectedFile, path = "" }) {
         <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{node.name}</span>
         {hasFindings && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: SEV.high.bg, color: SEV.high.color, fontWeight: 700, flexShrink: 0 }}>{node.findings}</span>}
       </div>
-      {isDir && open && node.children?.map((child, i) => (
+      {isDir && open && <div role="group">{node.children?.map((child, i) => (
         <FileTreeNode key={i} node={child} depth={depth + 1} onSelect={onSelect} selectedFile={selectedFile} path={isDir ? fullPath.replace(/\/$/, "") : fullPath} />
-      ))}
+      ))}</div>}
     </div>
   );
 }
@@ -633,7 +633,7 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
                 <select
                   value={runId || ""}
                   onChange={e => navigate(`/review/${toolId}/${e.target.value}`)}
-                  aria-label="Select pipeline run"
+                  aria-label="Select pipeline run — changes view immediately"
                   style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid ${C.border}`, background: C.surface,
                     fontSize: 12, color: C.text, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
                   {completedRuns.map((r, i) => (
@@ -690,7 +690,7 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
           </label>
 
           {/* Agent preview */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 28 }}>
+          <div className="responsive-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 28 }}>
             {AGENTS.map(a => (
               <div key={a.id} style={{ padding: 14, borderRadius: 8, background: C.surface, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", background: `${a.color}12` }}>
@@ -711,7 +711,9 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
                   <span>Uploading...</span>
                   <span>{Math.round(uploadProgress.loaded / 1024)} / {Math.round(uploadProgress.total / 1024)} KB</span>
                 </div>
-                <div style={{ width: "100%", height: 8, borderRadius: 4, background: C.border, overflow: "hidden" }}>
+                <div style={{ width: "100%", height: 8, borderRadius: 4, background: C.border, overflow: "hidden" }}
+                  role="progressbar" aria-valuenow={Math.round((uploadProgress.loaded / uploadProgress.total) * 100)}
+                  aria-valuemin={0} aria-valuemax={100} aria-label="Upload progress">
                   <div style={{ height: "100%", borderRadius: 4, background: `linear-gradient(90deg, ${C.accent}, ${C.accentHover})`,
                     width: `${Math.min(100, (uploadProgress.loaded / uploadProgress.total) * 100)}%`, transition: "width 0.15s ease" }} />
                 </div>
@@ -745,7 +747,7 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
           </div>
 
           {queuePosition != null && (
-            <div className="info-banner" style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+            <div role="status" aria-live="polite" className="info-banner" style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
               <Clock size={18} color={C.accent} />
               <div>
                 <strong>Your job is #{queuePosition} in the queue.</strong>
@@ -759,7 +761,7 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
           )}
 
           {pipelineError && (
-            <div style={{ padding: "14px 16px", borderRadius: 8, background: "rgba(201,48,44,0.07)", border: `1px solid rgba(201,48,44,0.2)`, marginBottom: 16 }}>
+            <div role="alert" style={{ padding: "14px 16px", borderRadius: 8, background: "rgba(201,48,44,0.07)", border: `1px solid rgba(201,48,44,0.2)`, marginBottom: 16 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: TRACK_COLORS[4], marginBottom: 4 }}>Pipeline Failed</div>
               <div style={{ fontSize: 13, color: C.text, marginBottom: 10 }}>{pipelineError}</div>
               <button onClick={() => { setPipelineError(null); setRunId(null); setPhase("upload"); setAgentStates({ security: "idle", accessibility: "idle", qa: "idle", documentation: "idle" }); setAgentProgress({ security: 0, accessibility: 0, qa: 0, documentation: 0 }); setAgentLogs({ security: [], accessibility: [], qa: [], documentation: [] }); }}
@@ -770,12 +772,12 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
             </div>
           )}
           {connectionLost && !pipelineError && (
-            <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(201,48,44,0.07)", border: `1px solid rgba(201,48,44,0.2)`, marginBottom: 16, fontSize: 13, color: TRACK_COLORS[4] }}>
+            <div role="alert" style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(201,48,44,0.07)", border: `1px solid rgba(201,48,44,0.2)`, marginBottom: 16, fontSize: 13, color: TRACK_COLORS[4] }}>
               Connection lost. The pipeline continues server-side — refresh to check status.
             </div>
           )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16 }}>
+          <div className="responsive-pipeline-layout" style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16 }}>
             {/* Agent sidebar */}
             <div>
               {AGENTS.map(agent => {
@@ -785,9 +787,10 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
                 const phaseLabel = agent.phases[phaseIdx];
                 const isActive = expandedAgent === agent.id;
                 return (
-                  <div key={agent.id} onClick={() => setExpandedAgent(agent.id)}
-                    style={{ padding: 14, borderRadius: 10, background: isActive ? C.surface : "transparent",
-                      border: `1px solid ${isActive ? agent.color + "40" : C.border}`, marginBottom: 8, cursor: "pointer", transition: "all .15s" }}>
+                  <button type="button" key={agent.id} onClick={() => setExpandedAgent(agent.id)}
+                    aria-pressed={isActive}
+                    style={{ padding: 14, borderRadius: 10, background: isActive ? C.surface : "transparent", width: "100%", textAlign: "left",
+                      border: `1px solid ${isActive ? agent.color + "40" : C.border}`, marginBottom: 8, cursor: "pointer", transition: "all .15s", fontFamily: "'DM Sans', sans-serif" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                       <div style={{ width: 32, height: 32, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", background: `${agent.color}12` }}>
                         <agent.Icon size={16} color={agent.color} />
@@ -801,11 +804,13 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
                       {state === "complete" ? <Check size={16} color={TRACK_COLORS[1]} /> :
                        state === "running" ? <span style={{ fontSize: 11, fontWeight: 700, color: agent.color, fontFamily: "'JetBrains Mono', monospace" }}>{Math.round(progress * 100)}%</span> : null}
                     </div>
-                    <div style={{ height: 3, borderRadius: 2, background: C.border, overflow: "hidden" }}>
+                    <div style={{ height: 3, borderRadius: 2, background: C.border, overflow: "hidden" }}
+                      role="progressbar" aria-valuenow={Math.round(progress * 100)}
+                      aria-valuemin={0} aria-valuemax={100} aria-label={`${agent.name} progress`}>
                       <div style={{ height: "100%", width: `${progress * 100}%`, borderRadius: 2,
                         background: state === "complete" ? TRACK_COLORS[1] : agent.color, transition: "width .1s linear" }} />
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -915,10 +920,10 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
                 <div style={{ fontSize: 11, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 10, fontFamily: "'JetBrains Mono', monospace" }}>
                   Project Files
                 </div>
-                {fileTree.length > 0 ? fileTree.map((node, i) => (
+                {fileTree.length > 0 ? <div role="tree" aria-label="Project files">{fileTree.map((node, i) => (
                   <FileTreeNode key={i} node={node} selectedFile={selectedFile}
                     onSelect={f => setSelectedFile(selectedFile === f ? null : f)} />
-                )) : (
+                ))}</div> : (
                   <div style={{ fontSize: 12, color: C.textMid }}>No file data available.</div>
                 )}
               </div>

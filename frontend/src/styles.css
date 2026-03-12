@@ -7,7 +7,7 @@
   --surface-alt: #F1F3F6;
   --surface-hover: #EDF0F4;
   --border: #C5CBD6;
-  --border-interactive: #8E99A4;
+  --border-interactive: #6B7685;
   --border-focus: #1A6B4B;
   --text: #1A1F2B;
   --text-mid: #5F6B7A;
@@ -20,7 +20,7 @@
   --accent-30: rgba(26,107,75,0.19);
   --accent-35: rgba(26,107,75,0.22);
   --accent-40: rgba(26,107,75,0.25);
-  --success: #16864E;
+  --success: #117A42;
   --success-bg: rgba(22,134,78,0.08);
   --warning: #7D5D0A;
   --warning-bg: rgba(150,112,14,0.08);
@@ -29,7 +29,7 @@
   --gold: #8B7435;
   --gold-20: rgba(139,116,53,0.12);
   --track-1: #14754A;
-  --track-2: #7A5A07;
+  --track-2: #5C4706;
   --track-3: #C05E1A;
   --track-4: #C9302C;
   --shadow-sm: 0 1px 3px rgba(26,31,43,0.06), 0 1px 2px rgba(26,31,43,0.04);
@@ -215,7 +215,7 @@ img, svg { display: block; }
 .welcome-ghost-btn {
   padding: 14px 24px;
   border-radius: 10px;
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--border-interactive);
   cursor: pointer;
   background: transparent;
   color: var(--text-mid);
@@ -550,6 +550,11 @@ img, svg { display: block; }
   padding: 0;
 }
 
+/* Semantic tables: allow table/thead/tbody/tr to use grid layout */
+table { border-spacing: 0; }
+table thead, table tbody { display: contents; }
+table tr.registry-table-header, table tr.registry-table-row { display: grid; }
+
 /* Sidebar layout (AgentsPage, FrameworkDoc) */
 .agents-page-sidebar {
   width: 200px;
@@ -618,4 +623,17 @@ img, svg { display: block; }
   .page-header, .data-row-main, .card-header, .filter-bar, .page-actions { flex-direction: column; align-items: stretch; }
   .report-highlight-top { grid-template-columns: 1fr; }
   .report-highlight-score { border-left: none; border-top: 1px solid var(--border); }
+  .responsive-grid-4, .responsive-grid-5 { grid-template-columns: 1fr !important; }
+  .responsive-grid-2 { grid-template-columns: 1fr !important; }
+  .responsive-flex-process { flex-direction: column !important; }
+  .responsive-flex-process .process-arrow { transform: rotate(90deg); }
+  .responsive-pipeline-layout { grid-template-columns: 1fr !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

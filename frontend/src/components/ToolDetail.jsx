@@ -3,6 +3,7 @@ import { parsePossiblyStringArray, ROUTE_META, DIMENSION_LABELS, C } from "../co
 import { Btn, Card, EmptyState, ErrorBanner, PageHeader, Skeleton, StatusBadge, TrackBadge, formatAbsoluteDate, formatDuration, relativeTime } from "./primitives.jsx";
 import { deleteTool, getTool, startPipelineRun } from "../api.js";
 import { FileText, Clock, ArrowRight } from "lucide-react";
+/* M2: decorative icons get aria-hidden in render */
 import { navigate } from "../hooks/useHashRouter.js";
 import { useToast } from "./Toast.jsx";
 import { useAuth } from "../hooks/useAuth.jsx";
@@ -115,16 +116,18 @@ export default function ToolDetail({ toolId }) {
             }}
             onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
             onMouseLeave={e => e.currentTarget.style.borderColor = `${C.accent}30`}
+            onFocus={e => e.currentTarget.style.borderColor = C.accent}
+            onBlur={e => e.currentTarget.style.borderColor = `${C.accent}30`}
           >
             <div style={{ width: 40, height: 40, borderRadius: 10, background: `${C.accent}18`,
               display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <FileText size={20} color={C.accent} />
+              <FileText size={20} color={C.accent} aria-hidden="true" />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Code Review</div>
               <div style={{ fontSize: 12, color: C.textMid, marginTop: 2 }}>File tree, findings, and remediation</div>
             </div>
-            <ArrowRight size={16} color={C.textMid} />
+            <ArrowRight size={16} color={C.textMid} aria-hidden="true" />
           </button>
           <button type="button" onClick={() => navigate(`/tool/${toolId}/report/${latestRun.id}`)}
             className="section-card" style={{
@@ -135,10 +138,12 @@ export default function ToolDetail({ toolId }) {
             }}
             onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
             onMouseLeave={e => e.currentTarget.style.borderColor = C.border}
+            onFocus={e => e.currentTarget.style.borderColor = C.accent}
+            onBlur={e => e.currentTarget.style.borderColor = C.border}
           >
             <div style={{ width: 40, height: 40, borderRadius: 10, background: C.surface,
               display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Clock size={20} color={C.textMid} />
+              <Clock size={20} color={C.textMid} aria-hidden="true" />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Summary Report</div>
@@ -147,7 +152,7 @@ export default function ToolDetail({ toolId }) {
                 {latestRun.queued_at && latestRun.completed_at && <> &middot; {formatDuration(latestRun.queued_at, latestRun.completed_at)}</>}
               </div>
             </div>
-            <ArrowRight size={16} color={C.textMid} />
+            <ArrowRight size={16} color={C.textMid} aria-hidden="true" />
           </button>
         </div>
       )}
@@ -162,16 +167,18 @@ export default function ToolDetail({ toolId }) {
           }}
           onMouseEnter={e => e.currentTarget.style.borderColor = C.warning}
           onMouseLeave={e => e.currentTarget.style.borderColor = `${C.warning}40`}
+          onFocus={e => e.currentTarget.style.borderColor = C.warning}
+          onBlur={e => e.currentTarget.style.borderColor = `${C.warning}40`}
         >
           <div style={{ width: 40, height: 40, borderRadius: 10, background: `${C.warning}18`,
             display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Clock size={20} color={C.warning} />
+            <Clock size={20} color={C.warning} aria-hidden="true" />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Pipeline Running</div>
             <div style={{ fontSize: 12, color: C.textMid, marginTop: 2 }}>Started {relativeTime(latestRun.queued_at)} &middot; View progress</div>
           </div>
-          <ArrowRight size={16} color={C.textMid} />
+          <ArrowRight size={16} color={C.textMid} aria-hidden="true" />
         </button>
       )}
 
@@ -197,15 +204,15 @@ export default function ToolDetail({ toolId }) {
 
           <section className="section-card">
             <div className="card-header"><div><h2>Dimension scores</h2></div></div>
-            <div className="inline-score-grid">
+            <dl className="inline-score-grid" style={{ margin: 0 }}>
               {SCORE_KEYS.map(([col, dimKey]) => (
                 <div key={col} className="metric-card">
-                  <div className="section-label">{DIMENSION_LABELS[dimKey]}</div>
-                  <div className="metric-card-value">{tool[col] ?? "-"}</div>
-                  <div className="metric-card-meta">out of 3</div>
+                  <dt className="section-label">{DIMENSION_LABELS[dimKey]}</dt>
+                  <dd style={{ margin: 0 }}><div className="metric-card-value">{tool[col] ?? "-"}</div>
+                  <div className="metric-card-meta">out of 3</div></dd>
                 </div>
               ))}
-            </div>
+            </dl>
           </section>
 
           {tool.intake_answers && Object.keys(tool.intake_answers).length > 0 && (

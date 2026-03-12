@@ -171,9 +171,13 @@ export default function Report({ toolId, runId }) {
       {availableTabs.length > 0 && (
         <section className="section-card">
           <div className="card-header"><div><h2>Agent findings</h2></div></div>
-          <div className="tab-row" role="tablist">
+          <div className="tab-row" role="tablist" onKeyDown={e => {
+              const idx = availableTabs.findIndex(t => t.key === activeTab);
+              if (e.key === "ArrowRight") { e.preventDefault(); const next = availableTabs[(idx + 1) % availableTabs.length]; setActiveTab(next.key); document.getElementById(`tab-${next.key}`)?.focus(); }
+              if (e.key === "ArrowLeft") { e.preventDefault(); const prev = availableTabs[(idx - 1 + availableTabs.length) % availableTabs.length]; setActiveTab(prev.key); document.getElementById(`tab-${prev.key}`)?.focus(); }
+            }}>
             {availableTabs.map(tab => (
-              <button key={tab.key} id={`tab-${tab.key}`} type="button" className={activeTab === tab.key ? "is-active" : ""} onClick={() => setActiveTab(tab.key)} role="tab" aria-selected={activeTab === tab.key} aria-controls={`panel-${tab.key}`}>
+              <button key={tab.key} id={`tab-${tab.key}`} type="button" className={activeTab === tab.key ? "is-active" : ""} onClick={() => setActiveTab(tab.key)} role="tab" aria-selected={activeTab === tab.key} aria-controls={`panel-${tab.key}`} tabIndex={activeTab === tab.key ? 0 : -1}>
                 {tab.label}
               </button>
             ))}
@@ -189,7 +193,7 @@ export default function Report({ toolId, runId }) {
           <div className="card-header"><div><h2>Generated outputs</h2></div></div>
           <div className="outputs-grid">
             {[["Admin guide","ADMIN_GUIDE.md"],["User guide","USER_GUIDE.md"],["Compliance summary","COMPLIANCE_SUMMARY.md"],["HECVAT 4.15",null]].map(([label, fileName]) => (
-              <a key={label} className="doc-card text-link" href={fileName ? getDocDownloadUrl(runId, fileName) : getHecvatDownloadUrl(runId)} style={{ display: "block", textDecoration: "none" }}>
+              <a key={label} className="doc-card text-link" href={fileName ? getDocDownloadUrl(runId, fileName) : getHecvatDownloadUrl(runId)} style={{ display: "block", textDecoration: "none" }} aria-label={`Download ${fileName || "HECVAT 4.15 XLSX"}`}>
                 <div className="section-label">Download</div>
                 <h3 style={{ marginTop: 8, fontSize: 14 }}>{label}</h3>
               </a>
@@ -198,10 +202,10 @@ export default function Report({ toolId, runId }) {
           <div style={{ marginTop: 16, borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
             <div className="section-label" style={{ marginBottom: 8 }}>Export all findings</div>
             <div style={{ display: "flex", gap: 8 }}>
-              <a href={getFindingsCsvUrl(runId)} className="doc-card text-link" style={{ textDecoration: "none", padding: "10px 16px", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>
+              <a href={getFindingsCsvUrl(runId)} className="doc-card text-link" style={{ textDecoration: "none", padding: "10px 16px", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }} aria-label="Download findings as CSV">
                 CSV
               </a>
-              <a href={getFindingsJsonUrl(runId)} className="doc-card text-link" style={{ textDecoration: "none", padding: "10px 16px", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>
+              <a href={getFindingsJsonUrl(runId)} className="doc-card text-link" style={{ textDecoration: "none", padding: "10px 16px", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }} aria-label="Download findings as JSON">
                 JSON
               </a>
             </div>
