@@ -279,12 +279,18 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
         result = stdout;
       }
 
-      if (!result && code !== 0) {
-        reject(new Error(`${tool} exited ${code}: ${stderr.slice(0, 500)}`));
-        return;
-      }
       if (!result && code === null) {
         reject(new Error(`${tool} killed (likely timeout after ${timeout / 1000}s)`));
+        return;
+      }
+      if (code !== 0 && code !== null) {
+        // Non-zero exit is always a failure — even if the tool wrote output (e.g. opencode writes error JSON)
+        const detail = stderr.slice(0, 500) || (result ? result.slice(0, 500) : "no output");
+        reject(new Error(`${tool} exited ${code}: ${detail}`));
+        return;
+      }
+      if (!result) {
+        reject(new Error(`${tool} produced no output`));
         return;
       }
       resolve({ tool, output: result, exitCode: code, stderr });
@@ -346,9 +352,14 @@ export async function runCLIWithRetry(tool, prompt, codebasePath, outputDir, opt
  * markdown fences, bare {...} blocks.
  */
 export function extractJSON(text) {
-  // Try direct parse — but check for Claude CLI wrapper first
+  // Try direct parse — but check for error responses and Claude CLI wrapper first
   try {
     const parsed = JSON.parse(text);
+    // Reject API error responses (e.g. opencode writes {"type":"error","error":{...}} on 402/4xx)
+    if (parsed.type === "error" && parsed.error) {
+      log.warn("extractJSON: skipping API error response", { error: parsed.error?.data?.message || parsed.error?.message || "unknown" });
+      return null;
+    }
     // Claude CLI --output-format json wraps in { type: "result", result: "..." }
     if (parsed.type === "result" && typeof parsed.result === "string") {
       try { return JSON.parse(parsed.result); } catch {}

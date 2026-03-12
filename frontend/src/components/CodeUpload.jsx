@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Shield, Eye, ClipboardCheck, FileText, Upload, Package, Check, ChevronRight, ChevronDown, Clock, FileCode, Folder, FolderOpen, ArrowRight, Terminal, CheckCircle, XCircle, MinusCircle } from "lucide-react";
 import { C, SEVERITY_CONFIG, TRACK_COLORS } from "../constants.js";
 import { navigate } from "../hooks/useHashRouter.js";
-import { getTool, startPipelineRun, getReport, getPipelineRun, updateToolStatus, uploadCodebase, getFindingsCsvUrl, getFindingsJsonUrl } from "../api.js";
+import { getTool, startPipelineRun, getReport, getPipelineRun, updateToolStatus, uploadCodebase, cancelPipelineRun, getFindingsCsvUrl, getFindingsJsonUrl } from "../api.js";
 import { usePipelineStream } from "../hooks/useSSE.js";
 import { useToast } from "./Toast.jsx";
 import { TrackBadge, Skeleton, ErrorBanner, relativeTime } from "./primitives.jsx";
@@ -364,6 +364,9 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
   const [viewMode, setViewMode] = useState("summary");
   const [selectedFile, setSelectedFile] = useState(null);
   const [submitted, setSubmitted] = useState(null);
+
+  // Cancel
+  const [cancelling, setCancelling] = useState(false);
 
   // SSE
   const { events, done: sseDone, failed: sseFailed, connectionLost } = usePipelineStream(runId);
@@ -832,6 +835,31 @@ export default function CodeUpload({ toolId, runId: runIdProp, initialPhase }) {
               ))}
             </div>
           </div>
+
+          {/* Cancel button */}
+          {!pipelineError && (
+            <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+              <button
+                onClick={async () => {
+                  if (!runId || cancelling) return;
+                  setCancelling(true);
+                  try {
+                    await cancelPipelineRun(runId);
+                    setPipelineError("Pipeline cancelled by user.");
+                  } catch (err) {
+                    setPipelineError(`Cancel failed: ${err.message}`);
+                  } finally {
+                    setCancelling(false);
+                  }
+                }}
+                disabled={cancelling}
+                style={{ padding: "8px 16px", borderRadius: 6, border: `1px solid ${C.danger}`, background: "transparent",
+                  cursor: cancelling ? "default" : "pointer", fontSize: 13, fontWeight: 600, color: C.danger,
+                  fontFamily: "'DM Sans', sans-serif", opacity: cancelling ? 0.6 : 1, transition: "opacity .15s" }}>
+                {cancelling ? "Cancelling..." : "Cancel pipeline"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
