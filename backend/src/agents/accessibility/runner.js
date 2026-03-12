@@ -101,12 +101,20 @@ export async function runAccessibilityAudit(codebasePath, passKeys, outputDir, o
     throw new Error("All accessibility passes failed: " + failures.join("; "));
   }
 
-  // Build synthesis input — trim bloat fields to keep prompt under 120KB
+  // Build synthesis input — keep only checklist + findings + scorecard for merging.
+  // The detailed sections (ariaAudit, keyboardAccess, colorContrast, etc.) are
+  // redundant with wcagChecklist entries and blow the prompt past 120KB.
   const synthesisInput = Object.entries(reports).map(([key, r]) => {
     let content;
     if (r.parsed) {
-      const trimmed = { ...r.parsed };
-      delete trimmed.filesReviewed; // large array, not needed for synthesis
+      const trimmed = {
+        uiInventory: r.parsed.uiInventory,
+        wcagChecklist: r.parsed.wcagChecklist || r.parsed.wcagFindings,
+        findings: r.parsed.findings,
+        scorecard: r.parsed.scorecard,
+        scoringSignals: r.parsed.scoringSignals,
+        summary: r.parsed.summary,
+      };
       content = JSON.stringify(trimmed);
     } else {
       content = r.raw.slice(0, 50000);
