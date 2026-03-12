@@ -198,15 +198,17 @@ router.post("/", upload.single("codebase"), async (req, res) => {
     const { rows } = await pool.query("SELECT id FROM users WHERE id = $1", [ownerId]);
     if (!rows.length) ownerId = null;
   }
-  const codebasePath = req.body.codebasePath || null;
+  // codebasePath is NEVER accepted from user input — codebases only come via
+  // file upload (extractArchive) or git clone (validated URL). Accepting arbitrary
+  // paths would let authenticated users point the pipeline at any server directory.
 
   const { rows: [tool] } = await pool.query(
     `INSERT INTO tools (name, description, owner_id, submission_type, artifact_type, intake_answers, status,
        score_security, score_accessibility, score_data_sensitivity, score_blast_radius, score_autonomy, score_comprehension, score_maintenance,
-       weighted_percentage, escalation_conditions, track, codebase_url, codebase_path)
+       weighted_percentage, escalation_conditions, track, codebase_url)
      VALUES ($1, $2, $3, $4, $5, $6, 'pending',
        $7, $8, $9, $10, $11, $12, $13,
-       $14, $15, $16, $17, $18)
+       $14, $15, $16, $17)
      RETURNING *`,
     [
       name, description, ownerId, submissionType, artifactType, intakeAnswers ? JSON.stringify(intakeAnswers) : null,
@@ -215,7 +217,7 @@ router.post("/", upload.single("codebase"), async (req, res) => {
       computed.scores.autonomy, computed.scores.comprehension, computed.scores.maintenance,
       Math.round(computed.pct * 10000) / 100,
       JSON.stringify(computed.escalations),
-      computed.track, codebaseUrl, codebasePath,
+      computed.track, codebaseUrl,
     ]
   );
 

@@ -198,6 +198,14 @@ async function processNext() {
       throw new Error(`Codebase not found: ${codebasePath || "(no path)"}`);
     }
 
+    // Defense-in-depth: codebase_path must be under CODEBASES_DIR.
+    // Prevents path traversal even if a bug allows arbitrary paths into the DB.
+    const resolvedCodebase = resolve(codebasePath);
+    const resolvedBase = resolve(CODEBASES_DIR);
+    if (!resolvedCodebase.startsWith(resolvedBase + "/") && resolvedCodebase !== resolvedBase) {
+      throw new Error(`Codebase path outside allowed directory: ${resolvedCodebase}`);
+    }
+
     mkdirSync(OUTPUT_BASE, { recursive: true });
 
     // Load previous run's findings for differential review

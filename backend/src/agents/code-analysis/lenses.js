@@ -332,6 +332,19 @@ For EVERY case where models disagree, you MUST:
 
 IMPORTANT: Do not just list disputes and move on. You must actively investigate each one. Read files. Check .gitignore. Look at the actual code. The whole point of having filesystem access is to settle factual questions definitively.
 
+=====================================================================
+PHASE 2.5: VERIFY FILE REFERENCES
+=====================================================================
+
+Before finalizing findings, you MUST verify that every file cited in the merged report actually exists. Use Glob or ls to check. Models sometimes hallucinate file names — they infer what "should" exist based on code patterns and report findings against non-existent files. If multiple models independently make the same inference, convergence amplifies the false positive.
+
+For EVERY finding in the merged report:
+1. Check that the cited file path exists in the codebase
+2. If the file does NOT exist, DROP the finding entirely — it is a hallucination
+3. If the file exists but the cited line number is wrong, read the file and correct the line reference or drop the finding if the issue doesn't exist
+
+Do NOT include any finding that references a file that does not exist in the codebase. A confirmed hallucination is worse than a missed finding.
+
 IMPORTANT: You CANNOT determine contractual/procurement status from code. If models flag "no DPA" or "non-institutional provider" for major vendors (OpenAI, Google, Anthropic, AWS, Microsoft, OpenRouter):
 - Set triggered=false, needs_verification=true on the escalation signal
 - Downgrade any critical finding about DPA/contract status to WARNING

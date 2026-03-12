@@ -13,6 +13,23 @@ const CODEBASES_DIR = process.env.CODEBASES_DIR || "/data/codebases";
 const upload = multer({ dest: "/tmp/aif-uploads", limits: { fileSize: 500 * 1024 * 1024 } });
 const router = Router();
 
+/**
+ * Verify the requesting user owns the tool associated with a pipeline run,
+ * or has reviewer/admin role. Returns the run row or sends 403/404.
+ */
+async function requireRunAccess(req, res) {
+  const { rows: [run] } = await pool.query(
+    "SELECT pr.*, t.owner_id FROM pipeline_runs pr JOIN tools t ON pr.tool_id = t.id WHERE pr.id = $1",
+    [req.params.runId]
+  );
+  if (!run) { res.status(404).json({ error: "Run not found" }); return null; }
+  if (!req.user) { res.status(401).json({ error: "Authentication required" }); return null; }
+  const isOwner = run.owner_id === req.user.userId;
+  const isPrivileged = ["reviewer", "admin"].includes(req.user.role);
+  if (!isOwner && !isPrivileged) { res.status(403).json({ error: "Insufficient permissions" }); return null; }
+  return run;
+}
+
 // Upload codebase for a tool (owner or admin)
 router.post("/:toolId/upload", requireOwnerOrRole("admin"), upload.single("codebase"), async (req, res) => {
   const tool = req.tool;
@@ -108,10 +125,8 @@ router.post("/:runId/retry", async (req, res) => {
 });
 
 router.get("/:runId", async (req, res) => {
-  const { rows: [run] } = await pool.query(
-    "SELECT * FROM pipeline_runs WHERE id = $1", [req.params.runId]
-  );
-  if (!run) return res.status(404).json({ error: "Run not found" });
+  const run = await requireRunAccess(req, res);
+  if (!run) return;
 
   const { rows: agents } = await pool.query(
     "SELECT * FROM agent_results WHERE run_id = $1 ORDER BY agent_index", [req.params.runId]
@@ -131,10 +146,8 @@ router.get("/:runId", async (req, res) => {
 });
 
 router.get("/:runId/stream", async (req, res) => {
-  const { rows: [run] } = await pool.query(
-    "SELECT * FROM pipeline_runs WHERE id = $1", [req.params.runId]
-  );
-  if (!run) return res.status(404).json({ error: "Run not found" });
+  const run = await requireRunAccess(req, res);
+  if (!run) return;
 
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
