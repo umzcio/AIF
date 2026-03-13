@@ -37,8 +37,8 @@ Builders submit tools via a 21-question intake form → the system scores them o
 │  │ Code &   │  │ Access-  │  │ QA / Bug │  │Docs +    │          │
 │  │ Security │  │ ibility  │  │Detection │  │ HECVAT   │          │
 │  │          │  │          │  │          │  │          │          │
-│  │ 5 models │  │ 5 models │  │ 5 models │  │ Claude   │          │
-│  │+synthesis│  │+synthesis│  │+synthesis│  │  × 2     │          │
+│  │ 5 models │  │ 5 models │  │ 5 models │  │3 parallel│          │
+│  │+synthesis│  │+synthesis│  │+synthesis│  │ models   │          │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘          │
 │       │             │             │              │               │
 │       └──────┬──────┘             │              │               │
@@ -133,7 +133,7 @@ Multi-model (5 passes + Claude synthesis). Finds logic bugs, correctness issues,
 
 ### Agent 4: Documentation + HECVAT
 
-Single pass (Claude × 2, reads Agent 1-3 output). Two calls: (1) generates User Guide, Admin Guide, Compliance Summary as Markdown and .docx via Pandoc; (2) pre-populates HECVAT 4.15 Lite 87 critical questions with XLSX export.
+3 parallel passes (Gemini 3.1 Pro + GLM-5 + Claude, reads Agent 1-3 output). Gemini produces the User Guide and Admin Guide, GLM-5 handles the HECVAT self-assessment, and Claude produces the Compliance Summary. Outputs converted from Markdown to .docx via Pandoc; HECVAT fills the official EDUCAUSE Excel template.
 
 ### Multi-Model Convergence
 
@@ -142,10 +142,10 @@ Five different AI models receive the **same prompt** and independently analyze t
 | Pass | Model | CLI Tool | Why |
 |------|-------|----------|-----|
 | 1 | GPT-5.4 | Codex CLI | Structured reasoning, logical vulnerability detection |
-| 2 | Gemini 2.5 Pro | Gemini CLI | 1M token context, cross-file dependency analysis |
-| 3 | Grok 3 Fast | opencode | Fastest pass (~30s), different training data |
+| 2 | MiniMax M2.5 | opencode | Large-context reasoning, cross-file dependency analysis |
+| 3 | MiMo-V2-Flash | opencode | Fast reasoning model, code and math optimization |
 | 4 | Kimi K2 | opencode | 1T MoE architecture, edge case detection |
-| 5 | Qwen3 Coder | QwenCode | Code-specialized tokenization, supply chain focus |
+| 5 | GLM-5 | opencode | Agent-optimized model, deep code understanding |
 | Synth | Claude Opus 4.6 | Claude Code | Synthesis only — dispute resolution with filesystem access |
 
 No model reviews its own work. Claude only synthesizes — it never runs a pass. The codebase is extracted into an isolated Docker container for security.
@@ -191,7 +191,7 @@ draft → pending → in_progress → under_review → approved → active
 | Backend | Node.js (ESM), Express, PostgreSQL |
 | Auth | CAS via login.umt.edu, JWT cookies, RBAC (builder/reviewer/admin) |
 | AI Models | 5 models via CLI tools + Claude synthesis |
-| APIs | OpenAI, Google, xAI direct; Kimi + Qwen via OpenRouter |
+| APIs | OpenAI, Google direct; MiniMax + MiMo + Kimi + GLM via OpenRouter |
 | Infrastructure | Docker (multi-stage build + docker-compose) |
 
 ## Project Structure
@@ -209,7 +209,9 @@ AIF/
 │   │   ├── scoring.js              ← Shared scoring module (7 dimensions, weights, tracks)
 │   │   ├── audit.js                ← Audit logging helper
 │   │   ├── notifications.js        ← In-app + email notification delivery
-│   │   ├── orchestrator/index.js   ← Pipeline orchestration (4 agents, uniform 5-model)
+│   │   ├── orchestrator/
+│   │   │   ├── opencode.js        ← Default pipeline orchestration (opencode agent definitions)
+│   │   │   └── index.js           ← Legacy fallback orchestration (direct CLI spawns)
 │   │   ├── pipeline/
 │   │   │   ├── queue.js            ← Job queue, SSE streaming, cancel/retry, pass metrics
 │   │   │   └── events.js           ← SSE event emitter
@@ -300,7 +302,7 @@ node src/index.js /path/to/codebase TRACK_4   # Formal Project
 ```bash
 OPENAI_API_KEY=sk-...              # Codex CLI
 GOOGLE_GENERATIVE_AI_API_KEY=...   # Gemini CLI
-OPENROUTER_API_KEY=sk-or-...       # Grok + Kimi + Qwen
+OPENROUTER_API_KEY=sk-or-...       # MiniMax + MiMo + Kimi + GLM
 ANTHROPIC_API_KEY=sk-ant-...       # Claude (synthesis)
 SNYK_TOKEN=...                     # Snyk agent-scan (optional)
 JWT_SECRET=...                     # Session signing
