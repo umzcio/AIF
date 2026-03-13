@@ -61,6 +61,19 @@ export const emailUpdateSchema = z.object({
 
 export const pipelineRunSchema = z.object({
   track: z.number().int().min(1).max(4).optional(),
+  mode: z.enum(["standard", "opencode"]).default("opencode"),
+});
+
+export const toolEditSchema = z.object({
+  name: z.string().min(1, "name is required").max(200).optional(),
+  description: z.string().max(2000).nullable().optional(),
+}).refine(
+  data => data.name !== undefined || data.description !== undefined,
+  { message: "No fields to update" }
+);
+
+export const sandboxToggleSchema = z.object({
+  sandbox: z.boolean(),
 });
 
 export const findingStatusSchema = z.object({

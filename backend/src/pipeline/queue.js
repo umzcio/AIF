@@ -1,5 +1,6 @@
 import pool, { withTransaction } from "../db/pool.js";
 import { runPipeline } from "../orchestrator/index.js";
+import { runOpencodePipeline } from "../orchestrator/opencode.js";
 import log from "../logger.js";
 import { emitProgress, removeAllForRun } from "./events.js";
 import { notify, notifyRole } from "../notifications.js";
@@ -41,12 +42,15 @@ function validateUrl(url) {
  * Updated periodically as pricing changes.
  */
 const MODEL_COST_USD = {
-  "codex":           0.30,  // GPT-5.4 via Codex
-  "gemini":          0.08,  // Gemini 2.5 Pro
-  "opencode:grok":   0.10,  // Grok 3 Fast via OpenRouter
-  "opencode:kimi":   0.12,  // Kimi K2 via OpenRouter
-  "qwen":            0.08,  // Qwen3 Coder via OpenRouter
-  "claude":          0.45,  // Claude Opus 4.6 (synthesis)
+  "codex":              0.30,  // GPT-5.4 via Codex
+  // "gemini":          0.08,  // Gemini 2.5 Pro — swapped for MiniMax M2.5
+  // "opencode:grok":   0.10,  // Grok 3 Fast — swapped for MiMo-V2-Flash
+  // "qwen":            0.08,  // Qwen3 Coder — swapped for GLM-5
+  "opencode:minimax":   0.10,  // MiniMax M2.5 via OpenRouter
+  "opencode:mimo":      0.06,  // MiMo-V2-Flash via OpenRouter
+  "opencode:glm":       0.08,  // GLM-5 via OpenRouter
+  "opencode:kimi":      0.12,  // Kimi K2 via OpenRouter
+  "claude":             0.45,  // Claude Opus 4.6 (synthesis)
 };
 
 const OUTPUT_BASE = process.env.OUTPUT_DIR || "/data/output";
@@ -64,7 +68,7 @@ export async function recoverOnStartup() {
   );
 }
 
-export async function enqueue(toolId, track, parentRunId = null) {
+export async function enqueue(toolId, track, parentRunId = null, mode = "opencode") {
   const { rows: [tool] } = await pool.query("SELECT * FROM tools WHERE id = $1", [toolId]);
   if (!tool) throw new Error("Tool not found");
 
@@ -81,8 +85,8 @@ export async function enqueue(toolId, track, parentRunId = null) {
   const retryCount = parentRunId ? (await pool.query("SELECT retry_count FROM pipeline_runs WHERE id = $1", [parentRunId]).then(r => (r.rows[0]?.retry_count || 0) + 1)) : 0;
 
   const { rows: [run] } = await pool.query(
-    `INSERT INTO pipeline_runs (tool_id, track, total_agents, retry_count, parent_run_id) VALUES ($1, $2, 4, $3, $4) RETURNING *`,
-    [toolId, runTrack, retryCount, parentRunId || null]
+    `INSERT INTO pipeline_runs (tool_id, track, total_agents, retry_count, parent_run_id, pipeline_mode) VALUES ($1, $2, 4, $3, $4, $5) RETURNING *`,
+    [toolId, runTrack, retryCount, parentRunId || null, mode]
   );
 
   // Create agent_results rows
@@ -150,7 +154,7 @@ export async function retryRun(runId) {
     throw new Error(`Max retries (${MAX_RETRIES}) exceeded for this pipeline. Consider investigating the failure before retrying.`);
   }
 
-  return enqueue(failedRun.tool_id, failedRun.track, runId);
+  return enqueue(failedRun.tool_id, failedRun.track, runId, failedRun.pipeline_mode);
 }
 
 async function processNext() {
@@ -297,7 +301,8 @@ async function processNext() {
       }
     };
 
-    const result = await runPipeline({
+    const pipelineFn = next.pipeline_mode === "opencode" ? runOpencodePipeline : runPipeline;
+    const result = await pipelineFn({
       codebasePath,
       track: next.track,
       toolName: next.tool_name,
