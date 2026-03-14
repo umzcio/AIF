@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { BASE } from "../api.js";
 
 const MAX_RETRIES = 3;
@@ -15,6 +15,10 @@ export function usePipelineStream(runId) {
   const esRef = useRef(null);
   const retriesRef = useRef(0);
 
+  // pass_log callback — kept as ref so consumers can subscribe without re-renders
+  const logCallbackRef = useRef(null);
+  const onPassLog = useCallback((cb) => { logCallbackRef.current = cb; }, []);
+
   useEffect(() => {
     if (!runId) return;
 
@@ -30,6 +34,13 @@ export function usePipelineStream(runId) {
 
       es.onmessage = (e) => {
         const data = JSON.parse(e.data);
+
+        // Route pass_log events to callback instead of main events array (high volume)
+        if (data.type === "pass_log") {
+          if (logCallbackRef.current) logCallbackRef.current(data);
+          return;
+        }
+
         setEvents((prev) => prev.length >= MAX_EVENTS ? [...prev.slice(-MAX_EVENTS + 1), data] : [...prev, data]);
 
         if (data.type === "state") {
@@ -69,5 +80,5 @@ export function usePipelineStream(runId) {
     };
   }, [runId]);
 
-  return { state, events, connected, done, failed, connectionLost };
+  return { state, events, connected, done, failed, connectionLost, onPassLog };
 }

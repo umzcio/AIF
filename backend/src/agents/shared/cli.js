@@ -52,10 +52,13 @@ function filteredEnv(tool) {
  */
 export const MODEL_TIMEOUTS = {
   codex:           15 * 60 * 1000,  // 15 min (slow, large model)
-  gemini:           8 * 60 * 1000,  // 8 min
-  "opencode:grok":  3 * 60 * 1000,  // 3 min (fastest model)
+  // gemini:           8 * 60 * 1000,  // 8 min — swapped for MiniMax M2.5
+  // "opencode:grok":  3 * 60 * 1000,  // 3 min — swapped for MiMo-V2-Flash
+  // qwen:             8 * 60 * 1000,  // 8 min — swapped for GLM-5
+  "opencode:mimo":  5 * 60 * 1000,  // 5 min (MiMo-V2-Flash via OpenRouter)
+  "opencode:minimax": 8 * 60 * 1000, // 8 min (MiniMax M2.5 via OpenRouter)
+  "opencode:glm":   8 * 60 * 1000,  // 8 min (GLM-5 via OpenRouter)
   "opencode:kimi": 12 * 60 * 1000,  // 12 min (can be slow)
-  qwen:             8 * 60 * 1000,  // 8 min
   claude:          25 * 60 * 1000,  // 25 min (synthesis — processes large merged reports)
 };
 
@@ -124,9 +127,10 @@ export function loadEnv() {
  * @param {string} [opts.runId] - Pipeline run ID (for process tracking/cancellation)
  * @param {AbortSignal} [opts.signal] - AbortSignal for cancellation
  * @param {number} [opts.timeoutMs] - Override timeout for this call
+ * @param {function} [opts.onOutput] - Streaming callback: (lines: string[]) => void, called at most every 500ms
  */
 export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
-  const { runId, signal, timeoutMs } = opts;
+  const { runId, signal, timeoutMs, onOutput } = opts;
   const timeout = timeoutMs || MODEL_TIMEOUTS[tool] || 15 * 60 * 1000;
 
   return new Promise((resolve, reject) => {
@@ -218,7 +222,10 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
     } else if (tool.startsWith("opencode:")) {
       const model = tool.split(":")[1];
       const modelMap = {
-        grok: "openrouter/x-ai/grok-code-fast-1",
+        // grok: "openrouter/x-ai/grok-code-fast-1",  // swapped for MiMo-V2-Flash
+        mimo: "openrouter/xiaomi/mimo-v2-flash",
+        minimax: "openrouter/minimax/minimax-m2.5",
+        glm: "openrouter/z-ai/glm-5",
         kimi: "openrouter/moonshotai/kimi-k2",
       };
       const ocLink = join(codebasePath, "opencode.json");
@@ -260,8 +267,33 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
 
     let stdout = "";
     let stderr = "";
-    proc.stdout.on("data", (d) => (stdout += d.toString()));
-    proc.stderr.on("data", (d) => (stderr += d.toString()));
+    let stdoutChunks = 0;
+    let stderrChunks = 0;
+    proc.stdout.on("data", (d) => { stdout += d.toString(); stdoutChunks++; });
+    proc.stderr.on("data", (d) => { stderr += d.toString(); stderrChunks++; });
+
+    // Throttled live output streaming
+    let logBuffer = [];
+    let logInterval = null;
+    if (onOutput) {
+      const flush = () => {
+        if (logBuffer.length > 0) {
+          onOutput(logBuffer);
+          logBuffer = [];
+        }
+      };
+      const pushLines = (chunk) => {
+        const text = chunk.toString().replace(/\x1b\[[0-9;]*m/g, "");
+        for (const line of text.split("\n")) {
+          const trimmed = line.trim();
+          if (trimmed) logBuffer.push(trimmed);
+        }
+      };
+      proc.stdout.on("data", pushLines);
+      proc.stderr.on("data", pushLines);
+      logInterval = setInterval(flush, 500);
+      proc.on("close", () => { clearInterval(logInterval); flush(); });
+    }
 
     proc.on("close", (code) => {
       if (signal) signal.removeEventListener("abort", onAbort);
@@ -360,6 +392,12 @@ export function extractJSON(text) {
       log.warn("extractJSON: skipping API error response", { error: parsed.error?.data?.message || parsed.error?.message || "unknown" });
       return null;
     }
+    // Reject opencode session metadata envelopes (step_finish, step_start, etc.)
+    // These contain session/token info but NOT the analysis output
+    if (parsed.type && parsed.type.startsWith("step_") && parsed.sessionID && parsed.part) {
+      log.warn("extractJSON: skipping opencode session metadata", { type: parsed.type, sessionID: parsed.sessionID });
+      // Fall through to JSONL parsing below — the real content may be in other events
+    } else {
     // Claude CLI --output-format json wraps in { type: "result", result: "..." }
     if (parsed.type === "result" && typeof parsed.result === "string") {
       try { return JSON.parse(parsed.result); } catch {}
@@ -380,18 +418,24 @@ export function extractJSON(text) {
         }
       }
     }
-    return parsed;
+      return parsed;
+    }
   } catch {}
 
-  // opencode outputs JSONL events
+  // opencode outputs JSONL events — text may be split across multiple events
   if (text.includes('"type":"tool_use"') || text.includes('"type":"step_') || text.includes('"type":"text"')) {
     const lines = text.split("\n");
+    let concatenatedText = "";
+
     for (const line of lines) {
       try {
         const event = JSON.parse(line);
 
+        // Collect text fragments from text events
         const textContent = event?.part?.type === "text" && event?.part?.text;
         if (textContent && typeof textContent === "string") {
+          concatenatedText += textContent;
+          // Try extracting JSON from this individual event first
           const tStart = textContent.indexOf("{");
           const tEnd = textContent.lastIndexOf("}");
           if (tStart !== -1 && tEnd > tStart) {
@@ -399,6 +443,7 @@ export function extractJSON(text) {
           }
         }
 
+        // Also check tool output state
         const output = event?.part?.state?.output;
         if (output && typeof output === "string") {
           const taskMatch = output.match(/<task_result>\s*([\s\S]*?)\s*<\/task_result>/);
@@ -417,6 +462,26 @@ export function extractJSON(text) {
           }
         }
       } catch {}
+    }
+
+    // Try to extract JSON from ALL concatenated text events — handles fragmented output
+    if (concatenatedText.length > 0) {
+      // Try markdown fences in concatenated text
+      const fMatch = concatenatedText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+      if (fMatch) {
+        try { return JSON.parse(fMatch[1]); } catch {}
+      }
+      // Try brace matching on concatenated text
+      const cEnd = concatenatedText.lastIndexOf("}");
+      if (cEnd !== -1) {
+        let pos = 0;
+        while (pos < cEnd) {
+          const cStart = concatenatedText.indexOf("{", pos);
+          if (cStart === -1 || cStart >= cEnd) break;
+          try { return JSON.parse(concatenatedText.slice(cStart, cEnd + 1)); } catch {}
+          pos = cStart + 1;
+        }
+      }
     }
   }
 

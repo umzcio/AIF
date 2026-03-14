@@ -35,13 +35,13 @@ function AgentLogPanel({ agent, logs, isRunning }) {
   const ref = useRef(null);
   useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [logs]);
   return (
-    <div style={{ borderRadius: 8, overflow: "hidden", border: `1px solid ${C.border}`, background: C.surface }}>
+    <div style={{ borderRadius: 8, overflow: "hidden", border: `1px solid ${C.border}`, background: C.surface, minWidth: 0 }}>
       <div style={{ padding: "8px 12px", background: C.surfaceAlt, display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.border}` }}>
         <Terminal size={12} color={C.textDim} />
         <span style={{ fontSize: 11, color: C.textMid, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{agent.name} Agent</span>
         {isRunning && <span style={{ width: 6, height: 6, borderRadius: "50%", background: TRACK_COLORS[1], animation: "pulse 1.5s infinite" }} />}
       </div>
-      <div ref={ref} style={{ padding: "8px 12px", maxHeight: 280, overflowY: "auto", fontSize: 11, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.7 }}>
+      <div ref={ref} style={{ padding: "8px 12px", maxHeight: 280, overflowY: "auto", overflowX: "hidden", fontSize: 11, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.7 }}>
         {logs.length === 0 && !isRunning && <div style={{ color: C.textDim }}>Waiting for agent to start...</div>}
         {logs.map((log, i) => {
           const isCrit = log.includes("CRITICAL") || log.includes("critical");
@@ -49,7 +49,7 @@ function AgentLogPanel({ agent, logs, isRunning }) {
           const isFail = log.includes("FAIL") || log.includes("error");
           const isPass = log.includes("PASS") || log.includes("complete") || log.includes("done");
           const color = isCrit ? SEV.critical.color : (isWarn || isFail) ? SEV.high.color : isPass ? TRACK_COLORS[1] : C.textMid;
-          return <div key={i} style={{ color }}>{log}</div>;
+          return <div key={i} style={{ color, overflowWrap: "anywhere" }}>{log}</div>;
         })}
         {isRunning && <div style={{ color: C.textDim }}>█</div>}
       </div>
@@ -87,7 +87,7 @@ export default function CodeUpload({ toolId, user }) {
   const [cancelling, setCancelling] = useState(false);
 
   // SSE
-  const { events, done: sseDone, failed: sseFailed, connectionLost } = usePipelineStream(runId);
+  const { events, done: sseDone, failed: sseFailed, connectionLost, onPassLog } = usePipelineStream(runId);
   const [pipelineError, setPipelineError] = useState(null);
 
   // Load tool and check for active pipeline runs
@@ -131,6 +131,22 @@ export default function CodeUpload({ toolId, user }) {
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
   }, [toolId]);
+
+  // Subscribe to live pass_log events
+  const MAX_LOG_LINES = 200;
+  useEffect(() => {
+    onPassLog((event) => {
+      const agentId = AGENT_ID_MAP[event.agent] || event.agent;
+      if (!agentId || !event.lines) return;
+      const prefix = event.model ? `[${event.model}]` : `[${event.pass}]`;
+      const newLines = event.lines.map(l => `${prefix} ${l}`);
+      setAgentLogs(p => {
+        const existing = p[agentId] || [];
+        const combined = [...existing, ...newLines];
+        return { ...p, [agentId]: combined.length > MAX_LOG_LINES ? combined.slice(-MAX_LOG_LINES) : combined };
+      });
+    });
+  }, [onPassLog]);
 
   // Process SSE events
   const processedRef = useRef(0);
@@ -438,7 +454,7 @@ export default function CodeUpload({ toolId, user }) {
             </div>
           )}
 
-          <div className="responsive-pipeline-layout" style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16 }}>
+          <div className="responsive-pipeline-layout" style={{ display: "grid", gridTemplateColumns: "280px minmax(0, 1fr)", gap: 16 }}>
             {/* Agent sidebar */}
             <div>
               {AGENTS.map(agent => {
