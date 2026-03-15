@@ -11,8 +11,11 @@ FROM node:22-bookworm-slim
 
 # System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl ca-certificates python3 unzip pandoc && \
+    git curl ca-certificates python3 python3-pip python3-venv unzip pandoc && \
     rm -rf /var/lib/apt/lists/*
+
+# Semgrep SAST scanner (deterministic security analysis)
+RUN pip3 install --no-cache-dir --break-system-packages semgrep
 
 # CLI tools for agent pipeline
 RUN npm install -g @openai/codex @google/gemini-cli @anthropic-ai/claude-code @qwen-code/qwen-code

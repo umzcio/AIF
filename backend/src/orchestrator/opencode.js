@@ -15,6 +15,10 @@ import { join } from "path";
 import { mkdirSync, writeFileSync } from "fs";
 import { PASSES as CODE_PASSES, ANALYSIS_PROMPT, SYNTHESIS_PROMPT as CODE_SYNTHESIS, buildStackChecklists, STACK_SYNTHESIS_PROMPT } from "../agents/code-analysis/lenses.js";
 import { PASSES as A11Y_PASSES, ACCESSIBILITY_PROMPT, SYNTHESIS_PROMPT as A11Y_SYNTHESIS } from "../agents/accessibility/prompts.js";
+import { runA11yLinter } from "../agents/accessibility/linter.js";
+import { runDepAudit } from "../agents/code-analysis/dep-audit.js";
+import { runSemgrep } from "../agents/code-analysis/semgrep.js";
+import { runEslintQA } from "../agents/qa-analysis/eslint-qa.js";
 import { PASSES as QA_PASSES, QA_PROMPT, SYNTHESIS_PROMPT as QA_SYNTHESIS } from "../agents/qa-analysis/prompts.js";
 import { runDocGenerationParallel } from "../agents/documentation/runner.js";
 import { runCLIWithRetry, extractJSON } from "../agents/shared/cli.js";
@@ -309,10 +313,120 @@ export async function runOpencodePipeline({ codebasePath, track, toolName, outpu
   emit({ type: "agent_start", agent: "accessibility", label: "Accessibility Audit", index: 1, passesTotal: passes.length });
   const accessibilityDir = join(runDir, "agent2_accessibility");
 
-  const [codeAnalysis, accessibility] = await Promise.all([
+  const [codeAnalysis, accessibility, a11yLinterResult, depAuditResult, semgrepResult] = await Promise.all([
     runAgentOpencode(AGENTS[0], codebasePath, passes, codeAnalysisDir, emit, agentOpts),
     runAgentOpencode(AGENTS[1], codebasePath, passes, accessibilityDir, emit, agentOpts),
+    runA11yLinter(codebasePath, join(runDir, "agent2_accessibility")).catch(err => {
+      pipelineLog.warn("A11y linter failed (non-fatal)", { error: err.message });
+      return null;
+    }),
+    runDepAudit(codebasePath, join(runDir, "agent1_code_analysis")).catch(err => {
+      pipelineLog.warn("Dependency audit failed (non-fatal)", { error: err.message });
+      return null;
+    }),
+    runSemgrep(codebasePath, join(runDir, "agent1_code_analysis")).catch(err => {
+      pipelineLog.warn("Semgrep SAST failed (non-fatal)", { error: err.message });
+      return null;
+    }),
   ]);
+
+  // If linter found issues and Agent 2 synthesized, merge linter findings
+  if (a11yLinterResult?.findings?.length && accessibility.synthesis) {
+    const linterFindings = a11yLinterResult.findings.map(f => ({
+      severity: f.severity,
+      category: f.ruleId?.replace("jsx-a11y/", "") || "linter",
+      title: f.title,
+      detail: f.detail,
+      evidence: f.evidence,
+      reportedBy: ["eslint-plugin-jsx-a11y"],
+      convergenceCount: 1,
+      confidence: "confirmed",
+      toolVerified: true,
+    }));
+    accessibility.synthesis.findings = [...(accessibility.synthesis.findings || []), ...linterFindings];
+    accessibility.synthesis.a11yLinter = {
+      tool: a11yLinterResult.tool,
+      filesScanned: a11yLinterResult.totalFiles,
+      errors: a11yLinterResult.totalErrors,
+      warnings: a11yLinterResult.totalWarnings,
+      findingsAdded: linterFindings.length,
+    };
+    // Re-write synthesis with linter findings merged
+    writeFileSync(join(runDir, "agent2_accessibility", "synthesis.json"), JSON.stringify(accessibility.synthesis, null, 2));
+    pipelineLog.info("Merged a11y linter findings into Agent 2 synthesis", { count: linterFindings.length });
+  }
+
+  // Merge dependency audit findings into Agent 1 synthesis
+  if (depAuditResult?.findings?.length && codeAnalysis.synthesis) {
+    const depFindings = depAuditResult.findings.map(f => ({
+      severity: f.severity,
+      category: "dependency_vulnerability",
+      title: f.title,
+      detail: f.detail,
+      evidence: f.evidence,
+      reportedBy: [f.tool],
+      convergenceCount: 1,
+      confidence: "confirmed",
+      toolVerified: true,
+      fixAvailable: f.fixAvailable || false,
+    }));
+    codeAnalysis.synthesis.findings = [...(codeAnalysis.synthesis.findings || []), ...depFindings];
+    codeAnalysis.synthesis.depAudit = {
+      tools: depAuditResult.tools,
+      ecosystems: depAuditResult.ecosystems,
+      totalVulnerabilities: depAuditResult.totalVulnerabilities,
+      bySeverity: depAuditResult.bySeverity,
+      findingsAdded: depFindings.length,
+    };
+    writeFileSync(join(runDir, "agent1_code_analysis", "synthesis.json"), JSON.stringify(codeAnalysis.synthesis, null, 2));
+    pipelineLog.info("Merged dependency audit findings into Agent 1 synthesis", { count: depFindings.length });
+  }
+
+  // Merge Semgrep SAST findings into Agent 1 synthesis (deduplicated against model findings)
+  if (semgrepResult?.findings?.length && codeAnalysis.synthesis) {
+    const existingEvidence = new Set((codeAnalysis.synthesis.findings || []).map(f => f.evidence || ""));
+    const existingTitles = new Set((codeAnalysis.synthesis.findings || []).map(f => (f.title || "").toLowerCase()));
+    const semgrepFindings = semgrepResult.findings
+      .filter(f => {
+        // Deduplicate: skip if same file:line already in findings or title is substring match
+        if (existingEvidence.has(f.evidence)) return false;
+        const titleLower = (f.title || "").toLowerCase();
+        for (const et of existingTitles) {
+          if (et && titleLower && (et.includes(titleLower.slice(0, 30)) || titleLower.includes(et.slice(0, 30)))) return false;
+        }
+        return true;
+      })
+      .map(f => ({
+        severity: f.severity,
+        category: f.category || "security",
+        title: f.title,
+        detail: f.detail,
+        evidence: f.evidence,
+        reportedBy: ["semgrep"],
+        convergenceCount: 1,
+        confidence: "confirmed",
+        toolVerified: true,
+        semgrepRule: f.ruleId,
+        cwe: f.cwe,
+      }));
+    if (semgrepFindings.length > 0) {
+      codeAnalysis.synthesis.findings = [...(codeAnalysis.synthesis.findings || []), ...semgrepFindings];
+      codeAnalysis.synthesis.semgrep = {
+        tool: "semgrep",
+        totalScanned: semgrepResult.totalFindings,
+        deduplicated: semgrepResult.findings.length - semgrepFindings.length,
+        findingsAdded: semgrepFindings.length,
+        bySeverity: semgrepResult.bySeverity,
+      };
+      writeFileSync(join(runDir, "agent1_code_analysis", "synthesis.json"), JSON.stringify(codeAnalysis.synthesis, null, 2));
+      pipelineLog.info("Merged Semgrep findings into Agent 1 synthesis", {
+        added: semgrepFindings.length,
+        deduplicated: semgrepResult.findings.length - semgrepFindings.length,
+      });
+    } else {
+      pipelineLog.info("Semgrep findings all duplicated by model findings, none added");
+    }
+  }
 
   const codeSummary = summarizeFindings(codeAnalysis.synthesis);
   emit({ type: "agent_complete", agent: "code-analysis", index: 0, passes: Object.keys(codeAnalysis.passes).length, failures: codeAnalysis.failures.length, summary: codeSummary, partial: codeAnalysis.partial });
@@ -320,11 +434,47 @@ export async function runOpencodePipeline({ codebasePath, track, toolName, outpu
   const a11ySummary = summarizeFindings(accessibility.synthesis);
   emit({ type: "agent_complete", agent: "accessibility", index: 1, passes: Object.keys(accessibility.passes).length, failures: accessibility.failures.length, summary: a11ySummary, partial: accessibility.partial });
 
-  // Agent 3: QA
+  // Agent 3: QA (model passes + ESLint QA in parallel)
   checkCancel();
   emit({ type: "agent_start", agent: "qa-analysis", label: "QA / Bug Detection", index: 2, passesTotal: passes.length });
   const qaDir = join(runDir, "agent3_qa");
-  const qaAnalysis = await runAgentOpencode(AGENTS[2], codebasePath, passes, qaDir, emit, { ...agentOpts, runDir });
+  const [qaAnalysis, eslintQAResult] = await Promise.all([
+    runAgentOpencode(AGENTS[2], codebasePath, passes, qaDir, emit, { ...agentOpts, runDir }),
+    runEslintQA(codebasePath, join(runDir, "agent3_qa")).catch(err => {
+      pipelineLog.warn("ESLint QA failed (non-fatal)", { error: err.message });
+      return null;
+    }),
+  ]);
+
+  // Merge ESLint QA findings into Agent 3 synthesis
+  if (eslintQAResult?.findings?.length && qaAnalysis.synthesis) {
+    const existingQAEvidence = new Set((qaAnalysis.synthesis.findings || []).map(f => f.evidence || ""));
+    const qaLintFindings = eslintQAResult.findings
+      .filter(f => !existingQAEvidence.has(f.evidence))
+      .map(f => ({
+        severity: f.severity,
+        category: f.category,
+        title: f.title,
+        detail: f.detail,
+        evidence: f.evidence,
+        reportedBy: ["eslint-qa"],
+        convergenceCount: 1,
+        confidence: "confirmed",
+        toolVerified: true,
+      }));
+    if (qaLintFindings.length > 0) {
+      qaAnalysis.synthesis.findings = [...(qaAnalysis.synthesis.findings || []), ...qaLintFindings];
+      qaAnalysis.synthesis.eslintQA = {
+        tool: "eslint-qa",
+        typescript: eslintQAResult.typescript,
+        filesScanned: eslintQAResult.totalFiles,
+        findingsAdded: qaLintFindings.length,
+        byCategory: eslintQAResult.byCategory,
+      };
+      writeFileSync(join(runDir, "agent3_qa", "synthesis.json"), JSON.stringify(qaAnalysis.synthesis, null, 2));
+      pipelineLog.info("Merged ESLint QA findings into Agent 3 synthesis", { count: qaLintFindings.length });
+    }
+  }
 
   const qaSummary = summarizeFindings(qaAnalysis.synthesis);
   emit({ type: "agent_complete", agent: "qa-analysis", index: 2,

@@ -25,8 +25,16 @@ const AGENT_DETAILS = [
       "Prioritized findings with file:line evidence",
       "Stack-specific deep dive (React, Express, Spring, Django, Phoenix, Postgres, MongoDB, AI/ML, Docker)",
     ],
+    promptExcerpts: [
+      "Trace every data path. For each operation, classify the data: public, internal, PII, FERPA, HIPAA, financial, research. If user-submitted content is stored alongside user identity, that is at minimum PII. If those users are students, it is FERPA.",
+      "Does the app use University of Montana CAS, Shibboleth, or another institutional SSO? Look for CAS URLs (login.umt.edu), SAML config, or Shibboleth attributes. Is there an auth bypass mechanism?",
+      "You MUST read every single file. Do not skip files. Do not sample. Do not summarize file contents without reading them.",
+      "For EVERY case where models disagree, you MUST: identify the dispute, READ THE RELEVANT SOURCE FILES to determine the truth, state what you found with the exact file and line.",
+    ],
     tools: [
       { name: "Snyk Agent Scan", desc: "Automated MCP config and SKILL.md security scanning", url: "https://github.com/snyk/snyk-agent-scan" },
+      { name: "npm audit / pip-audit", desc: "Dependency CVE detection verified against advisory databases", url: "https://docs.npmjs.com/cli/commands/npm-audit" },
+      { name: "Semgrep", desc: "SAST scanner with OWASP Top 10 + default rulesets (SQL injection, XSS, command injection)", url: "https://github.com/semgrep/semgrep" },
     ],
     inspirations: [
       { name: "Shannon", desc: "AI-powered security analysis agent by Keygraph", url: "https://github.com/KeygraphHQ/shannon" },
@@ -56,7 +64,15 @@ const AGENT_DETAILS = [
       "Responsive design and reflow",
       "Estimated WCAG conformance level",
     ],
-    tools: [],
+    promptExcerpts: [
+      "Evaluate the codebase against EVERY WCAG 2.2 success criterion at Level A and AA. You MUST report a status for EVERY SINGLE criterion \u2014 no exceptions. If you skip a criterion, the report is incomplete and will be rejected.",
+      "1.1.1 Non-text Content: Every img, svg, icon, canvas has appropriate alt text or is marked decorative (alt=\"\", role=\"presentation\")",
+      "Every interactive element must be reachable and operable via keyboard alone. Check for focus traps \u2014 can users Tab into AND out of every component?",
+      "Check color contrast ratios: text must meet 4.5:1 for normal text, 3:1 for large text. Examine actual CSS values, not just estimates.",
+    ],
+    tools: [
+      { name: "eslint-plugin-jsx-a11y", desc: "Static JSX/React accessibility linting (38 rules, tool-verified)", url: "https://github.com/jsx-eslint/eslint-plugin-jsx-a11y" },
+    ],
     inspirations: [
       { name: "accessibility-agents", desc: "Community Access multi-agent accessibility review", url: "https://github.com/Community-Access/accessibility-agents" },
       { name: "ai-agent-a11y-reviewer", desc: "AI agent for automated accessibility auditing", url: "https://github.com/guillempuche/ai-agent-a11y-accessibility-reviewer" },
@@ -86,7 +102,15 @@ const AGENT_DETAILS = [
       "State management issues",
       "Failure mode analysis per feature",
     ],
-    tools: [],
+    promptExcerpts: [
+      "Agent 1 already covers security \u2014 XSS, SQL injection, secrets, authentication. DO NOT duplicate security findings. Focus entirely on: does this code actually work correctly?",
+      "Promises that are created but never awaited. Race conditions in shared state. Missing await on async function calls. Database transactions that can deadlock or leave connections open.",
+      "For each major feature, describe the most likely failure mode: what goes wrong, what triggers it, what happens to the user, and how likely it is.",
+      "String/number coercion bugs (== vs ===, parseInt without radix). JSON.parse on user input without validation. Boolean coercion surprises (0, \"\", null are all falsy).",
+    ],
+    tools: [
+      { name: "ESLint QA", desc: "Static analysis for dead code, unused vars, unreachable code, async bugs, type safety (tool-verified)", url: "https://github.com/eslint/eslint" },
+    ],
     inspirations: [
       { name: "SonarQube", desc: "Static analysis bug detection patterns", url: "https://github.com/SonarSource/sonarqube" },
       { name: "ESLint", desc: "JavaScript linting rules for correctness", url: "https://github.com/eslint/eslint" },
@@ -108,6 +132,12 @@ const AGENT_DETAILS = [
       "HECVAT 4.15 Lite — 87 critical questions, XLSX export (GLM-5)",
       "TODO markers for missing information",
       "Cross-references to agent findings",
+    ],
+    promptExcerpts: [
+      "Write a user-facing guide for people who will USE this tool. Tone: friendly, direct, assumes no technical knowledge. Write for university staff and faculty.",
+      "List every env var from .env, docker-compose, config files. Every configurable setting with its purpose, default value, and valid options.",
+      "Write a one-page compliance summary for reviewers and decision-makers. Pull security posture from Agent 1, accessibility status from Agent 2, QA findings from Agent 3.",
+      "For every HECVAT question you CANNOT fully answer from the code, output status: 'needs_human_input' with a clear explanation of what the reviewer needs to provide.",
     ],
     tools: [
       { name: "Pandoc", desc: "Markdown to DOCX conversion", url: "https://github.com/jgm/pandoc" },
@@ -151,6 +181,7 @@ const FRAMEWORKS = [
 
 const TOC = [
   { id: "overview", label: "Overview" },
+  { id: "two-layer", label: "Two-Layer Architecture" },
   { id: "convergence", label: "Multi-Model Convergence" },
   { id: "agent-1", label: "Agent 1: Code & Security" },
   { id: "stack-dive", label: "Stack Deep Dive" },
@@ -272,10 +303,41 @@ function PipelineDiagram({ onScrollTo }) {
 
         {arrow()}
 
+        {/* Layer 0: Deterministic Tooling */}
+        <div style={{ ...nodeBase, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.accent}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+              color: C.accent, background: C.accentSoft, padding: "2px 8px", borderRadius: 4 }}>LAYER 0</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Deterministic Tooling</span>
+            <span style={{ fontSize: 9, color: C.textDim, fontFamily: "'JetBrains Mono', monospace", marginLeft: "auto",
+              padding: "2px 6px", border: `1px solid ${C.border}`, borderRadius: 4 }}>PARALLEL</span>
+          </div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {[
+              { name: "Semgrep", target: "Agent 1" },
+              { name: "npm audit", target: "Agent 1" },
+              { name: "Snyk", target: "Agent 1" },
+              { name: "jsx-a11y", target: "Agent 2" },
+              { name: "ESLint QA", target: "Agent 3" },
+            ].map((t, i) => (
+              <div key={i} style={{ padding: "4px 8px", borderRadius: 5, background: C.surface,
+                border: `1px solid ${C.border}`, textAlign: "center" }}>
+                <div style={{ fontSize: 9, color: C.text, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{t.name}</div>
+                <div style={{ fontSize: 7, color: C.textDim, fontFamily: "'JetBrains Mono', monospace" }}>&rarr; {t.target}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: C.textDim, marginTop: 8, fontStyle: "italic" }}>
+            Verified against advisory databases &middot; Runs in parallel with model passes &middot; Results tagged tool-verified
+          </div>
+        </div>
+
+        {arrow("tool findings feed into synthesis")}
+
         {/* Agent 1 */}
-        {agentNode(1, "Code & Security", "#D35C1A", "MULTI-MODEL", <>
+        {agentNode(1, "Code & Security", "#D35C1A", "MULTI-MODEL + TOOLS", <>
           {modelChips}
-          {synthBar("3+ agree = confirmed \u00b7 1\u20132 = potential")}
+          {synthBar("convergence + Semgrep + npm audit + Snyk")}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 6 }}>
             <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#D35C1A" }} />
             <span style={{ fontSize: 10, color: "#D35C1A", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>Stack Deep Dive</span>
@@ -286,17 +348,17 @@ function PipelineDiagram({ onScrollTo }) {
         {arrow()}
 
         {/* Agent 2 */}
-        {agentNode(2, "Accessibility Audit", "#7C3AED", "MULTI-MODEL", <>
+        {agentNode(2, "Accessibility Audit", "#7C3AED", "MULTI-MODEL + TOOLS", <>
           {modelChips}
-          {synthBar("WCAG 2.2 AA conformance assessment")}
+          {synthBar("WCAG 2.2 AA + eslint-plugin-jsx-a11y")}
         </>)}
 
         {arrow("Agent 1 + 2 findings")}
 
         {/* Agent 3 */}
-        {agentNode(3, "QA / Bug Detection", "#06B6D4", "MULTI-MODEL", <>
+        {agentNode(3, "QA / Bug Detection", "#06B6D4", "MULTI-MODEL + TOOLS", <>
           {modelChips}
-          {synthBar("3+ agree = confirmed bug \u00b7 1\u20132 = potential")}
+          {synthBar("convergence + ESLint QA (dead code, async, types)")}
         </>)}
 
         {arrow("Agent 1\u20133 output")}
@@ -387,6 +449,29 @@ function AgentCard({ agent }) {
           ))}
         </div>
       </div>
+
+      {/* Prompt excerpts */}
+      {agent.promptExcerpts?.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase",
+            fontFamily: "'JetBrains Mono', monospace", marginBottom: 10 }}>
+            What the Models Are Asked
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {agent.promptExcerpts.map((excerpt, i) => (
+              <blockquote key={i} style={{ margin: 0, padding: "8px 14px", borderRadius: 6,
+                background: C.bg, borderLeft: `3px solid ${agent.color}30`,
+                fontSize: 12, color: C.textMid, lineHeight: 1.6,
+                fontFamily: "'JetBrains Mono', monospace", fontStyle: "italic" }}>
+                {excerpt}
+              </blockquote>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: C.textDim, marginTop: 8, fontStyle: "italic" }}>
+            Actual excerpts from the analysis prompt. Each model receives the full rubric.
+          </div>
+        </div>
+      )}
 
       {/* Tools used */}
       {agent.tools.length > 0 && (
@@ -497,7 +582,7 @@ export default function AgentsPage() {
         <div id="ap-overview" style={{ marginBottom: 32 }}>
           <h1 style={{ fontSize: 28, fontWeight: 700, color: C.text, margin: "0 0 6px", letterSpacing: -0.5 }}>Agent Pipeline</h1>
           <p style={{ fontSize: 15, color: C.textMid, margin: "0 0 4px" }}>
-            Four AI agents review every codebase submission with multi-model convergence.
+            Deterministic tools scan exhaustively. Five AI models reason about context. Claude synthesizes everything.
           </p>
           <p style={{ fontSize: 12, color: C.textDim, margin: 0 }}>{config.institutionName} &middot; Enterprise IT &middot; 2026</p>
         </div>
@@ -505,20 +590,62 @@ export default function AgentsPage() {
         {/* Pipeline architecture diagram */}
         <PipelineDiagram onScrollTo={scrollTo} />
 
+        {/* Two-Layer Architecture */}
+        <div id="ap-two-layer" style={{ padding: 20, borderRadius: 10, background: C.surfaceAlt, border: `1px solid ${C.border}`, marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <Layers size={16} color={C.accent} aria-hidden="true" />
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Two-Layer Architecture</span>
+          </div>
+          <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, margin: "0 0 12px" }}>
+            AI models are good at reasoning about architecture, intent, and context. They&rsquo;re bad at
+            exhaustive mechanical checking &mdash; verifying that <em>every</em> <code style={{ fontSize: 11, padding: "1px 4px",
+            borderRadius: 3, background: C.surface, border: `1px solid ${C.border}`, fontFamily: "'JetBrains Mono', monospace"
+            }}>&lt;input&gt;</code> has a <code style={{ fontSize: 11, padding: "1px 4px", borderRadius: 3, background: C.surface,
+            border: `1px solid ${C.border}`, fontFamily: "'JetBrains Mono', monospace" }}>&lt;label&gt;</code>,
+            that <em>every</em> dependency is free of known CVEs, that <em>no</em> file contains a SQL injection pattern.
+            Each model pass is a fresh read with no persistent state &mdash; no checklist tracking what was already verified line-by-line.
+          </p>
+          <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, margin: "0 0 12px" }}>
+            The pipeline is designed around this limitation. <strong>Layer 0</strong> runs deterministic SAST scanners, linters,
+            and dependency auditors that mechanically check every element against known rule sets &mdash; high precision,
+            exhaustive coverage of what they check. <strong>Layer 1</strong> runs five AI models that reason about what tools can&rsquo;t:
+            business logic flaws, architecture concerns, auth flow correctness, and &ldquo;does this actually make sense?&rdquo; judgment calls.
+          </p>
+          <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, margin: "0 0 12px" }}>
+            Both layers run <strong>in parallel</strong> &mdash; no added latency. Tool findings are merged into the synthesis
+            with a <strong>tool-verified</strong> confidence flag, creating three trust tiers:
+          </p>
+          <div style={{ display: "flex", gap: 10, marginBottom: 0 }}>
+            {[
+              { label: "Tool-Verified", desc: "Deterministic scanner, verified against known rules", color: C.accent },
+              { label: "Confirmed", desc: "3+ AI models independently agree", color: "#D35C1A" },
+              { label: "Potential", desc: "1\u20132 models flagged, needs review", color: C.textDim },
+            ].map((tier, i) => (
+              <div key={i} style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: C.bg,
+                border: `1px solid ${C.border}`, borderLeft: `3px solid ${tier.color}` }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: tier.color, fontFamily: "'JetBrains Mono', monospace" }}>{tier.label}</div>
+                <div style={{ fontSize: 11, color: C.textMid, marginTop: 2 }}>{tier.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Multi-model explainer */}
         <div id="ap-convergence" style={{ padding: 20, borderRadius: 10, background: C.surfaceAlt, border: `1px solid ${C.border}`, marginBottom: 32 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <Layers size={16} color={C.accent} aria-hidden="true" />
+            <Cpu size={16} color={C.accent} aria-hidden="true" />
             <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Multi-Model Convergence</span>
+            <span style={{ fontSize: 11, color: C.textDim, fontFamily: "'JetBrains Mono', monospace", padding: "2px 6px",
+              border: `1px solid ${C.border}`, borderRadius: 4 }}>Layer 1</span>
           </div>
           <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, margin: "0 0 12px" }}>
             Agents 1, 2, and 3 use a convergence-based approach: five different AI models receive the <strong>same prompt</strong> and
             independently analyze the entire codebase. A finding is <strong>confirmed</strong> if 3+ models flag it,
             <strong> potential</strong> if 1-2 models flag it, and <strong>clean</strong> if zero models flag it. Claude synthesizes
-            the results and can re-read source files to resolve disputes between models.
+            the results, re-reads source files to resolve disputes, and merges tool-verified findings from Layer 0.
           </p>
           <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, margin: 0 }}>
-            All tracks run the same 5-model pipeline. Track determines governance requirements, not analysis depth.
+            All tracks run the same pipeline. Track determines governance requirements, not analysis depth.
             No model reviews its own work. Claude only synthesizes &mdash; it never runs a pass.
           </p>
         </div>

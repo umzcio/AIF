@@ -117,25 +117,58 @@ Any of these force Track 4 regardless of weighted percentage:
 
 ## Agent Pipeline
 
+### Two-Layer Architecture
+
+AI models are good at reasoning about architecture, intent, and context. They're bad at exhaustive mechanical checking — verifying that every `<input>` has a `<label>`, that every dependency is free of known CVEs, that no file contains a SQL injection pattern. Each model pass is a fresh read with no persistent state.
+
+The pipeline is designed around this limitation:
+
+- **Layer 0 — Deterministic Tooling:** SAST scanners, linters, and dependency auditors that mechanically check every element against known rule sets. High precision, exhaustive coverage of what they check. Runs in parallel with model passes (no added latency).
+- **Layer 1 — Multi-Model AI:** Five AI models reason about what tools can't — business logic flaws, architecture concerns, auth flow correctness, and "does this actually make sense?" judgment calls. Claude synthesizes everything with filesystem access for dispute resolution.
+
+Three confidence tiers in output:
+
+| Tier | Meaning |
+|------|---------|
+| **Tool-Verified** | Deterministic scanner, verified against known rules |
+| **Confirmed** | 3+ AI models independently agree |
+| **Potential** | 1–2 models flagged, needs human review |
+
+### Layer 0: Deterministic Tools
+
+All tools run in parallel with model passes. Findings are merged into synthesis with `toolVerified: true`.
+
+| Tool | Agent | What it checks |
+|------|-------|---------------|
+| Semgrep | 1 | OWASP Top 10 + default SAST rules (SQLi, XSS, command injection, insecure patterns) |
+| npm audit / pip-audit | 1 | Known dependency CVEs against advisory databases |
+| Snyk Agent Scan | 1 | MCP config and SKILL.md security threats |
+| eslint-plugin-jsx-a11y | 2 | Static React/JSX accessibility (34 rules: alt text, labels, ARIA, keyboard) |
+| ESLint QA | 3 | Dead code, unused variables, unreachable code, async bugs, type safety |
+
 ### Agent 1: Code & Security Analysis
 
-Multi-model (5 passes + Claude synthesis). 10-section rubric: technology inventory, external services, data operations, authentication, secrets, AI/ML usage, MCP/agent security, escalation checks, 7-dimension scoring signals, prioritized findings.
+Multi-model (5 passes + Claude synthesis + stack-specific deep dive). 10-section rubric: technology inventory, external services, data operations, authentication, secrets, AI/ML usage, MCP/agent security, escalation checks, 7-dimension scoring signals, prioritized findings. After synthesis, a second Claude pass runs framework-specific security checklists (React, Express, Spring, Django, Phoenix, Postgres, MongoDB, AI/ML, Docker) tailored to the detected stack.
 
-**Integrated tools:** Snyk Agent Scan (MCP config / SKILL.md security).
+**Integrated tools:** Semgrep (SAST), npm audit / pip-audit (dependency CVEs), Snyk Agent Scan (MCP/skill security).
 
 ### Agent 2: Accessibility Audit
 
 Multi-model (5 passes + Claude synthesis). WCAG 2.2 Level AA audit: ARIA, keyboard navigation, color contrast, semantic structure, forms, images, dynamic content, modals, responsive design.
 
+**Integrated tools:** eslint-plugin-jsx-a11y (static React/JSX accessibility linting, 34 rules).
+
 ### Agent 3: QA / Bug Detection
 
 Multi-model (5 passes + Claude synthesis). Finds logic bugs, correctness issues, and quality problems: null handling, error paths, async/concurrency, edge cases, type safety, resource management, API contract violations, state management, failure modes. Reads Agent 1+2 output for context.
+
+**Integrated tools:** ESLint QA (dead code, unused vars, unreachable code, async patterns, type coercion).
 
 ### Agent 4: Documentation + HECVAT
 
 3 parallel passes (Gemini 3.1 Pro + GLM-5 + Claude, reads Agent 1-3 output). Gemini produces the User Guide and Admin Guide, GLM-5 handles the HECVAT self-assessment, and Claude produces the Compliance Summary. Outputs converted from Markdown to .docx via Pandoc; HECVAT fills the official EDUCAUSE Excel template.
 
-### Multi-Model Convergence
+### Multi-Model Convergence (Layer 1)
 
 Five different AI models receive the **same prompt** and independently analyze the entire codebase:
 
@@ -319,10 +352,12 @@ CAS_SERVICE_URL=...                # CAS callback URL
 | Frontend portal (intake, registry, pipeline, report, framework, agents) | Done |
 | Dark mode + WCAG 2.2 AA compliance | Done |
 | Backend API (auth, intake, pipeline, registry, review, admin) | Done |
-| Agent 1: Code & Security (5-model + Snyk) | Done |
-| Agent 2: Accessibility / WCAG 2.2 AA (5-model) | Done |
-| Agent 3: QA / Bug Detection (5-model) | Done |
+| Agent 1: Code & Security (5-model + Semgrep + npm audit + Snyk + stack deep dive) | Done |
+| Agent 2: Accessibility / WCAG 2.2 AA (5-model + eslint-plugin-jsx-a11y) | Done |
+| Agent 3: QA / Bug Detection (5-model + ESLint QA) | Done |
 | Agent 4: Documentation + HECVAT (3 docs + 87 questions + XLSX) | Done |
+| Two-layer architecture (deterministic tools + multi-model convergence) | Done |
+| Live CLI output streaming (SSE pass_log events) | Done |
 | Docker deployment | Done |
 | RBAC (builder/reviewer/admin) | Done |
 | Review workflow (approve/reject, self-certify, track override) | Done |
