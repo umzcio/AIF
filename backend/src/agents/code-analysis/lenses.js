@@ -69,7 +69,7 @@ Do not wrap in markdown code fences. Output ONLY the JSON.
     "maintenance": { "score": 0, "reasoning": "string" }
   },
   "findings": [
-    { "severity": "critical|warning|info", "category": "string", "title": "string", "detail": "string", "evidence": "file:line" }
+    { "severity": "critical|high|warning|info", "category": "string", "title": "string", "detail": "string", "evidence": "file:line" }
   ],
   "sectionCoverage": {
     "inventory": "complete|partial|skipped",
@@ -260,9 +260,12 @@ SECTION 10: SEVERITY DEFINITIONS FOR FINDINGS
 
 Use these EXACT definitions when assigning severity:
 
-CRITICAL — Must fix before production. Active security vulnerability, exposed live credentials, data breach risk, regulatory violation.
-WARNING — Should fix before production. Hardcoded defaults, missing validation, policy gaps, unreviewed dependencies, auth bypass in codebase.
+CRITICAL — Must fix before production. Active security vulnerability, exposed live credentials, data breach risk, regulatory violation, auth bypass reachable in production, path traversal, command injection.
+HIGH — Significant issue, likely must fix. Missing auth on sensitive endpoints, SQL injection risk, unencrypted PII transmission, missing CSRF protection, hardcoded fallback secrets, development auth bypass in codebase.
+WARNING — Should fix before production. Hardcoded defaults, missing validation, policy gaps, unreviewed dependencies, missing rate limiting, unpinned model versions.
 INFO — Note for reviewers. Architecture observations, positive findings (e.g., "uses parameterized queries"), recommendations.
+
+NOTE: The DPA/contract severity cap (Section 2) applies ONLY to data-processing-agreement and procurement findings. All other findings (auth, secrets, injection, etc.) MUST be assigned severity based purely on these definitions above. Do NOT let the DPA rule suppress criticals or highs for non-DPA security issues.
 
 =====================================================================
 
@@ -275,10 +278,13 @@ ${OUTPUT_SCHEMA}`;
 // All 5 passes use the same prompt — each model runs its own independent analysis
 export const PASSES = {
   pass1: { name: "Pass 1 (Codex/GPT-5.4)", tool: "codex" },
-  pass2: { name: "Pass 2 (Gemini 2.5 Pro)", tool: "gemini" },
-  pass3: { name: "Pass 3 (Grok)", tool: "opencode:grok" },
+  // pass2: { name: "Pass 2 (Gemini 2.5 Pro)", tool: "gemini" },
+  pass2: { name: "Pass 2 (MiniMax M2.5)", tool: "opencode:minimax" },
+  // pass3: { name: "Pass 3 (Grok)", tool: "opencode:grok" },
+  pass3: { name: "Pass 3 (MiMo-V2-Flash)", tool: "opencode:mimo" },
   pass4: { name: "Pass 4 (Kimi K2)", tool: "opencode:kimi" },
-  pass5: { name: "Pass 5 (Qwen3 Coder)", tool: "qwen" },
+  // pass5: { name: "Pass 5 (Qwen3 Coder)", tool: "qwen" },
+  pass5: { name: "Pass 5 (GLM-5)", tool: "opencode:glm" },
 };
 
 export const SYNTHESIS_PROMPT = `You are the synthesis agent for the University of Montana AI Production Readiness Framework. You received independent code analysis reports from multiple AI models. Each model was given the SAME rubric and independently analyzed the SAME codebase.
@@ -345,11 +351,13 @@ For EVERY finding in the merged report:
 
 Do NOT include any finding that references a file that does not exist in the codebase. A confirmed hallucination is worse than a missed finding.
 
-IMPORTANT: You CANNOT determine contractual/procurement status from code. If models flag "no DPA" or "non-institutional provider" for major vendors (OpenAI, Google, Anthropic, AWS, Microsoft, OpenRouter):
+DPA/CONTRACT FINDINGS ONLY: You CANNOT determine contractual/procurement status from code. If models flag "no DPA" or "non-institutional provider" for major vendors (OpenAI, Google, Anthropic, AWS, Microsoft, OpenRouter):
 - Set triggered=false, needs_verification=true on the escalation signal
 - Downgrade any critical finding about DPA/contract status to WARNING
 - Do NOT include "DPA missing" or "no data processing agreement" as a critical finding — this is ALWAYS a reviewer verification item
 - Only assert a DPA problem (critical) if the code sends regulated data to clearly inappropriate destinations (personal accounts, unknown domains, unencrypted HTTP)
+
+THIS RULE APPLIES ONLY TO DPA/CONTRACT FINDINGS. All other security findings (auth bypass, injection, secrets, missing authorization, path traversal, etc.) MUST retain their true severity. Use critical and high where the severity definitions warrant it.
 
 =====================================================================
 PHASE 3: OUTPUT
@@ -418,6 +426,185 @@ OUTPUT the merged report as JSON with this schema:
   "totalFilesReviewed": 0,
   "summary": "",
   "convergenceStats": { "confirmed": 0, "potential": 0, "resolved": 0, "needs_human_review": 0 }
+}
+
+Do not output anything except the JSON. No markdown fences, no commentary.`;
+
+// ═══════════════════════════════════════════════════════════
+// STACK-SPECIFIC CHECKLISTS
+// ═══════════════════════════════════════════════════════════
+
+export const STACK_CHECKLISTS = {
+  react: `### Frontend: React / Vue / Angular / Svelte
+- dangerouslySetInnerHTML usage — is input sanitized before rendering?
+- useEffect dependency arrays — missing deps causing stale closures?
+- State updates in loops — batching issues?
+- Uncontrolled re-renders — missing React.memo / useMemo on expensive components?
+- Client-side routing — are protected routes actually checking auth state?
+- localStorage/sessionStorage — sensitive data stored client-side?
+- Environment variables — REACT_APP_* / VITE_* / NEXT_PUBLIC_* exposed to client bundle?
+- CSP headers — Content-Security-Policy configured?
+- Form handling — CSRF tokens present?
+- Third-party scripts — loaded from CDN without SRI hashes?`,
+
+  express: `### Backend: Express / Fastify / Koa (Node.js)
+- Middleware ordering — does auth middleware run before route handlers?
+- Body parser limits — is there a size limit on request bodies?
+- CORS configuration — is it overly permissive (origin: '*')?
+- Rate limiting — any rate limiting on auth endpoints?
+- Error middleware — does the error handler leak stack traces in production?
+- Helmet.js or equivalent — security headers set?
+- Session configuration — secure, httpOnly, sameSite flags on cookies?
+- File uploads — size limits, type validation, storage location?
+- SQL/NoSQL queries — parameterized or using ORM safely?
+- Child process spawning — shell injection via exec/spawn?`,
+
+  spring: `### Backend: Spring Boot / Java
+- @RequestMapping without method restriction — allows all HTTP methods?
+- @CrossOrigin — overly permissive CORS?
+- Spring Security filter chain — order of filters correct?
+- CSRF protection — disabled for APIs without alternative?
+- Actuator endpoints — /actuator/** exposed without auth?
+- Deserialization — Jackson polymorphic deserialization enabled?
+- SQL injection — using JPA Criteria API or native queries with string concat?
+- Logging — sensitive data in log statements?
+- Bean validation — @Valid annotations on controller parameters?
+- Properties files — secrets in application.yml checked into git?`,
+
+  python_web: `### Backend: Django / Flask / FastAPI (Python)
+- DEBUG mode — is DEBUG=True possible in production?
+- SECRET_KEY — hardcoded or from environment?
+- ALLOWED_HOSTS (Django) — configured for production?
+- SQL queries — raw SQL with string formatting?
+- Template injection — Jinja2 with user-controlled templates?
+- Pickle deserialization — loading untrusted pickled objects?
+- File path handling — os.path.join with user input (path traversal)?
+- subprocess calls — shell=True with user input?
+- CORS (Flask-CORS / FastAPI CORSMiddleware) — permissive origins?
+- Dependency versions — known CVEs in requirements.txt/pyproject.toml?`,
+
+  phoenix: `### Backend: Elixir / Phoenix / Ash / LiveView
+- LiveView event handlers — do handle_event/3 callbacks validate user authorization, not just authentication?
+- Ash actions — are create/update/destroy actions gated by policies, or is authorize?: false used broadly?
+- Ash policies — are Ash.Policy checks applied to sensitive resources (User, Notification, ModLog)?
+- Magic link / token auth — do tokens expire? Is token reuse prevented?
+- PubSub broadcasts — can a user subscribe to topics they shouldn't see (other users' notifications, admin channels)?
+- Presence tracking — does Phoenix.Presence expose user lists or activity to unauthorized viewers?
+- Oban jobs — do background jobs (email, score updates) validate their arguments, or can crafted args cause privilege escalation?
+- CSP headers — Content-Security-Policy configured in Plug pipeline or endpoint?
+- Ecto queries — any raw SQL with string interpolation instead of parameterized fragments?
+- File uploads — if Trix or other editors allow image/file upload, are types and sizes validated server-side?
+- LiveView assigns — are sensitive assigns (user role, permissions) sent to the client socket?
+- CSRF — does the LiveView socket mount verify the CSRF token from the session?
+- Rate limiting — any rate limiting on auth endpoints (magic link request)?
+- Swoosh email — is the from address validated? Can users trigger emails to arbitrary addresses?`,
+
+  postgres: `### Database: PostgreSQL
+- String concatenation in queries — SQL injection risk?
+- Connection pool configuration — max connections, idle timeout?
+- Row-level security — enabled for multi-tenant data?
+- Privilege escalation — app connecting as superuser?
+- Prepared statements — are they used consistently?
+- SSL/TLS — sslmode=require in connection string?
+- Migrations — do they run as separate restricted user?
+- Connection string — in environment variable or hardcoded?`,
+
+  mongo: `### Database: MongoDB
+- NoSQL injection — $where, $regex with user input?
+- Authentication — mongod running with --auth?
+- Connection string — credentials in code or environment?
+- Field-level encryption — sensitive fields encrypted at rest?
+- Aggregation pipelines — user input in $match stages?
+- ObjectId guessing — sequential IDs allowing enumeration?`,
+
+  ai: `### AI/ML: OpenAI / Anthropic / LangChain
+- Prompt injection — user input concatenated into system prompts?
+- API key exposure — key in client-side code or git history?
+- Token limits — max_tokens configured to prevent cost overrun?
+- Response validation — LLM output parsed/validated before use?
+- PII in prompts — user data sent to external AI without consent/notice?
+- Model version pinning — using specific model version or "latest"?
+- Rate limiting — backoff/retry on 429 responses?
+- Logging — are full prompts/responses logged (cost + privacy)?`,
+
+  docker: `### Infrastructure: Docker / Kubernetes
+- Running as root — USER directive in Dockerfile?
+- Base image — using specific tag or :latest?
+- Secrets in build — ARG/ENV with sensitive values?
+- .dockerignore — excludes .env, .git, node_modules?
+- Health checks — HEALTHCHECK instruction present?
+- Port exposure — unnecessary ports exposed?
+- Volume mounts — host filesystem mounted read-write?`,
+};
+
+/**
+ * Given a merged inventory from the synthesis Phase 1 output,
+ * return the applicable stack-specific checklist text.
+ */
+export function buildStackChecklists(inventory) {
+  const checklists = [];
+  const fw = (inventory.frameworks || []).map(f => f.toLowerCase()).join(" ");
+  const lang = (inventory.languages || []).map(l => l.toLowerCase()).join(" ");
+  const pkgs = (inventory.packages || []).map(p => (p.name || p).toLowerCase()).join(" ");
+  const all = `${fw} ${lang} ${pkgs}`;
+
+  if (/react|next\.?js|vue|angular|svelte/.test(all))
+    checklists.push(STACK_CHECKLISTS.react);
+  if (/express|fastify|koa|hono/.test(all))
+    checklists.push(STACK_CHECKLISTS.express);
+  if (/spring|spring.boot/.test(all))
+    checklists.push(STACK_CHECKLISTS.spring);
+  if (/django|flask|fastapi/.test(all))
+    checklists.push(STACK_CHECKLISTS.python_web);
+  if (/phoenix|liveview|ash|plug/.test(all) || /elixir/.test(all))
+    checklists.push(STACK_CHECKLISTS.phoenix);
+  if (/postgres|pg\b|ecto/.test(all))
+    checklists.push(STACK_CHECKLISTS.postgres);
+  if (/mongo|mongoose/.test(all))
+    checklists.push(STACK_CHECKLISTS.mongo);
+  if (/openai|anthropic|langchain|llama|ollama|claude|gemini/.test(all))
+    checklists.push(STACK_CHECKLISTS.ai);
+  if (/docker|kubernetes|k8s|helm/.test(all))
+    checklists.push(STACK_CHECKLISTS.docker);
+
+  return checklists.length > 0 ? checklists.join("\n\n") : null;
+}
+
+export const STACK_SYNTHESIS_PROMPT = `You are performing a stack-specific deep dive for the University of Montana AI Production Readiness Framework. You have already received the merged synthesis from 5 independent model passes.
+
+Your job is to go through each checklist item below, READ THE ACTUAL CODE, and identify issues that were NOT already caught in the existing findings.
+
+RULES:
+1. For each checklist item, read the relevant source files to determine the answer
+2. If you find an issue NOT already in the existing findings, add it as a new finding
+3. Do NOT duplicate findings that already exist — check titles and evidence before adding
+4. Each new finding must include:
+   - severity: critical | high | warning | info
+   - category: "stack_specific"
+   - title: concise description of the issue
+   - detail: what you found + file:line evidence
+   - evidence: "file:line"
+   - stackContext: which framework/technology this relates to
+   - reportedBy: ["synthesis_stack_check"]
+   - convergenceCount: 1
+   - confidence: "confirmed"
+5. If a checklist item reveals NO issue, skip it — do not report passing checks
+
+EXISTING FINDINGS (do not duplicate these):
+{EXISTING_FINDINGS}
+
+APPLICABLE STACK CHECKLISTS:
+{STACK_CHECKLISTS}
+
+Output a JSON object with this schema:
+{
+  "stackFindings": [
+    { "severity": "", "category": "stack_specific", "title": "", "detail": "", "evidence": "", "stackContext": "", "reportedBy": ["synthesis_stack_check"], "convergenceCount": 1, "confidence": "confirmed" }
+  ],
+  "checklistsEvaluated": ["react", "express", ...],
+  "itemsChecked": 0,
+  "itemsFailed": 0,
+  "summary": "1-2 sentence summary of what the stack deep dive found"
 }
 
 Do not output anything except the JSON. No markdown fences, no commentary.`;

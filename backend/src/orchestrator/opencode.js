@@ -13,7 +13,7 @@
 
 import { join } from "path";
 import { mkdirSync, writeFileSync } from "fs";
-import { PASSES as CODE_PASSES, ANALYSIS_PROMPT, SYNTHESIS_PROMPT as CODE_SYNTHESIS } from "../agents/code-analysis/lenses.js";
+import { PASSES as CODE_PASSES, ANALYSIS_PROMPT, SYNTHESIS_PROMPT as CODE_SYNTHESIS, buildStackChecklists, STACK_SYNTHESIS_PROMPT } from "../agents/code-analysis/lenses.js";
 import { PASSES as A11Y_PASSES, ACCESSIBILITY_PROMPT, SYNTHESIS_PROMPT as A11Y_SYNTHESIS } from "../agents/accessibility/prompts.js";
 import { PASSES as QA_PASSES, QA_PROMPT, SYNTHESIS_PROMPT as QA_SYNTHESIS } from "../agents/qa-analysis/prompts.js";
 import { runDocGenerationParallel } from "../agents/documentation/runner.js";
@@ -194,7 +194,7 @@ ${JSON.stringify(priorFindings, null, 2)}`;
       runId, signal, maxRetries: 1, retryDelayMs: 10000, onOutput: synthOnOutput,
     });
 
-    const synthesized = extractJSON(synthesisResult.output);
+    let synthesized = extractJSON(synthesisResult.output);
     if (synthesized) {
       if (passCount < passKeys.length && synthesized.metadata) {
         synthesized.metadata.partial_analysis = true;
@@ -202,6 +202,65 @@ ${JSON.stringify(priorFindings, null, 2)}`;
         synthesized.metadata.models_total = passKeys.length;
       }
       writeFileSync(join(outputDir, "synthesis.json"), JSON.stringify(synthesized, null, 2));
+
+      // Stack-specific deep dive (Agent 1 only)
+      if (agentDef.name === "code-analysis" && synthesized.inventory) {
+        const stackChecklists = buildStackChecklists(synthesized.inventory);
+        if (stackChecklists) {
+          pLog.info("Running stack-specific deep dive", {
+            checklists: stackChecklists.split("###").length - 1,
+          });
+          emit({ type: "pass_start", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6" });
+          const stackOnOutput = (lines) => {
+            emit({ type: "pass_log", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6", lines });
+          };
+
+          const existingTitles = (synthesized.findings || []).map(f => f.title || "").join("\n- ");
+          const stackPrompt = STACK_SYNTHESIS_PROMPT
+            .replace("{EXISTING_FINDINGS}", existingTitles ? `- ${existingTitles}` : "(none)")
+            .replace("{STACK_CHECKLISTS}", stackChecklists);
+
+          writeFileSync(join(outputDir, "_stack_synthesis_input.txt"), stackPrompt);
+
+          try {
+            const stackResult = await runCLIWithRetry("claude", stackPrompt, resolvedPath, outputDir, {
+              runId, signal, maxRetries: 1, retryDelayMs: 10000, onOutput: stackOnOutput,
+            });
+
+            const stackData = extractJSON(stackResult.output);
+            if (stackData?.stackFindings?.length) {
+              pLog.info("Stack deep dive found new findings", { count: stackData.stackFindings.length });
+              synthesized.findings = [...(synthesized.findings || []), ...stackData.stackFindings];
+              synthesized.stackDeepDive = {
+                checklistsEvaluated: stackData.checklistsEvaluated || [],
+                itemsChecked: stackData.itemsChecked || 0,
+                itemsFailed: stackData.itemsFailed || 0,
+                summary: stackData.summary || "",
+              };
+              // Re-write synthesis with stack findings merged
+              writeFileSync(join(outputDir, "synthesis.json"), JSON.stringify(synthesized, null, 2));
+            } else {
+              pLog.info("Stack deep dive found no new findings");
+              synthesized.stackDeepDive = {
+                checklistsEvaluated: stackData?.checklistsEvaluated || [],
+                itemsChecked: stackData?.itemsChecked || 0,
+                itemsFailed: 0,
+                summary: stackData?.summary || "No additional stack-specific issues found",
+              };
+              writeFileSync(join(outputDir, "synthesis.json"), JSON.stringify(synthesized, null, 2));
+            }
+            writeFileSync(join(outputDir, "stack_deep_dive.json"), JSON.stringify(stackData, null, 2));
+            emit({ type: "pass_complete", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6",
+              elapsed: 0, jsonParsed: !!stackData, outputBytes: stackResult.output?.length || 0 });
+          } catch (err) {
+            pLog.warn("Stack deep dive failed (non-fatal)", { error: err.message });
+            emit({ type: "pass_failed", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6",
+              error: err.message, errorCategory: "stack_deep_dive" });
+          }
+        } else {
+          pLog.info("No applicable stack checklists for this codebase");
+        }
+      }
     } else {
       writeFileSync(join(outputDir, "synthesis_raw.txt"), synthesisResult.output);
     }
