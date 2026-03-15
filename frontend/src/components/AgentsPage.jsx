@@ -183,12 +183,12 @@ const TOC = [
   { id: "overview", label: "Overview" },
   { id: "two-layer", label: "Two-Layer Architecture" },
   { id: "convergence", label: "Multi-Model Convergence" },
+  { id: "det-tooling", label: "Deterministic Tooling" },
   { id: "agent-1", label: "Agent 1: Code & Security" },
   { id: "stack-dive", label: "Stack Deep Dive" },
   { id: "agent-2", label: "Agent 2: Accessibility" },
   { id: "agent-3", label: "Agent 3: QA / Bugs" },
   { id: "agent-4", label: "Agent 4: Documentation" },
-  { id: "det-tooling", label: "Deterministic Tooling" },
   { id: "why-models", label: "Why These Models" },
   { id: "cli-tools", label: "CLI Tools" },
   { id: "standards", label: "Standards & Frameworks" },
@@ -305,7 +305,14 @@ function PipelineDiagram({ onScrollTo }) {
         {arrow()}
 
         {/* Layer 0: Deterministic Tooling */}
-        <div style={{ ...nodeBase, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.accent}` }}>
+        <div role="button" tabIndex={0} onClick={() => onScrollTo("det-tooling")}
+          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onScrollTo("det-tooling"); } }}
+          aria-label="Scroll to Deterministic Tooling"
+          style={{ ...nodeBase, cursor: "pointer", border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.accent}`, transition: "background .15s" }}
+          onMouseEnter={e => e.currentTarget.style.background = C.surfaceHover}
+          onMouseLeave={e => e.currentTarget.style.background = C.bg}
+          onFocus={e => e.currentTarget.style.background = C.surfaceHover}
+          onBlur={e => e.currentTarget.style.background = C.bg}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
             <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
               color: C.accent, background: C.accentSoft, padding: "2px 8px", borderRadius: 4 }}>LAYER 0</span>
@@ -651,6 +658,77 @@ export default function AgentsPage() {
           </p>
         </div>
 
+        {/* Deterministic Tooling (Layer 0) */}
+        <div id="ap-det-tooling" style={{ padding: 28, borderRadius: 12, background: C.surface, border: `1px solid ${C.border}`,
+          borderLeft: `4px solid ${C.accent}`, marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
+              background: C.accentSoft }}>
+              <Zap size={22} color={C.accent} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+                  color: C.accent, background: C.accentSoft, padding: "2px 8px", borderRadius: 4 }}>
+                  LAYER 0
+                </span>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: C.text, margin: 0 }}>Deterministic Tooling</h2>
+              </div>
+              <div style={{ fontSize: 12, color: C.textMid, marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
+                Runs in parallel with model passes &mdash; no added latency
+              </div>
+            </div>
+          </div>
+
+          <p style={{ fontSize: 14, color: C.textMid, lineHeight: 1.65, margin: "0 0 20px" }}>
+            These tools mechanically check every applicable element against known rule sets. Their findings are merged into
+            agent synthesis with a <strong>tool-verified</strong> confidence flag. Semgrep findings are deduplicated against
+            what the models already caught to avoid redundant entries in the final report.
+          </p>
+
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase",
+              fontFamily: "'JetBrains Mono', monospace", marginBottom: 10 }}>
+              Tools
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[
+                { name: "Semgrep", agent: "Agent 1", color: "#A34414",
+                  desc: "Static application security testing with OWASP Top 10 and default rulesets. Catches SQL injection, XSS, command injection, insecure deserialization, hardcoded secrets, and other vulnerability patterns across all major languages.",
+                  url: "https://github.com/semgrep/semgrep", detail: "~1,000+ rules across p/default + p/owasp-top-ten" },
+                { name: "npm audit / pip-audit", agent: "Agent 1", color: "#A34414",
+                  desc: "Dependency vulnerability scanning against the GitHub Advisory Database (npm) and PyPI/NVD (pip). Detects known CVEs in the dependency tree. Automatically detects the package ecosystem from manifest files.",
+                  url: "https://docs.npmjs.com/cli/commands/npm-audit", detail: "Supports Node.js (npm/yarn) and Python (pip/pipenv)" },
+                { name: "Snyk Agent Scan", agent: "Agent 1", color: "#A34414",
+                  desc: "Scans MCP server configurations and SKILL.md files for prompt injection, tool poisoning, tool shadowing, toxic data flows, and credential exposure in agentic AI infrastructure.",
+                  url: "https://github.com/snyk/snyk-agent-scan", detail: "MCP configs + Claude skill files" },
+                { name: "eslint-plugin-jsx-a11y", agent: "Agent 2", color: "#7C3AED",
+                  desc: "Static accessibility linter for React/JSX codebases. Mechanically checks every component for missing alt text, unlabeled form controls, invalid ARIA attributes, missing keyboard handlers, and 30 more WCAG-related rules. This is exactly the exhaustive element-by-element checking that AI models do inconsistently.",
+                  url: "https://github.com/jsx-eslint/eslint-plugin-jsx-a11y", detail: "34 rules, React/JSX only (Vue/Angular planned)" },
+                { name: "ESLint QA", agent: "Agent 3", color: "#06B6D4",
+                  desc: "Static analysis for code correctness: unused variables, unreachable code, dead code paths, async/concurrency bugs (unawaited promises, race conditions), type coercion pitfalls, and bug-prone patterns like missing array callback returns.",
+                  url: "https://github.com/eslint/eslint", detail: "~30 rules focused on correctness, not style. TypeScript-aware." },
+              ].map((tool, i) => (
+                <div key={i} style={{ padding: "10px 14px", borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`,
+                  display: "flex", gap: 12, alignItems: "flex-start", borderLeft: `3px solid ${tool.color}` }}>
+                  <div style={{ minWidth: 120 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
+                      <ExtLink href={tool.url}>{tool.name}</ExtLink>
+                    </div>
+                    <span style={{ fontSize: 9, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
+                      color: tool.color, background: `${tool.color}12`, padding: "1px 5px", borderRadius: 3,
+                      display: "inline-block", marginTop: 3 }}>{tool.agent}</span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.55, marginBottom: 2 }}>{tool.desc}</div>
+                    <div style={{ fontSize: 11, color: C.textDim, fontStyle: "italic" }}>{tool.detail}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Agent Cards — Agent 1 first, then stack dive, then rest */}
         <AgentCard agent={AGENT_DETAILS[0]} />
 
@@ -700,54 +778,6 @@ export default function AgentsPage() {
         {AGENT_DETAILS.slice(1).map(agent => (
           <AgentCard key={agent.id} agent={agent} />
         ))}
-
-        {/* Deterministic Tooling (Layer 0) */}
-        <div id="ap-det-tooling" style={{ marginTop: 40, marginBottom: 32 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <Zap size={16} color={C.accent} aria-hidden="true" />
-            <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Deterministic Tooling</span>
-            <span style={{ fontSize: 11, color: C.textDim, fontFamily: "'JetBrains Mono', monospace", padding: "2px 6px",
-              border: `1px solid ${C.border}`, borderRadius: 4 }}>Layer 0</span>
-          </div>
-          <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, marginTop: 0, marginBottom: 16 }}>
-            These tools run <strong>in parallel</strong> with the AI model passes &mdash; no added latency. Each tool mechanically
-            checks every applicable element against a known rule set. Their findings are merged into the agent synthesis
-            with a <strong>tool-verified</strong> confidence flag. Semgrep findings are deduplicated against what the models already
-            caught to avoid redundant entries in the final report.
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {[
-              { name: "Semgrep", agent: "Agent 1: Code & Security", color: "#A34414",
-                desc: "Static application security testing with OWASP Top 10 and default rulesets. Catches SQL injection, XSS, command injection, insecure deserialization, hardcoded secrets, and other vulnerability patterns by matching against known rule sets across all major languages.",
-                url: "https://github.com/semgrep/semgrep", detail: "~1,000+ rules across p/default + p/owasp-top-ten" },
-              { name: "npm audit / pip-audit", agent: "Agent 1: Code & Security", color: "#A34414",
-                desc: "Dependency vulnerability scanning against the GitHub Advisory Database (npm) and PyPI/NVD (pip). Detects every known CVE in the dependency tree. Automatically detects the package ecosystem from manifest files.",
-                url: "https://docs.npmjs.com/cli/commands/npm-audit", detail: "Supports Node.js (npm/yarn) and Python (pip/pipenv)" },
-              { name: "Snyk Agent Scan", agent: "Agent 1: Code & Security", color: "#A34414",
-                desc: "Scans MCP server configurations and SKILL.md files for prompt injection, tool poisoning, tool shadowing, toxic data flows, and credential exposure in agentic AI infrastructure.",
-                url: "https://github.com/snyk/snyk-agent-scan", detail: "MCP configs + Claude skill files" },
-              { name: "eslint-plugin-jsx-a11y", agent: "Agent 2: Accessibility", color: "#7C3AED",
-                desc: "Static accessibility linter for React/JSX codebases. Mechanically checks every component for missing alt text, unlabeled form controls, invalid ARIA attributes, missing keyboard handlers, and 30 more WCAG-related rules. This is exactly the kind of exhaustive element-by-element checking that AI models do inconsistently.",
-                url: "https://github.com/jsx-eslint/eslint-plugin-jsx-a11y", detail: "34 rules, React/JSX only (Vue/Angular planned)" },
-              { name: "ESLint QA", agent: "Agent 3: QA / Bugs", color: "#06B6D4",
-                desc: "Static analysis for code correctness issues: unused variables, unreachable code, dead code paths, async/concurrency bugs (unawaited promises, race conditions), type coercion pitfalls, and bug-prone patterns like missing array callback returns.",
-                url: "https://github.com/eslint/eslint", detail: "~30 rules focused on correctness, not style. TypeScript-aware." },
-            ].map((tool, i) => (
-              <div key={i} style={{ padding: "14px 18px", borderRadius: 10, background: C.surface, border: `1px solid ${C.border}`,
-                borderLeft: `3px solid ${tool.color}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
-                    <ExtLink href={tool.url}>{tool.name}</ExtLink>
-                  </div>
-                  <span style={{ fontSize: 10, color: tool.color, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
-                    background: `${tool.color}12`, padding: "2px 6px", borderRadius: 4 }}>{tool.agent}</span>
-                </div>
-                <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.55, marginBottom: 4 }}>{tool.desc}</div>
-                <div style={{ fontSize: 11, color: C.textDim, fontStyle: "italic" }}>{tool.detail}</div>
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* Why These Models */}
         <div id="ap-why-models" style={{ marginTop: 40, marginBottom: 32 }}>

@@ -320,7 +320,7 @@ export default function CodeUpload({ toolId, user }) {
         <div style={{ maxWidth: 640, margin: "48px auto" }}>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
             <h1 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 8px" }}>Upload Your Code</h1>
-            <p style={{ fontSize: 14, color: C.textMid, margin: 0 }}>Submit your codebase as a .zip archive. Four AI agents will review it in parallel.</p>
+            <p style={{ fontSize: 14, color: C.textMid, margin: 0 }}>Submit your codebase as a .zip archive. Deterministic scanners and four AI agents will review it.</p>
           </div>
 
           <label htmlFor="zipInput" onDragOver={e => e.preventDefault()} onDrop={handleFile}

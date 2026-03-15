@@ -43,7 +43,7 @@ export default function Welcome() {
             { num: "2", color: "#8B5CF6", Icon: Upload, title: "Upload Code",
               desc: "Submit your codebase as a .zip file. This triggers the automated review pipeline — no manual handoff needed." },
             { num: "3", color: C.gold, Icon: Cpu, title: "Agent Review",
-              desc: "Four AI agents review your code: Code/Security, Accessibility (WCAG 2.2 AA), QA / Bug Detection, and Documentation (3 parallel models generate guides, HECVAT, and compliance summary). You get a findings report." },
+              desc: "Deterministic scanners (Semgrep, npm audit, ESLint) check every element against known rules. Five AI models independently review your code for security, accessibility, and bugs. Claude synthesizes everything into a findings report with three confidence tiers." },
             { num: "4", color: TRACK_COLORS[1], Icon: LayoutGrid, title: "Registry",
               desc: "Your tool is registered with a track assignment. Track 1-2 can self-certify. Track 3-4 require IT review before production." },
           ].map((step, i) => (
