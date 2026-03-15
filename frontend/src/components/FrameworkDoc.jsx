@@ -73,7 +73,7 @@ export default function FrameworkDoc() {
           </nav>
           <div style={{ marginTop: 20, padding: "10px 12px", borderRadius: 8, background: C.surface, border: `1px solid ${C.border}` }}>
             <div style={{ fontSize: 10, color: C.textDim, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>VERSION</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginTop: 2 }}>v1.5 Draft</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginTop: 2 }}>v2.0</div>
             <div style={{ fontSize: 11, color: C.textMid, marginTop: 4 }}>Zachary Rossmiller, CIO</div>
             <div style={{ fontSize: 11, color: C.textMid }}>{config.institutionName} · 2026</div>
           </div>
@@ -85,7 +85,7 @@ export default function FrameworkDoc() {
         <div style={{ marginBottom: 32 }}>
           <h1 style={{ fontSize: 28, fontWeight: 700, color: C.text, margin: "0 0 6px", letterSpacing: -0.5 }}>AI-Built Tool Code Intake</h1>
           <p style={{ fontSize: 15, color: C.textMid, margin: "0 0 4px" }}>Governance framework and intake specification for AI-assisted code</p>
-          <p style={{ fontSize: 12, color: C.textDim, margin: 0 }}>Zachary Rossmiller, CIO, {config.institutionName} · v1.5 Draft · 2026</p>
+          <p style={{ fontSize: 12, color: C.textDim, margin: 0 }}>Zachary Rossmiller, CIO, {config.institutionName} · v2.0 · 2026</p>
         </div>
 
         <div id="fw-purpose" style={sectionStyle}>

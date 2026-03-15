@@ -43,7 +43,7 @@ export default function Welcome() {
             { num: "2", color: "#8B5CF6", Icon: Upload, title: "Upload Code",
               desc: "Submit your codebase as a .zip file. This triggers the automated review pipeline — no manual handoff needed." },
             { num: "3", color: C.gold, Icon: Cpu, title: "Agent Review",
-              desc: "Four AI agents review your code: Code/Security, Accessibility (WCAG 2.2 AA), QA / Bug Detection, and Documentation (with HECVAT). You get a findings report." },
+              desc: "Four AI agents review your code: Code/Security, Accessibility (WCAG 2.2 AA), QA / Bug Detection, and Documentation (3 parallel models generate guides, HECVAT, and compliance summary). You get a findings report." },
             { num: "4", color: TRACK_COLORS[1], Icon: LayoutGrid, title: "Registry",
               desc: "Your tool is registered with a track assignment. Track 1-2 can self-certify. Track 3-4 require IT review before production." },
           ].map((step, i) => (
@@ -137,7 +137,7 @@ export default function Welcome() {
           governance frameworks. Designed to enable AI-assisted development at{" "}
           {config.institutionName} — not restrict it.
         </p>
-        <p style={{ fontSize: 12, color: C.textDim, margin: "8px 0 0" }}>v1.5 Draft · Office of the CIO · 2026</p>
+        <p style={{ fontSize: 12, color: C.textDim, margin: "8px 0 0" }}>v2.0 · Office of the CIO · 2026</p>
       </div>
     </div>
   );

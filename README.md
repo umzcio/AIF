@@ -347,7 +347,7 @@ CAS_SERVICE_URL=...                # CAS callback URL
 
 | Component | Status |
 |-----------|--------|
-| Framework document (v1.5) | Done |
+| Framework document (v2.0) | Done |
 | Scoring model (7 dimensions, weight profiles, track routing) | Done |
 | Frontend portal (intake, registry, pipeline, report, framework, agents) | Done |
 | Dark mode + WCAG 2.2 AA compliance | Done |

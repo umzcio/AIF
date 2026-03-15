@@ -188,6 +188,7 @@ const TOC = [
   { id: "agent-2", label: "Agent 2: Accessibility" },
   { id: "agent-3", label: "Agent 3: QA / Bugs" },
   { id: "agent-4", label: "Agent 4: Documentation" },
+  { id: "det-tooling", label: "Deterministic Tooling" },
   { id: "why-models", label: "Why These Models" },
   { id: "cli-tools", label: "CLI Tools" },
   { id: "standards", label: "Standards & Frameworks" },
@@ -700,6 +701,54 @@ export default function AgentsPage() {
           <AgentCard key={agent.id} agent={agent} />
         ))}
 
+        {/* Deterministic Tooling (Layer 0) */}
+        <div id="ap-det-tooling" style={{ marginTop: 40, marginBottom: 32 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <Zap size={16} color={C.accent} aria-hidden="true" />
+            <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Deterministic Tooling</span>
+            <span style={{ fontSize: 11, color: C.textDim, fontFamily: "'JetBrains Mono', monospace", padding: "2px 6px",
+              border: `1px solid ${C.border}`, borderRadius: 4 }}>Layer 0</span>
+          </div>
+          <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, marginTop: 0, marginBottom: 16 }}>
+            These tools run <strong>in parallel</strong> with the AI model passes &mdash; no added latency. Each tool mechanically
+            checks every applicable element against a known rule set. Their findings are merged into the agent synthesis
+            with a <strong>tool-verified</strong> confidence flag. Semgrep findings are deduplicated against what the models already
+            caught to avoid redundant entries in the final report.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {[
+              { name: "Semgrep", agent: "Agent 1: Code & Security", color: "#A34414",
+                desc: "Static application security testing with OWASP Top 10 and default rulesets. Catches SQL injection, XSS, command injection, insecure deserialization, hardcoded secrets, and other vulnerability patterns by matching against known rule sets across all major languages.",
+                url: "https://github.com/semgrep/semgrep", detail: "~1,000+ rules across p/default + p/owasp-top-ten" },
+              { name: "npm audit / pip-audit", agent: "Agent 1: Code & Security", color: "#A34414",
+                desc: "Dependency vulnerability scanning against the GitHub Advisory Database (npm) and PyPI/NVD (pip). Detects every known CVE in the dependency tree. Automatically detects the package ecosystem from manifest files.",
+                url: "https://docs.npmjs.com/cli/commands/npm-audit", detail: "Supports Node.js (npm/yarn) and Python (pip/pipenv)" },
+              { name: "Snyk Agent Scan", agent: "Agent 1: Code & Security", color: "#A34414",
+                desc: "Scans MCP server configurations and SKILL.md files for prompt injection, tool poisoning, tool shadowing, toxic data flows, and credential exposure in agentic AI infrastructure.",
+                url: "https://github.com/snyk/snyk-agent-scan", detail: "MCP configs + Claude skill files" },
+              { name: "eslint-plugin-jsx-a11y", agent: "Agent 2: Accessibility", color: "#7C3AED",
+                desc: "Static accessibility linter for React/JSX codebases. Mechanically checks every component for missing alt text, unlabeled form controls, invalid ARIA attributes, missing keyboard handlers, and 30 more WCAG-related rules. This is exactly the kind of exhaustive element-by-element checking that AI models do inconsistently.",
+                url: "https://github.com/jsx-eslint/eslint-plugin-jsx-a11y", detail: "34 rules, React/JSX only (Vue/Angular planned)" },
+              { name: "ESLint QA", agent: "Agent 3: QA / Bugs", color: "#06B6D4",
+                desc: "Static analysis for code correctness issues: unused variables, unreachable code, dead code paths, async/concurrency bugs (unawaited promises, race conditions), type coercion pitfalls, and bug-prone patterns like missing array callback returns.",
+                url: "https://github.com/eslint/eslint", detail: "~30 rules focused on correctness, not style. TypeScript-aware." },
+            ].map((tool, i) => (
+              <div key={i} style={{ padding: "14px 18px", borderRadius: 10, background: C.surface, border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${tool.color}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
+                    <ExtLink href={tool.url}>{tool.name}</ExtLink>
+                  </div>
+                  <span style={{ fontSize: 10, color: tool.color, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
+                    background: `${tool.color}12`, padding: "2px 6px", borderRadius: 4 }}>{tool.agent}</span>
+                </div>
+                <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.55, marginBottom: 4 }}>{tool.desc}</div>
+                <div style={{ fontSize: 11, color: C.textDim, fontStyle: "italic" }}>{tool.detail}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Why These Models */}
         <div id="ap-why-models" style={{ marginTop: 40, marginBottom: 32 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
@@ -814,7 +863,7 @@ export default function AgentsPage() {
             onMouseLeave={e => e.currentTarget.style.background = C.surface}>
             <Github size={14} /> View on GitHub
           </a>
-          <p style={{ fontSize: 12, color: C.textDim, margin: "10px 0 0" }}>Office of the CIO &middot; Enterprise IT &middot; Last updated March 12, 2026</p>
+          <p style={{ fontSize: 12, color: C.textDim, margin: "10px 0 0" }}>Office of the CIO &middot; Enterprise IT &middot; Last updated March 15, 2026</p>
         </div>
       </div>
     </div>
