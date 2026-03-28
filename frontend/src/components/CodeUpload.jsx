@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Shield, Eye, ClipboardCheck, FileText, Upload, Package, Check, Clock, ArrowRight, Terminal } from "lucide-react";
+import { Shield, Eye, ClipboardCheck, FileText, Upload, Package, Check, Clock, ArrowRight, Terminal, Zap } from "lucide-react";
 import { C, TRACK_COLORS } from "../constants.js";
 import { navigate } from "../hooks/useHashRouter.js";
 import { getTool, startPipelineRun, getPipelineRun, uploadCodebase, cancelPipelineRun } from "../api.js";
@@ -71,7 +71,7 @@ export default function CodeUpload({ toolId, user }) {
   const [hasCompletedRun, setHasCompletedRun] = useState(false);
   const [starting, setStarting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
-  const [pipelineMode, setPipelineMode] = useState("opencode");
+  const [pipelineMode, setPipelineMode] = useState("direct-api");
 
   // Phase: upload | running
   const [phase, setPhase] = useState("upload");
@@ -79,6 +79,10 @@ export default function CodeUpload({ toolId, user }) {
   const [agentProgress, setAgentProgress] = useState({ security: 0, accessibility: 0, qa: 0, documentation: 0 });
   const [agentLogs, setAgentLogs] = useState({ security: [], accessibility: [], qa: [], documentation: [] });
   const [expandedAgent, setExpandedAgent] = useState("security");
+
+  // Layer 0 tool tracking
+  const [toolStates, setToolStates] = useState({});
+  // { "semgrep": { status: "running"|"complete"|"skipped", elapsed, findings } }
 
   // Queue position
   const [queuePosition, setQueuePosition] = useState(null);
@@ -155,6 +159,18 @@ export default function CodeUpload({ toolId, user }) {
       const event = events[i];
       if (event.type === "state") {
         setQueuePosition(event.queuePosition || null);
+        // Restore tool states from catch-up
+        if (event.toolStates) {
+          setToolStates(p => {
+            const next = { ...p };
+            for (const [name, t] of Object.entries(event.toolStates)) {
+              if (!next[name] || next[name].status === "running") {
+                next[name] = t;
+              }
+            }
+            return next;
+          });
+        }
       }
       if (event.type === "state" && event.agents) {
         for (const agent of event.agents) {
@@ -234,6 +250,32 @@ export default function CodeUpload({ toolId, user }) {
           setAgentLogs(p => ({ ...p, [agentId]: [...p[agentId], event.message || event.data || String(event)] }));
         }
       }
+      if (event.type === "tool_start") {
+        console.log("[AIF] tool_start:", event.tool, event.target);
+        setToolStates(p => ({ ...p, [event.tool]: { status: "running", target: event.target } }));
+      }
+      if (event.type === "tool_complete") {
+        console.log("[AIF] tool_complete:", event.tool, event.findings, event.skipped);
+        setToolStates(p => ({ ...p, [event.tool]: {
+          status: event.skipped ? "skipped" : "complete",
+          target: event.target,
+          elapsed: event.elapsed,
+          findings: event.findings || 0,
+          error: event.error,
+        }}));
+      }
+      if (event.type === "tools_summary" && event.tools) {
+        // Catch-up for tools whose individual events were missed (SSE connected late)
+        setToolStates(p => {
+          const next = { ...p };
+          for (const [name, t] of Object.entries(event.tools)) {
+            if (!next[name] || next[name].status === "running") {
+              next[name] = { status: t.status, findings: t.findings || 0 };
+            }
+          }
+          return next;
+        });
+      }
     }
     processedRef.current = events.length;
   }, [events]);
@@ -298,6 +340,7 @@ export default function CodeUpload({ toolId, user }) {
     setAgentStates({ security: "idle", accessibility: "idle", qa: "idle", documentation: "idle" });
     setAgentProgress({ security: 0, accessibility: 0, qa: 0, documentation: 0 });
     setAgentLogs({ security: [], accessibility: [], qa: [], documentation: [] });
+    setToolStates({});
   }
 
   if (loading) return <div style={{ padding: 24 }}><Skeleton height={200} /></div>;
@@ -366,7 +409,8 @@ export default function CodeUpload({ toolId, user }) {
               <select id="pipelineMode" value={pipelineMode} onChange={e => setPipelineMode(e.target.value)}
                 style={{ fontSize: 13, padding: "4px 8px", borderRadius: 6, border: `1px solid ${C.border}`,
                   background: C.surface, color: C.text, fontFamily: "'DM Sans', sans-serif" }}>
-                <option value="opencode">Default (opencode agents)</option>
+                <option value="direct-api">Direct API (recommended)</option>
+                <option value="opencode">opencode agents</option>
                 <option value="standard">Legacy (direct CLI)</option>
               </select>
             </div>
@@ -451,6 +495,36 @@ export default function CodeUpload({ toolId, user }) {
           {connectionLost && !pipelineError && (
             <div role="alert" style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(201,48,44,0.07)", border: `1px solid rgba(201,48,44,0.2)`, marginBottom: 16, fontSize: 13, color: TRACK_COLORS[4] }}>
               Connection lost. The pipeline continues server-side — refresh to check status.
+            </div>
+          )}
+
+          {/* Layer 0: Deterministic Tooling status */}
+          {Object.keys(toolStates).length > 0 && (
+            <div style={{ padding: "10px 14px", borderRadius: 8, background: C.surfaceAlt, border: `1px solid ${C.border}`,
+              marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Zap size={12} color={C.accent} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.textDim, fontFamily: "'JetBrains Mono', monospace", letterSpacing: 0.5 }}>LAYER 0</span>
+              </div>
+              {Object.entries(toolStates).map(([name, t]) => (
+                <div key={name} style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 5,
+                  background: C.surface, border: `1px solid ${C.border}`, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
+                  {t.status === "running" && <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.accent, animation: "pulse 1.5s infinite" }} />}
+                  {t.status === "complete" && <Check size={11} color={TRACK_COLORS[1]} />}
+                  {t.status === "skipped" && <span style={{ color: C.textDim }}>—</span>}
+                  <span style={{ color: t.status === "skipped" ? C.textDim : C.text, fontWeight: 600 }}>{name}</span>
+                  {t.status === "complete" && t.findings > 0 && (
+                    <span style={{ color: "#A34414", fontWeight: 700 }}>{t.findings}</span>
+                  )}
+                  {t.status === "complete" && t.findings === 0 && (
+                    <span style={{ color: TRACK_COLORS[1] }}>clean</span>
+                  )}
+                  {t.status === "skipped" && <span style={{ color: C.textDim, fontSize: 10 }}>n/a</span>}
+                  {t.elapsed != null && t.status !== "running" && (
+                    <span style={{ color: C.textDim, fontSize: 10 }}>{t.elapsed}s</span>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 

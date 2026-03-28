@@ -124,7 +124,7 @@ Do not wrap in markdown code fences. Output ONLY the JSON.
   },
   "findings": [
     {
-      "severity": "critical|warning|info",
+      "severity": "critical|high|warning|info",
       "wcagCriterion": "string or null",
       "category": "aria|keyboard|contrast|structure|forms|images|media|dynamic|modal|responsive|general",
       "title": "string",
@@ -341,6 +341,7 @@ SEVERITY DEFINITIONS
 =====================================================================
 
 CRITICAL: WCAG A or AA violation that blocks access for assistive technology users. Missing alt text on informative images, no keyboard access, missing form labels, no focus management in modals, keyboard traps.
+HIGH: Significant accessibility issue that affects many users. Missing skip links, poor heading hierarchy, missing landmark roles, inadequate contrast on primary UI elements, non-accessible custom widgets.
 WARNING: Likely violation that needs manual testing to confirm. Low contrast estimates, potentially decorative images without alt="", focus order that may be confusing, ARIA patterns that may not work in all screen readers.
 INFO: Best practice recommendation or positive finding. Using semantic HTML well, good ARIA patterns, minor improvements possible.
 
@@ -371,10 +372,10 @@ ${OUTPUT_SCHEMA}`;
 // All passes use the same prompt
 export const PASSES = {
   pass1: { name: "Pass 1 (Codex/GPT-5.4)", tool: "codex" },
-  pass2: { name: "Pass 2 (Gemini 2.5 Pro)", tool: "gemini" },
-  pass3: { name: "Pass 3 (Grok)", tool: "opencode:grok" },
-  pass4: { name: "Pass 4 (Kimi K2)", tool: "opencode:kimi" },
-  pass5: { name: "Pass 5 (Qwen3 Coder)", tool: "qwen" },
+  pass2: { name: "Pass 2 (MiniMax M2.5)", tool: "direct-api" },
+  pass3: { name: "Pass 3 (MiMo-V2-Flash)", tool: "direct-api" },
+  pass4: { name: "Pass 4 (Kimi K2)", tool: "direct-api" },
+  pass5: { name: "Pass 5 (GLM-5)", tool: "direct-api" },
 };
 
 export const SYNTHESIS_PROMPT = `You are the accessibility synthesis agent for the University of Montana AI Production Readiness Framework. You received independent WCAG 2.2 AA audit reports from multiple AI models. Each model was given the SAME rubric and independently audited the SAME codebase.

@@ -43,6 +43,8 @@ export function extractFindings(agentId, data) {
       remediation: f.remediation || f.recommendation || null,
       category: f.category || f.area || null,
       status: "open",
+      toolVerified: f.toolVerified || false,
+      reportedBy: f.reportedBy || null,
     };
   });
 

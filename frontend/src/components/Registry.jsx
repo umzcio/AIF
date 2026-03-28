@@ -89,13 +89,18 @@ export default function Registry() {
               {filtered.map((item, i) => (
                 <tr key={item.id} className="registry-table-row" tabIndex={user ? 0 : undefined}
                   style={{ background: i % 2 === 0 ? "transparent" : C.surface, cursor: user ? "pointer" : "default" }}
-                  onClick={user ? () => navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`) : undefined}
-                  onKeyDown={user ? (e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(item.status === "in_progress" ? `/upload/${item.id}` : `/tool/${item.id}`); }}) : undefined}
+                  onClick={user ? () => navigate(`/tool/${item.id}`) : undefined}
+                  onKeyDown={user ? (e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/tool/${item.id}`); }}) : undefined}
                   onMouseEnter={user ? (e => e.currentTarget.style.background = C.surfaceHover) : undefined}
                   onMouseLeave={user ? (e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface) : undefined}
                   onFocus={user ? (e => e.currentTarget.style.background = C.surfaceHover) : undefined}
                   onBlur={user ? (e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface) : undefined}>
-                  <th scope="row" style={{ fontWeight: 600, textAlign: "left", padding: 0 }}>{item.name}</th>
+                  <th scope="row" style={{ fontWeight: 600, textAlign: "left", padding: 0 }}>
+                    {item.name}
+                    {item.sandbox && <span style={{ marginLeft: 8, padding: "1px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700,
+                      background: "rgba(139,92,246,0.1)", color: "#7C3AED", verticalAlign: "middle",
+                      letterSpacing: 0.5, textTransform: "uppercase" }}>Sandbox</span>}
+                  </th>
                   <td>{item.track ? <TrackBadge track={item.track} /> : <span style={{ color: C.textDim }}>—</span>}</td>
                   <td style={{ color: C.textMid }}>{item.owner_name || item.owner_netid || "—"}</td>
                   <td style={{ color: C.textMid }}>{item.artifact_type || "—"}</td>

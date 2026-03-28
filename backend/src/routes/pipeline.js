@@ -3,7 +3,7 @@ import multer from "multer";
 import { join } from "path";
 import pool from "../db/pool.js";
 import { enqueue, cancelRun, retryRun } from "../pipeline/queue.js";
-import { onProgress } from "../pipeline/events.js";
+import { onProgress, getToolStates } from "../pipeline/events.js";
 import { requireOwnerOrRole, requireRole } from "../auth/middleware.js";
 import { logAudit } from "../audit.js";
 import { validate, pipelineRunSchema } from "../validation.js";
@@ -49,11 +49,11 @@ router.post("/:toolId/upload", requireOwnerOrRole("admin"), upload.single("codeb
 
 router.post("/:toolId/run", requireOwnerOrRole("admin"), validate(pipelineRunSchema), async (req, res) => {
   const { toolId } = req.params;
-  const { track } = req.validated;
+  const { track, mode } = req.validated;
   const tool = req.tool;
 
   try {
-    const run = await enqueue(toolId, track);
+    const run = await enqueue(toolId, track, null, mode);
     res.status(201).json({ run });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -191,7 +191,8 @@ router.get("/:runId/stream", async (req, res) => {
     queuePosition = parseInt(pos.count) + 1;
   }
 
-  res.write(`data: ${JSON.stringify({ type: "state", run: currentRun, agents, queuePosition })}\n\n`);
+  const toolStates = getToolStates(req.params.runId);
+  res.write(`data: ${JSON.stringify({ type: "state", run: currentRun, agents, queuePosition, toolStates })}\n\n`);
 
   // Flush buffered events, then switch to live mode
   flushing = true;

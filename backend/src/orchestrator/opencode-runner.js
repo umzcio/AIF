@@ -116,7 +116,12 @@ export function runOpencodeAgent(agentName, codebasePath, opts = {}) {
         const text = chunk.toString().replace(/\x1b\[[0-9;]*m/g, "");
         for (const line of text.split("\n")) {
           const trimmed = line.trim();
-          if (trimmed) logBuffer.push(trimmed);
+          if (!trimmed) continue;
+          // Filter out noisy JSONL events from opencode (raw model output, session metadata)
+          if (trimmed.startsWith("{") && (trimmed.includes('"type":"text"') || trimmed.includes('"type":"step_') || trimmed.includes('"sessionID"'))) continue;
+          // Filter very long lines (raw JSON blobs)
+          if (trimmed.length > 500) continue;
+          logBuffer.push(trimmed);
         }
       };
       proc.stdout.on("data", pushLines);

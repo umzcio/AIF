@@ -1,6 +1,7 @@
 import pool, { withTransaction } from "../db/pool.js";
 import { runPipeline } from "../orchestrator/index.js";
 import { runOpencodePipeline } from "../orchestrator/opencode.js";
+import { runDirectApiPipeline } from "../orchestrator/direct-api.js";
 import log from "../logger.js";
 import { emitProgress, removeAllForRun } from "./events.js";
 import { notify, notifyRole } from "../notifications.js";
@@ -63,9 +64,19 @@ let processing = false;
 const runControllers = new Map();
 
 export async function recoverOnStartup() {
-  await pool.query(
+  const { rowCount } = await pool.query(
     `UPDATE pipeline_runs SET status = 'failed', error_message = 'Server restarted during execution', completed_at = NOW() WHERE status = 'running'`
   );
+  if (rowCount > 0) {
+    log.info("Recovered stale running pipelines on startup", { count: rowCount });
+  }
+  // Drain any queued runs left over from before the restart
+  const { rows } = await pool.query("SELECT COUNT(*) FROM pipeline_runs WHERE status = 'queued'");
+  const queued = parseInt(rows[0].count);
+  if (queued > 0) {
+    log.info("Found queued pipeline runs on startup, triggering queue processor", { queued });
+    processNext();
+  }
 }
 
 export async function enqueue(toolId, track, parentRunId = null, mode = "opencode") {
@@ -301,7 +312,9 @@ async function processNext() {
       }
     };
 
-    const pipelineFn = next.pipeline_mode === "opencode" ? runOpencodePipeline : runPipeline;
+    const pipelineFn = next.pipeline_mode === "direct-api" ? runDirectApiPipeline
+      : next.pipeline_mode === "opencode" ? runOpencodePipeline
+      : runPipeline;
     const result = await pipelineFn({
       codebasePath,
       track: next.track,

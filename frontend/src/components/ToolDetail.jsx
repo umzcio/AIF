@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { parsePossiblyStringArray, ROUTE_META, DIMENSION_LABELS, C } from "../constants.js";
 import { Btn, Card, EmptyState, ErrorBanner, PageHeader, Skeleton, StatusBadge, TrackBadge, formatAbsoluteDate, formatDuration, relativeTime } from "./primitives.jsx";
-import { deleteTool, getTool, startPipelineRun } from "../api.js";
-import { FileText, Clock, ArrowRight } from "lucide-react";
+import { deleteTool, getTool, startPipelineRun, toggleSandbox, updateTool } from "../api.js";
+import { FileText, Clock, ArrowRight, Pencil } from "lucide-react";
 /* M2: decorative icons get aria-hidden in render */
 import { navigate } from "../hooks/useHashRouter.js";
 import { useToast } from "./Toast.jsx";
@@ -53,6 +53,10 @@ export default function ToolDetail({ toolId }) {
   const [error, setError] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [runningPipeline, setRunningPipeline] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => { load(); }, [toolId]);
 
@@ -82,6 +86,26 @@ export default function ToolDetail({ toolId }) {
     } catch (err) { toast.error(err.message); setRunningPipeline(false); }
   }
 
+  const canManage = user && (user.role === "admin" || tool?.owner_id === user.userId);
+
+  function startEditing() {
+    setEditName(tool.name || "");
+    setEditDesc(tool.description || "");
+    setEditing(true);
+  }
+
+  async function handleSaveEdit() {
+    if (!editName.trim()) { toast.error("Name is required"); return; }
+    setSaving(true);
+    try {
+      const result = await updateTool(toolId, { name: editName.trim(), description: editDesc.trim() || null });
+      setTool(prev => ({ ...prev, ...result.tool }));
+      setEditing(false);
+      toast.success("Tool updated");
+    } catch (err) { toast.error(err.message); }
+    finally { setSaving(false); }
+  }
+
   const latestRun = runs[0] || null;
   const isRunning = latestRun?.status === "running" || latestRun?.status === "queued";
   const escalationConditions = useMemo(() => parsePossiblyStringArray(tool?.escalation_conditions), [tool?.escalation_conditions]);
@@ -93,10 +117,37 @@ export default function ToolDetail({ toolId }) {
   return (
     <div className="page">
       <Breadcrumb items={[{ label: "Registry", path: "/registry" }, { label: tool.name }]} />
-      <PageHeader eyebrow="Tool Detail" title={tool.name} subtitle={tool.description || "No description."}>
-        <StatusBadge status={tool.status} />
-        {tool.track ? <TrackBadge track={tool.track} size="lg" /> : null}
-      </PageHeader>
+      {editing ? (
+        <div style={{ marginBottom: 24 }}>
+          <div className="eyebrow">Tool Detail</div>
+          <div style={{ marginTop: 8 }}>
+            <input className="text-field" value={editName} onChange={e => setEditName(e.target.value)}
+              placeholder="Tool name" style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, width: "100%", boxSizing: "border-box" }} />
+            <textarea className="text-area" value={editDesc} onChange={e => setEditDesc(e.target.value)}
+              placeholder="Description" style={{ width: "100%", minHeight: 60, boxSizing: "border-box" }} />
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <Btn size="sm" onClick={handleSaveEdit} disabled={saving}>{saving ? "Saving..." : "Save"}</Btn>
+            <Btn size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Btn>
+          </div>
+        </div>
+      ) : (
+        <PageHeader eyebrow="Tool Detail" title={tool.name} subtitle={tool.description || "No description."}>
+          <StatusBadge status={tool.status} />
+          {tool.track ? <TrackBadge track={tool.track} size="lg" /> : null}
+          {tool.sandbox && <span style={{ padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700,
+            background: "rgba(139,92,246,0.1)", color: "#7C3AED", border: "1px solid rgba(139,92,246,0.25)",
+            letterSpacing: 0.5, textTransform: "uppercase" }}>Sandbox</span>}
+          {canManage && (
+            <button type="button" onClick={startEditing} title="Edit tool name and description"
+              style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent",
+                cursor: "pointer", fontSize: 11, fontWeight: 600, color: C.textMid, fontFamily: "'DM Sans', sans-serif",
+                display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <Pencil size={12} aria-hidden="true" /> Edit
+            </button>
+          )}
+        </PageHeader>
+      )}
 
       <div className="summary-grid">
         <StatCard label="Track" value={tool.track ? `Track ${tool.track}` : "Pending"} meta={tool.track ? "From intake scoring" : ""} />
@@ -105,57 +156,60 @@ export default function ToolDetail({ toolId }) {
         <StatCard label="Owner" value={tool.owner_name || tool.owner_netid || "Unassigned"} meta={tool.updated_at ? `Updated ${relativeTime(tool.updated_at)}` : ""} />
       </div>
 
-      {latestRun?.status === "completed" && (
-        <div style={{ display: "flex", gap: 12 }}>
-          <button type="button" onClick={() => navigate(`/review/${toolId}`)}
-            className="section-card" style={{
-              flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "16px 20px",
-              cursor: "pointer", border: `1px solid ${C.accent}30`, background: C.accentSoft,
-              textAlign: "left", fontFamily: "'DM Sans', sans-serif",
-              borderRadius: 10, transition: "border-color .15s",
-            }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
-            onMouseLeave={e => e.currentTarget.style.borderColor = `${C.accent}30`}
-            onFocus={e => e.currentTarget.style.borderColor = C.accent}
-            onBlur={e => e.currentTarget.style.borderColor = `${C.accent}30`}
-          >
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: `${C.accent}18`,
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <FileText size={20} color={C.accent} aria-hidden="true" />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Code Review</div>
-              <div style={{ fontSize: 12, color: C.textMid, marginTop: 2 }}>File tree, findings, and remediation</div>
-            </div>
-            <ArrowRight size={16} color={C.textMid} aria-hidden="true" />
-          </button>
-          <button type="button" onClick={() => navigate(`/tool/${toolId}/report/${latestRun.id}`)}
-            className="section-card" style={{
-              flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "16px 20px",
-              cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent",
-              textAlign: "left", fontFamily: "'DM Sans', sans-serif",
-              borderRadius: 10, transition: "border-color .15s",
-            }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
-            onMouseLeave={e => e.currentTarget.style.borderColor = C.border}
-            onFocus={e => e.currentTarget.style.borderColor = C.accent}
-            onBlur={e => e.currentTarget.style.borderColor = C.border}
-          >
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: C.surface,
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Clock size={20} color={C.textMid} aria-hidden="true" />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Summary Report</div>
-              <div style={{ fontSize: 12, color: C.textMid, marginTop: 2 }}>
-                {latestRun.completed_at ? `Completed ${relativeTime(latestRun.completed_at)}` : "Completed"}
-                {latestRun.queued_at && latestRun.completed_at && <> &middot; {formatDuration(latestRun.queued_at, latestRun.completed_at)}</>}
+      {(() => {
+        const completedRun = runs.find(r => r.status === "completed");
+        return completedRun ? (
+          <div style={{ display: "flex", gap: 12 }}>
+            <button type="button" onClick={() => navigate(`/review/${toolId}/${completedRun.id}`)}
+              className="section-card" style={{
+                flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "16px 20px",
+                cursor: "pointer", border: `1px solid ${C.accent}30`, background: C.accentSoft,
+                textAlign: "left", fontFamily: "'DM Sans', sans-serif",
+                borderRadius: 10, transition: "border-color .15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
+              onMouseLeave={e => e.currentTarget.style.borderColor = `${C.accent}30`}
+              onFocus={e => e.currentTarget.style.borderColor = C.accent}
+              onBlur={e => e.currentTarget.style.borderColor = `${C.accent}30`}
+            >
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: `${C.accent}18`,
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <FileText size={20} color={C.accent} aria-hidden="true" />
               </div>
-            </div>
-            <ArrowRight size={16} color={C.textMid} aria-hidden="true" />
-          </button>
-        </div>
-      )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Code Review</div>
+                <div style={{ fontSize: 12, color: C.textMid, marginTop: 2 }}>File tree, findings, and remediation</div>
+              </div>
+              <ArrowRight size={16} color={C.textMid} aria-hidden="true" />
+            </button>
+            <button type="button" onClick={() => navigate(`/tool/${toolId}/report/${completedRun.id}`)}
+              className="section-card" style={{
+                flex: 1, display: "flex", alignItems: "center", gap: 16, padding: "16px 20px",
+                cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent",
+                textAlign: "left", fontFamily: "'DM Sans', sans-serif",
+                borderRadius: 10, transition: "border-color .15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
+              onMouseLeave={e => e.currentTarget.style.borderColor = C.border}
+              onFocus={e => e.currentTarget.style.borderColor = C.accent}
+              onBlur={e => e.currentTarget.style.borderColor = C.border}
+            >
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: C.surface,
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Clock size={20} color={C.textMid} aria-hidden="true" />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Summary Report</div>
+                <div style={{ fontSize: 12, color: C.textMid, marginTop: 2 }}>
+                  {completedRun.completed_at ? `Completed ${relativeTime(completedRun.completed_at)}` : "Completed"}
+                  {completedRun.queued_at && completedRun.completed_at && <> &middot; {formatDuration(completedRun.queued_at, completedRun.completed_at)}</>}
+                </div>
+              </div>
+              <ArrowRight size={16} color={C.textMid} aria-hidden="true" />
+            </button>
+          </div>
+        ) : null;
+      })()}
 
       {isRunning && (
         <button type="button" onClick={() => navigate(`/tool/${toolId}/pipeline/${latestRun.id}`)}
@@ -246,16 +300,31 @@ export default function ToolDetail({ toolId }) {
             <ReviewPanel tool={tool} onUpdate={(updated) => setTool(prev => ({ ...prev, ...updated }))} />
           )}
 
+          {tool.sandbox && (user?.role === "admin" || tool.owner_id === user?.userId) && (
+            <div style={{ padding: "12px 16px", borderRadius: 8, border: "1px solid rgba(139,92,246,0.25)", background: "rgba(139,92,246,0.05)", marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#7C3AED", marginBottom: 6 }}>Sandbox Mode</div>
+              <div style={{ fontSize: 12, color: C.textMid, marginBottom: 10, lineHeight: 1.4 }}>
+                This tool is sandboxed — only you and admins can see it. Remove sandbox mode to make it visible in the registry.
+                {tool.status === "approved" && <span style={{ display: "block", marginTop: 4, color: C.warning, fontWeight: 600 }}>This tool cannot be activated while in sandbox mode.</span>}
+              </div>
+              <Btn size="sm" onClick={async () => {
+                try {
+                  const result = await toggleSandbox(toolId, false);
+                  toast.success("Sandbox mode removed");
+                  setTool(prev => ({ ...prev, ...result.tool }));
+                } catch (err) { toast.error(err.message); }
+              }}>Remove from Sandbox</Btn>
+            </div>
+          )}
+
           <section className="action-card">
             <div className="card-header"><div><h2>Actions</h2></div></div>
             <div className="section-stack">
               {tool.status === "draft" && <>
                 <Btn onClick={() => navigate(`/intake/${tool.id}`)}>Resume and submit</Btn>
-                <Btn variant="ghost" onClick={handleDelete} disabled={deleting}>{deleting ? "Deleting..." : "Delete draft"}</Btn>
               </>}
               {tool.status === "pending" && !isRunning && <>
                 <Btn onClick={() => navigate(`/upload/${toolId}`)}>Upload & Run Pipeline</Btn>
-                <Btn variant="ghost" onClick={handleDelete} disabled={deleting}>{deleting ? "Deleting..." : "Delete"}</Btn>
               </>}
               {isRunning && <>
                 <div className="info-banner"><div><strong>Pipeline running.</strong> You can leave and come back anytime.</div></div>
@@ -282,6 +351,12 @@ export default function ToolDetail({ toolId }) {
                 <Btn onClick={() => navigate(`/upload/${toolId}`)}>Upload & Re-run</Btn>
                 <Btn variant="ghost" onClick={() => navigate(`/tool/${toolId}/pipeline/${latestRun.id}`)}>View failed run</Btn>
               </>}
+              {canManage && (
+                <Btn variant="ghost" onClick={handleDelete} disabled={deleting}
+                  style={{ color: C.danger, borderColor: `${C.danger}40` }}>
+                  {deleting ? "Deleting..." : "Delete tool"}
+                </Btn>
+              )}
             </div>
           </section>
 

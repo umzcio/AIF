@@ -227,6 +227,7 @@ router.post("/:toolId/activate", requireRole("reviewer", "admin"), async (req, r
     const { rows: [tool] } = await client.query("SELECT * FROM tools WHERE id = $1 FOR UPDATE", [toolId]);
     if (!tool) { res.status(404).json({ error: "Tool not found" }); return null; }
     if (tool.status !== "approved") { res.status(400).json({ error: "Only approved tools can be activated" }); return null; }
+    if (tool.sandbox) { res.status(400).json({ error: "Cannot activate a sandboxed tool. Remove from sandbox first." }); return null; }
 
     const { rows: [u] } = await client.query(
       "UPDATE tools SET status = 'active', updated_at = NOW() WHERE id = $1 RETURNING *",

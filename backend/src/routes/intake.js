@@ -37,12 +37,13 @@ function parseBody(body) {
     artifactType: body.artifactType || null,
     intakeAnswers,
     codebaseUrl: body.codebaseUrl || null,
+    sandbox: body.sandbox === "true" || body.sandbox === true,
   };
 }
 
 // Save draft
 router.post("/draft", upload.single("codebase"), async (req, res) => {
-  const { name, description, submissionType, artifactType, intakeAnswers, codebaseUrl } = parseBody(req.body);
+  const { name, description, submissionType, artifactType, intakeAnswers, codebaseUrl, sandbox } = parseBody(req.body);
   if (!name) return res.status(400).json({ error: "name is required" });
 
   const computed = computeFromAnswers(intakeAnswers, artifactType);
@@ -55,10 +56,10 @@ router.post("/draft", upload.single("codebase"), async (req, res) => {
   const { rows: [tool] } = await pool.query(
     `INSERT INTO tools (name, description, owner_id, submission_type, artifact_type, intake_answers, status,
        score_security, score_accessibility, score_data_sensitivity, score_blast_radius, score_autonomy, score_comprehension, score_maintenance,
-       weighted_percentage, escalation_conditions, track, codebase_url)
+       weighted_percentage, escalation_conditions, track, codebase_url, sandbox)
      VALUES ($1, $2, $3, $4, $5, $6, 'draft',
        $7, $8, $9, $10, $11, $12, $13,
-       $14, $15, $16, $17)
+       $14, $15, $16, $17, $18)
      RETURNING *`,
     [
       name, description, ownerId, submissionType, artifactType, intakeAnswers ? JSON.stringify(intakeAnswers) : null,
@@ -67,7 +68,7 @@ router.post("/draft", upload.single("codebase"), async (req, res) => {
       computed?.scores.autonomy ?? null, computed?.scores.comprehension ?? null, computed?.scores.maintenance ?? null,
       computed ? Math.round(computed.pct * 10000) / 100 : null,
       JSON.stringify(computed?.escalations || []),
-      computed?.track ?? null, codebaseUrl,
+      computed?.track ?? null, codebaseUrl, sandbox,
     ]
   );
 
@@ -97,7 +98,7 @@ router.put("/draft/:id", upload.single("codebase"), async (req, res) => {
     return res.status(403).json({ error: "You can only edit your own drafts" });
   }
 
-  const { name, description, submissionType, artifactType, intakeAnswers, codebaseUrl } = parseBody(req.body);
+  const { name, description, submissionType, artifactType, intakeAnswers, codebaseUrl, sandbox } = parseBody(req.body);
   const computed = computeFromAnswers(intakeAnswers, artifactType);
 
   const { rows: [tool] } = await pool.query(
@@ -107,8 +108,8 @@ router.put("/draft/:id", upload.single("codebase"), async (req, res) => {
        score_security = $6, score_accessibility = $7, score_data_sensitivity = $8, score_blast_radius = $9,
        score_autonomy = $10, score_comprehension = $11, score_maintenance = $12,
        weighted_percentage = $13, escalation_conditions = $14, track = $15,
-       codebase_url = $16, updated_at = NOW()
-     WHERE id = $17 RETURNING *`,
+       codebase_url = $16, sandbox = $17, updated_at = NOW()
+     WHERE id = $18 RETURNING *`,
     [
       name || null, description, submissionType || null,
       artifactType, intakeAnswers ? JSON.stringify(intakeAnswers) : null,
@@ -117,7 +118,7 @@ router.put("/draft/:id", upload.single("codebase"), async (req, res) => {
       computed?.scores.autonomy ?? null, computed?.scores.comprehension ?? null, computed?.scores.maintenance ?? null,
       computed ? Math.round(computed.pct * 10000) / 100 : null,
       JSON.stringify(computed?.escalations || []),
-      computed?.track ?? null, codebaseUrl || null, req.params.id,
+      computed?.track ?? null, codebaseUrl || null, sandbox, req.params.id,
     ]
   );
 
@@ -137,7 +138,7 @@ router.put("/draft/:id", upload.single("codebase"), async (req, res) => {
 // Submit (finalize)
 router.post("/", upload.single("codebase"), async (req, res) => {
   const { draftId } = req.body;
-  const { name, description, submissionType, artifactType, intakeAnswers, codebaseUrl } = parseBody(req.body);
+  const { name, description, submissionType, artifactType, intakeAnswers, codebaseUrl, sandbox } = parseBody(req.body);
 
   if (draftId) {
     const { rows: [existing] } = await pool.query("SELECT * FROM tools WHERE id = $1", [draftId]);
@@ -148,6 +149,7 @@ router.post("/", upload.single("codebase"), async (req, res) => {
     const artType = artifactType || existing.artifact_type;
     const computed = computeFromAnswers(answers, artType);
     if (!computed) return res.status(400).json({ error: "Intake answers are required to submit" });
+    const sandboxVal = sandbox || existing.sandbox || false;
 
     const { rows: [tool] } = await pool.query(
       `UPDATE tools SET
@@ -156,8 +158,8 @@ router.post("/", upload.single("codebase"), async (req, res) => {
          score_security = $6, score_accessibility = $7, score_data_sensitivity = $8, score_blast_radius = $9,
          score_autonomy = $10, score_comprehension = $11, score_maintenance = $12,
          weighted_percentage = $13, escalation_conditions = $14, track = $15,
-         codebase_url = $16, status = 'pending', updated_at = NOW()
-       WHERE id = $17 RETURNING *`,
+         codebase_url = $16, sandbox = $17, status = 'pending', updated_at = NOW()
+       WHERE id = $18 RETURNING *`,
       [
         name || null, description, submissionType || null,
         artType, answers ? JSON.stringify(answers) : null,
@@ -166,7 +168,7 @@ router.post("/", upload.single("codebase"), async (req, res) => {
         computed.scores.autonomy, computed.scores.comprehension, computed.scores.maintenance,
         Math.round(computed.pct * 10000) / 100,
         JSON.stringify(computed.escalations),
-        computed.track, codebaseUrl || null, draftId,
+        computed.track, codebaseUrl || null, sandboxVal, draftId,
       ]
     );
 
@@ -205,10 +207,10 @@ router.post("/", upload.single("codebase"), async (req, res) => {
   const { rows: [tool] } = await pool.query(
     `INSERT INTO tools (name, description, owner_id, submission_type, artifact_type, intake_answers, status,
        score_security, score_accessibility, score_data_sensitivity, score_blast_radius, score_autonomy, score_comprehension, score_maintenance,
-       weighted_percentage, escalation_conditions, track, codebase_url)
+       weighted_percentage, escalation_conditions, track, codebase_url, sandbox)
      VALUES ($1, $2, $3, $4, $5, $6, 'pending',
        $7, $8, $9, $10, $11, $12, $13,
-       $14, $15, $16, $17)
+       $14, $15, $16, $17, $18)
      RETURNING *`,
     [
       name, description, ownerId, submissionType, artifactType, intakeAnswers ? JSON.stringify(intakeAnswers) : null,
@@ -217,7 +219,7 @@ router.post("/", upload.single("codebase"), async (req, res) => {
       computed.scores.autonomy, computed.scores.comprehension, computed.scores.maintenance,
       Math.round(computed.pct * 10000) / 100,
       JSON.stringify(computed.escalations),
-      computed.track, codebaseUrl,
+      computed.track, codebaseUrl, sandbox,
     ]
   );
 

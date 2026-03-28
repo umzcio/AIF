@@ -19,15 +19,22 @@ import log from "../../logger.js";
  */
 function detectEcosystem(codebasePath) {
   const ecosystems = [];
-  if (existsSync(join(codebasePath, "package.json"))) ecosystems.push("npm");
-  if (existsSync(join(codebasePath, "package-lock.json"))) ecosystems.push("npm-lock");
-  if (existsSync(join(codebasePath, "yarn.lock"))) ecosystems.push("yarn");
-  if (existsSync(join(codebasePath, "requirements.txt"))) ecosystems.push("pip");
-  if (existsSync(join(codebasePath, "pyproject.toml"))) ecosystems.push("pip");
-  if (existsSync(join(codebasePath, "Pipfile.lock"))) ecosystems.push("pip");
-  if (existsSync(join(codebasePath, "mix.lock"))) ecosystems.push("mix");
-  if (existsSync(join(codebasePath, "Gemfile.lock"))) ecosystems.push("ruby");
-  if (existsSync(join(codebasePath, "go.sum"))) ecosystems.push("go");
+  // Check root and common subdirectories
+  const dirs = [codebasePath, ...[
+    "frontend", "backend", "api", "server", "client", "app", "web", "src",
+  ].map(d => join(codebasePath, d)).filter(d => existsSync(d))];
+
+  for (const dir of dirs) {
+    if (existsSync(join(dir, "package.json")) && !ecosystems.includes("npm")) ecosystems.push("npm");
+    if (existsSync(join(dir, "package-lock.json")) && !ecosystems.includes("npm-lock")) ecosystems.push("npm-lock");
+    if (existsSync(join(dir, "yarn.lock")) && !ecosystems.includes("yarn")) ecosystems.push("yarn");
+    if (existsSync(join(dir, "requirements.txt")) && !ecosystems.includes("pip")) ecosystems.push("pip");
+    if (existsSync(join(dir, "pyproject.toml")) && !ecosystems.includes("pip")) ecosystems.push("pip");
+    if (existsSync(join(dir, "Pipfile.lock")) && !ecosystems.includes("pip")) ecosystems.push("pip");
+    if (existsSync(join(dir, "mix.lock")) && !ecosystems.includes("mix")) ecosystems.push("mix");
+    if (existsSync(join(dir, "Gemfile.lock")) && !ecosystems.includes("ruby")) ecosystems.push("ruby");
+    if (existsSync(join(dir, "go.sum")) && !ecosystems.includes("go")) ecosystems.push("go");
+  }
   return ecosystems;
 }
 
@@ -37,19 +44,31 @@ function detectEcosystem(codebasePath) {
 function runNpmAudit(codebasePath, outputDir) {
   const dLog = log.child({ component: "dep-audit", ecosystem: "npm" });
 
-  // Need package-lock.json for npm audit
-  if (!existsSync(join(codebasePath, "package-lock.json"))) {
-    // Try generating one (non-destructive — doesn't install)
-    dLog.info("No package-lock.json found, attempting to generate");
-    try {
-      const { execSync } = require("child_process");
-      execSync("npm install --package-lock-only --no-audit --ignore-scripts", {
-        cwd: codebasePath,
-        timeout: 60000,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-    } catch {
-      dLog.warn("Could not generate package-lock.json, skipping npm audit");
+  // Find directory with package-lock.json (root or subdirectories)
+  const searchDirs = [codebasePath, ...[
+    "frontend", "backend", "api", "server", "client", "app", "web",
+  ].map(d => join(codebasePath, d))];
+  let auditDir = searchDirs.find(d => existsSync(join(d, "package-lock.json")));
+
+  if (!auditDir) {
+    // Try the first directory with package.json and generate a lockfile
+    const pkgDir = searchDirs.find(d => existsSync(join(d, "package.json")));
+    if (pkgDir) {
+      dLog.info("No package-lock.json found, attempting to generate", { dir: pkgDir });
+      try {
+        const { execSync } = require("child_process");
+        execSync("npm install --package-lock-only --no-audit --ignore-scripts", {
+          cwd: pkgDir,
+          timeout: 60000,
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        auditDir = pkgDir;
+      } catch {
+        dLog.warn("Could not generate package-lock.json, skipping npm audit");
+        return Promise.resolve(null);
+      }
+    } else {
+      dLog.info("No package.json found in any search directory, skipping npm audit");
       return Promise.resolve(null);
     }
   }
@@ -60,7 +79,7 @@ function runNpmAudit(codebasePath, outputDir) {
 
     const proc = spawn("npm", ["audit", "--json", "--omit=dev"], {
       timeout: 60000,
-      cwd: codebasePath,
+      cwd: auditDir,
       stdio: ["ignore", "pipe", "pipe"],
     });
 

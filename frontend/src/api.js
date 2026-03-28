@@ -53,6 +53,7 @@ function buildIntakeForm(data, file) {
   if (data.artifactType) form.append("artifactType", data.artifactType);
   if (data.intakeAnswers) form.append("intakeAnswers", JSON.stringify(data.intakeAnswers));
   if (data.codebaseUrl) form.append("codebaseUrl", data.codebaseUrl);
+  if (data.sandbox) form.append("sandbox", "true");
   if (file) form.append("codebase", file);
   return form;
 }
@@ -116,6 +117,22 @@ export async function deleteTool(id) {
   return res.json();
 }
 
+export async function updateTool(id, data) {
+  const res = await request(`/registry/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function toggleSandbox(id, sandbox) {
+  const res = await request(`/registry/${id}/sandbox`, {
+    method: "PATCH",
+    body: JSON.stringify({ sandbox }),
+  });
+  return res.json();
+}
+
 export async function updateToolStatus(id, status) {
   const res = await request(`/registry/${id}/status`, {
     method: "PATCH",
@@ -155,10 +172,12 @@ export function uploadCodebase(toolId, file, onProgress) {
   });
 }
 
-export async function startPipelineRun(toolId, track) {
+export async function startPipelineRun(toolId, track, mode) {
+  const body = { track };
+  if (mode) body.mode = mode;
   const res = await request(`/pipeline/${toolId}/run`, {
     method: "POST",
-    body: JSON.stringify({ track }),
+    body: JSON.stringify(body),
   });
   return res.json();
 }

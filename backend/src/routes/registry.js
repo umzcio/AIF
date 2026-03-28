@@ -1,8 +1,8 @@
 import { Router } from "express";
 import pool, { withTransaction } from "../db/pool.js";
-import { requireRole } from "../auth/middleware.js";
+import { requireRole, requireOwnerOrRole } from "../auth/middleware.js";
 import { logAudit } from "../audit.js";
-import { validate, toolStatusSchema } from "../validation.js";
+import { validate, toolStatusSchema, toolEditSchema, sandboxToggleSchema } from "../validation.js";
 import log from "../logger.js";
 
 // Valid status values — used for whitelist validation on query params
@@ -43,15 +43,18 @@ router.get("/", async (req, res) => {
   let params = [];
   let idx = 1;
 
-  // Builders see own tools + active/approved tools from others
+  // Builders see own tools + active/approved non-sandboxed tools from others
   if (req.user && req.user.role === "builder") {
-    where.push(`(t.owner_id = $${idx++} OR t.status IN ('active', 'approved'))`);
+    where.push(`(t.owner_id = $${idx++} OR (t.status IN ('active', 'approved') AND t.sandbox = false))`);
     params.push(req.user.userId);
+  } else if (req.user && req.user.role === "reviewer") {
+    // Reviewers see all non-sandboxed tools
+    where.push("t.sandbox = false");
   } else if (!req.user) {
-    // Unauthenticated users only see active tools
-    where.push("t.status = 'active'");
+    // Unauthenticated users only see active non-sandboxed tools
+    where.push("t.status = 'active' AND t.sandbox = false");
   }
-  // Reviewers and admins see all — no scoping
+  // Admins see all — no scoping
 
   if (track) { where.push(`t.track = $${idx++}`); params.push(track); }
   if (status) { where.push(`t.status = $${idx++}`); params.push(status); }
@@ -86,6 +89,12 @@ router.get("/:id", async (req, res) => {
     [req.params.id]
   );
   if (!tool) return res.status(404).json({ error: "Tool not found" });
+
+  // Sandboxed tools: only owner and admins can view
+  if (tool.sandbox) {
+    const isOwner = tool.owner_id === req.user.userId;
+    if (!isOwner && req.user.role !== "admin") return res.status(403).json({ error: "Access denied" });
+  }
 
   // Builders can only view their own tools or active/approved tools
   if (req.user.role === "builder") {
@@ -139,10 +148,65 @@ router.patch("/:id/status", validate(toolStatusSchema), async (req, res) => {
   res.json({ tool: updated });
 });
 
-// Delete tool — admin only
-router.delete("/:id", requireRole("admin"), async (req, res) => {
-  const { rows: [existing] } = await pool.query("SELECT * FROM tools WHERE id = $1", [req.params.id]);
-  if (!existing) return res.status(404).json({ error: "Tool not found" });
+// Edit tool details — owner or admin
+router.patch("/:id", requireOwnerOrRole("admin"), validate(toolEditSchema), async (req, res) => {
+  const tool = req.tool; // set by requireOwnerOrRole
+  const { name, description } = req.validated;
+
+  const sets = [];
+  const params = [];
+  let idx = 1;
+
+  if (name !== undefined) { sets.push(`name = $${idx++}`); params.push(name); }
+  if (description !== undefined) { sets.push(`description = $${idx++}`); params.push(description); }
+  sets.push("updated_at = NOW()");
+
+  params.push(req.params.id);
+  const { rows: [updated] } = await pool.query(
+    `UPDATE tools SET ${sets.join(", ")} WHERE id = $${idx} RETURNING *`,
+    params
+  );
+
+  logAudit({
+    actorId: req.user.userId, actorNetid: req.user.netid,
+    action: "edit_tool", entityType: "tool", entityId: req.params.id,
+    details: { name: name || tool.name, changes: Object.keys(req.validated) },
+  }).catch(() => {});
+
+  res.json({ tool: updated });
+});
+
+// Toggle sandbox flag — owner or admin
+router.patch("/:id/sandbox", validate(sandboxToggleSchema), async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Authentication required" });
+  const { sandbox } = req.validated;
+
+  const { rows: [tool] } = await pool.query("SELECT * FROM tools WHERE id = $1", [req.params.id]);
+  if (!tool) return res.status(404).json({ error: "Tool not found" });
+
+  const isOwner = tool.owner_id === req.user.userId;
+  if (!isOwner && req.user.role !== "admin") {
+    return res.status(403).json({ error: "Only the owner or an admin can change sandbox mode" });
+  }
+
+  const { rows: [updated] } = await pool.query(
+    "UPDATE tools SET sandbox = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
+    [sandbox, req.params.id]
+  );
+
+  logAudit({
+    actorId: req.user.userId, actorNetid: req.user.netid,
+    action: sandbox ? "sandbox_enable" : "sandbox_disable",
+    entityType: "tool", entityId: req.params.id,
+    details: { name: tool.name },
+  }).catch(() => {});
+
+  res.json({ tool: updated });
+});
+
+// Delete tool — owner or admin
+router.delete("/:id", requireOwnerOrRole("admin"), async (req, res) => {
+  const tool = req.tool; // set by requireOwnerOrRole
 
   await withTransaction(async (client) => {
     // All child tables cascade via ON DELETE CASCADE (migration 008)
@@ -150,7 +214,7 @@ router.delete("/:id", requireRole("admin"), async (req, res) => {
     await logAudit({
       actorId: req.user.userId, actorNetid: req.user.netid,
       action: "delete_tool", entityType: "tool", entityId: req.params.id,
-      details: { name: existing.name },
+      details: { name: tool.name },
     }, client);
   });
 

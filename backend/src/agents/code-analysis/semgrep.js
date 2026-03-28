@@ -11,7 +11,7 @@
  */
 
 import { spawn } from "child_process";
-import { existsSync, writeFileSync } from "fs";
+import { existsSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
 import log from "../../logger.js";
 
@@ -73,7 +73,7 @@ export async function runSemgrep(codebasePath, outputDir) {
       "--json",
       "--output", outputFile,
       "--quiet",         // suppress progress output
-      "--no-git",        // don't require git repo
+      "--no-git-ignore", // don't respect .gitignore (scan everything)
       "--timeout", "60", // per-rule timeout in seconds
       codebasePath,
     ], {
@@ -91,8 +91,8 @@ export async function runSemgrep(codebasePath, outputDir) {
       let parsed = null;
       if (existsSync(outputFile)) {
         try {
-          const { readFileSync } = require("fs");
-          parsed = JSON.parse(readFileSync(outputFile, "utf-8"));
+          const raw = readFileSync(outputFile, "utf-8");
+          parsed = JSON.parse(raw);
         } catch {}
       }
 

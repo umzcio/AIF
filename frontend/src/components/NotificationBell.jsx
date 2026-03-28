@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Bell, CheckCheck, Settings, X, Mail } from "lucide-react";
+import { Bell, CheckCheck, Settings, X, Mail, FlaskConical, ClipboardCheck, CircleCheck, RefreshCw, Zap, Rocket, MessageSquare, Pin } from "lucide-react";
 import { C } from "../constants.js";
 import { getNotifications, markNotificationsRead, getNotificationPreferences, updateNotificationPreferences, updateEmail } from "../api.js";
 import { navigate } from "../hooks/useHashRouter.js";
@@ -18,13 +18,22 @@ function relativeTime(dateStr) {
 }
 
 const TYPE_ICONS = {
-  pipeline_complete: "🔬",
-  review_needed: "📋",
-  review_approved: "✅",
-  review_changes_requested: "🔄",
-  track_override: "⚡",
-  tool_activated: "🚀",
-  comment: "💬",
+  pipeline_complete: FlaskConical,
+  review_needed: ClipboardCheck,
+  review_approved: CircleCheck,
+  review_changes_requested: RefreshCw,
+  track_override: Zap,
+  tool_activated: Rocket,
+  comment: MessageSquare,
+};
+const TYPE_COLORS = {
+  pipeline_complete: "#7C3AED",
+  review_needed: "#C08D1A",
+  review_approved: "#1A6B4B",
+  review_changes_requested: "#C08D1A",
+  track_override: "#A34414",
+  tool_activated: "#1A6B4B",
+  comment: "#5F6B7A",
 };
 
 export default function NotificationBell() {
@@ -272,8 +281,10 @@ export default function NotificationBell() {
                     onFocus={e => { if (n.read) e.currentTarget.style.background = C.surface; }}
                     onBlur={e => { e.currentTarget.style.background = n.read ? "transparent" : C.accentSoft; }}
                   >
-                    <span style={{ fontSize: 16, lineHeight: 1.3, flexShrink: 0 }}>
-                      {TYPE_ICONS[n.type] || "📌"}
+                    <span style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 6,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: `${TYPE_COLORS[n.type] || C.textDim}12` }}>
+                      {(() => { const Icon = TYPE_ICONS[n.type] || Pin; return <Icon size={14} color={TYPE_COLORS[n.type] || C.textDim} />; })()}
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{

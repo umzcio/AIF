@@ -48,10 +48,10 @@ router.get("/overview", async (req, res) => {
     pool.query(`
       SELECT
         COUNT(*) as total_passes,
-        COUNT(*) FILTER (WHERE status = 'completed') as passes_completed,
-        COUNT(*) FILTER (WHERE status = 'failed') as passes_failed,
-        COUNT(*) FILTER (WHERE json_parsed = false AND status = 'completed') as json_parse_failures,
-        AVG(elapsed_seconds) FILTER (WHERE status = 'completed') as avg_pass_seconds,
+        COUNT(*) FILTER (WHERE pr2.status = 'completed') as passes_completed,
+        COUNT(*) FILTER (WHERE pr2.status = 'failed') as passes_failed,
+        COUNT(*) FILTER (WHERE pr2.json_parsed = false AND pr2.status = 'completed') as json_parse_failures,
+        AVG(pr2.elapsed_seconds) FILTER (WHERE pr2.status = 'completed') as avg_pass_seconds,
         AVG(attempt) as avg_attempts
       FROM pass_results pr2
       JOIN pipeline_runs pr ON pr2.run_id = pr.id

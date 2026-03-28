@@ -286,7 +286,12 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
         const text = chunk.toString().replace(/\x1b\[[0-9;]*m/g, "");
         for (const line of text.split("\n")) {
           const trimmed = line.trim();
-          if (trimmed) logBuffer.push(trimmed);
+          if (!trimmed) continue;
+          // Filter out noisy JSONL events (raw model output, session metadata)
+          if (trimmed.startsWith("{") && (trimmed.includes('"type":"text"') || trimmed.includes('"type":"step_') || trimmed.includes('"sessionID"') || trimmed.includes('"type":"result"'))) continue;
+          // Filter very long lines (raw JSON blobs)
+          if (trimmed.length > 500) continue;
+          logBuffer.push(trimmed);
         }
       };
       proc.stdout.on("data", pushLines);
@@ -384,6 +389,16 @@ export async function runCLIWithRetry(tool, prompt, codebasePath, outputDir, opt
  * markdown fences, bare {...} blocks.
  */
 export function extractJSON(text) {
+  // Validate that parsed JSON looks like actual analysis output, not a CLI envelope
+  const ANALYSIS_KEYS = ["findings", "issues", "wcagChecklist", "uiInventory", "inventory",
+    "ariaAudit", "scorecard", "bugFindings", "summary", "scoringSignals", "questions",
+    "userGuide", "adminGuide", "complianceSummary", "stackFindings"];
+
+  function isAnalysisJSON(obj) {
+    if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+    return ANALYSIS_KEYS.some(k => k in obj);
+  }
+
   // Try direct parse — but check for error responses and Claude CLI wrapper first
   try {
     const parsed = JSON.parse(text);
@@ -418,14 +433,21 @@ export function extractJSON(text) {
         }
       }
     }
-      return parsed;
+      if (isAnalysisJSON(parsed)) return parsed;
+      log.warn("extractJSON: parsed valid JSON but missing analysis keys", { keys: Object.keys(parsed).slice(0, 5) });
     }
   } catch {}
 
-  // opencode outputs JSONL events — text may be split across multiple events
+  // opencode outputs JSONL events — text may be split across multiple events.
+  // Models produce analysis JSON in different locations:
+  //   1. Text events (most common) — narrative + JSON in the last text event
+  //   2. Tool output state — when model uses tool-use to produce the report
+  //   3. <task_result> tags in tool output
+  // Strategy: collect ALL text content, try individual events first, then concatenate.
   if (text.includes('"type":"tool_use"') || text.includes('"type":"step_') || text.includes('"type":"text"')) {
     const lines = text.split("\n");
     let concatenatedText = "";
+    const toolOutputs = [];
 
     for (const line of lines) {
       try {
@@ -439,56 +461,88 @@ export function extractJSON(text) {
           const tStart = textContent.indexOf("{");
           const tEnd = textContent.lastIndexOf("}");
           if (tStart !== -1 && tEnd > tStart) {
-            try { return JSON.parse(textContent.slice(tStart, tEnd + 1)); } catch {}
+            try {
+              const p = JSON.parse(textContent.slice(tStart, tEnd + 1));
+              if (isAnalysisJSON(p)) return p;
+            } catch {}
           }
         }
 
-        // Also check tool output state
+        // Collect tool output state for later searching
         const output = event?.part?.state?.output;
-        if (output && typeof output === "string") {
+        if (output && typeof output === "string" && output.length > 100) {
+          toolOutputs.push(output);
+          // Quick check: task_result tags
           const taskMatch = output.match(/<task_result>\s*([\s\S]*?)\s*<\/task_result>/);
           if (taskMatch) {
             const inner = taskMatch[1];
             const jStart = inner.indexOf("{");
             const jEnd = inner.lastIndexOf("}");
             if (jStart !== -1 && jEnd > jStart) {
-              try { return JSON.parse(inner.slice(jStart, jEnd + 1)); } catch {}
+              try {
+                const p = JSON.parse(inner.slice(jStart, jEnd + 1));
+                if (isAnalysisJSON(p)) return p;
+              } catch {}
             }
-          }
-          const oStart = output.indexOf("{");
-          const oEnd = output.lastIndexOf("}");
-          if (oStart !== -1 && oEnd > oStart) {
-            try { return JSON.parse(output.slice(oStart, oEnd + 1)); } catch {}
           }
         }
       } catch {}
     }
 
-    // Try to extract JSON from ALL concatenated text events — handles fragmented output
-    if (concatenatedText.length > 0) {
-      // Try markdown fences in concatenated text
-      const fMatch = concatenatedText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    // Helper: try progressive brace matching on a string
+    function tryBraceMatch(str) {
+      // Try markdown fences first
+      const fMatch = str.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
       if (fMatch) {
-        try { return JSON.parse(fMatch[1]); } catch {}
+        try {
+          const p = JSON.parse(fMatch[1]);
+          if (isAnalysisJSON(p)) return p;
+        } catch {}
       }
-      // Try brace matching on concatenated text
-      const cEnd = concatenatedText.lastIndexOf("}");
-      if (cEnd !== -1) {
+      // Progressive brace matching from the end — try each { paired with last }
+      const end = str.lastIndexOf("}");
+      if (end !== -1) {
         let pos = 0;
-        while (pos < cEnd) {
-          const cStart = concatenatedText.indexOf("{", pos);
-          if (cStart === -1 || cStart >= cEnd) break;
-          try { return JSON.parse(concatenatedText.slice(cStart, cEnd + 1)); } catch {}
-          pos = cStart + 1;
+        while (pos < end) {
+          const start = str.indexOf("{", pos);
+          if (start === -1 || start >= end) break;
+          try {
+            const p = JSON.parse(str.slice(start, end + 1));
+            if (isAnalysisJSON(p)) return p;
+          } catch {}
+          pos = start + 1;
         }
       }
+      return null;
+    }
+
+    // Try concatenated text events
+    if (concatenatedText.length > 0) {
+      const result = tryBraceMatch(concatenatedText);
+      if (result) return result;
+    }
+
+    // Try each tool output (reverse order — last output most likely to contain the report)
+    for (let i = toolOutputs.length - 1; i >= 0; i--) {
+      const result = tryBraceMatch(toolOutputs[i]);
+      if (result) return result;
+    }
+
+    // Last resort: concatenate text + all tool outputs and try again
+    if (toolOutputs.length > 0) {
+      const megaText = concatenatedText + "\n" + toolOutputs.join("\n");
+      const result = tryBraceMatch(megaText);
+      if (result) return result;
     }
   }
 
   // Try markdown fences
   const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
   if (fenceMatch) {
-    try { return JSON.parse(fenceMatch[1]); } catch {}
+    try {
+      const parsed = JSON.parse(fenceMatch[1]);
+      if (isAnalysisJSON(parsed)) return parsed;
+    } catch {}
   }
 
   // Try progressively later { positions — narrative text before JSON is common
@@ -498,7 +552,10 @@ export function extractJSON(text) {
     while (pos < braceEnd) {
       const braceStart = text.indexOf("{", pos);
       if (braceStart === -1 || braceStart >= braceEnd) break;
-      try { return JSON.parse(text.slice(braceStart, braceEnd + 1)); } catch {}
+      try {
+        const parsed = JSON.parse(text.slice(braceStart, braceEnd + 1));
+        if (isAnalysisJSON(parsed)) return parsed;
+      } catch {}
       pos = braceStart + 1;
     }
   }

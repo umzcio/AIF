@@ -156,13 +156,13 @@ const AGENT_DETAILS = [
 const CLI_TOOLS = [
   { name: "Codex CLI", model: "GPT-5.4", provider: "OpenAI", desc: "Full filesystem access, sandbox mode, autonomous code exploration", url: "https://github.com/openai/codex",
     rationale: "Strongest at structured reasoning and step-by-step code analysis. Excels at identifying logical vulnerabilities and complex data flows." },
-  { name: "opencode", model: "MiniMax M2.5", provider: "MiniMax via OpenRouter", desc: "Large-context reasoning with agentic coding capabilities", url: "https://github.com/nicholasq/opencode",
+  { name: "Direct API", model: "MiniMax M2.5", provider: "MiniMax via OpenRouter", desc: "Direct API call with pre-bundled codebase and structured JSON response", url: "https://openrouter.ai/docs",
     rationale: "Strong at structured analysis and cross-file reasoning. Replaces Gemini 2.5 Pro in testing rotation." },
-  { name: "opencode", model: "MiMo-V2-Flash", provider: "Xiaomi via OpenRouter", desc: "Fast reasoning model optimized for code and math", url: "https://github.com/nicholasq/opencode",
+  { name: "Direct API", model: "MiMo-V2-Flash", provider: "Xiaomi via OpenRouter", desc: "Direct API call with pre-bundled codebase and structured JSON response", url: "https://openrouter.ai/docs",
     rationale: "Lightweight flash model with strong code comprehension. Replaces Grok 3 Fast in testing rotation." },
-  { name: "opencode", model: "Kimi K2", provider: "Moonshot via OpenRouter", desc: "Mixture-of-experts architecture with agentic coding", url: "https://github.com/nicholasq/opencode",
+  { name: "Direct API", model: "Kimi K2", provider: "Moonshot via OpenRouter", desc: "Direct API call with pre-bundled codebase and structured JSON response", url: "https://openrouter.ai/docs",
     rationale: "1T-parameter MoE architecture provides a fundamentally different analytical lens. Strong at identifying edge cases in authentication and data handling." },
-  { name: "opencode", model: "GLM-5", provider: "Zhipu via OpenRouter", desc: "Agent-optimized model with deep code understanding", url: "https://github.com/nicholasq/opencode",
+  { name: "Direct API", model: "GLM-5", provider: "Zhipu via OpenRouter", desc: "Direct API call with pre-bundled codebase and structured JSON response", url: "https://openrouter.ai/docs",
     rationale: "Open-source model designed for agent workflows. Replaces Qwen3 Coder in testing rotation." },
   { name: "Gemini CLI", model: "Gemini 3.1 Pro", provider: "Google", role: "docs", desc: "Full filesystem access, long-context document generation", url: "https://github.com/google-gemini/gemini-cli",
     rationale: "Used for Agent 4 documentation generation (User Guide + Admin Guide). Excels at long-form structured output with deep codebase context." },
@@ -792,10 +792,12 @@ export default function AgentsPage() {
             the signal is far more reliable than any single model&rsquo;s output.
           </p>
           <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, marginTop: 0, marginBottom: 20 }}>
-            Selection criteria: <strong>agentic CLI tool</strong> (filesystem access, not API-only),
-            <strong> structured JSON output</strong> (parseable findings),
+            Selection criteria: <strong>structured JSON output</strong> (parseable findings),
             <strong> provider diversity</strong> (no two models from the same training pipeline),
             and <strong>US-accessible API</strong> (institutional compliance).
+            Pass 1 uses <strong>Codex CLI</strong> with filesystem access for autonomous codebase exploration.
+            Passes 2&ndash;5 use <strong>direct OpenRouter API</strong> calls with pre-bundled codebase content and structured JSON responses.
+            Synthesis uses <strong>Claude Code CLI</strong> with filesystem access for dispute resolution.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {CLI_TOOLS.map((tool, i) => (
@@ -832,18 +834,22 @@ export default function AgentsPage() {
             <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>CLI Tools</span>
           </div>
           <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.65, marginTop: 0, marginBottom: 16 }}>
-            The uploaded codebase is extracted into an isolated Docker container. The CLI tools run inside that container
-            with full filesystem access to the codebase &mdash; no chunking, no file sampling, every file is reviewable.
+            The uploaded codebase is extracted into an isolated Docker container.
+            Pass 1 (Codex) and synthesis (Claude) run as <strong>CLI tools with full filesystem access</strong> &mdash;
+            they autonomously explore files, follow imports, and grep the codebase.
+            Passes 2&ndash;5 use <strong>direct API calls</strong> via OpenRouter &mdash; the codebase is pre-bundled
+            into the prompt and the model returns structured JSON findings. No chunking, no file sampling,
+            every file is reviewable.
             Docker provides <strong>security isolation</strong> (untrusted code never touches the host),
             <strong> reproducible environments</strong> (consistent analysis regardless of codebase),
             and <strong>clean teardown</strong> (container is destroyed after analysis, no artifacts persist).
           </p>
           <div className="responsive-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
             {[
-              { name: "Codex CLI", by: "OpenAI", desc: "Sandboxed execution, autonomous exploration, structured output", url: "https://github.com/openai/codex" },
+              { name: "Codex CLI", by: "OpenAI", desc: "Sandboxed execution, autonomous exploration, structured output (Pass 1)", url: "https://github.com/openai/codex" },
+              { name: "OpenRouter API", by: "OpenRouter", desc: "Direct API calls with pre-bundled codebase, structured JSON response (Passes 2\u20135)", url: "https://openrouter.ai/docs" },
               { name: "Gemini CLI", by: "Google", desc: "Long-context document generation for Agent 4 (User Guide, Admin Guide)", url: "https://github.com/google-gemini/gemini-cli" },
-              { name: "opencode", by: "SST", desc: "Multi-provider CLI supporting OpenRouter backends (MiniMax, MiMo, Kimi, GLM)", url: "https://github.com/nicholasq/opencode" },
-              { name: "Claude Code", by: "Anthropic", desc: "Synthesis + Agent 4 Compliance Summary — filesystem access for dispute resolution", url: "https://github.com/anthropics/claude-code" },
+              { name: "Claude Code", by: "Anthropic", desc: "Synthesis + Agent 4 Compliance Summary \u2014 filesystem access for dispute resolution", url: "https://github.com/anthropics/claude-code" },
             ].map((t, i) => (
               <div key={i} style={{ padding: 14, borderRadius: 10, background: C.surface, border: `1px solid ${C.border}` }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2 }}>

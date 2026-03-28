@@ -18,7 +18,7 @@ Do not wrap in markdown code fences. Output ONLY the JSON.
     {
       "title": "string — concise description of the bug",
       "category": "null_undefined|error_handling|async_concurrency|edge_cases|type_safety|resource_management|logic_errors|api_contract|state_management|failure_modes",
-      "severity": "critical|warning|info",
+      "severity": "critical|high|warning|info",
       "file": "string — file path",
       "line": 0,
       "detail": "string — what the bug is and why it matters",
@@ -61,7 +61,7 @@ Do not wrap in markdown code fences. Output ONLY the JSON.
   },
   "findings": [
     {
-      "severity": "critical|warning|info",
+      "severity": "critical|high|warning|info",
       "category": "null_undefined|error_handling|async_concurrency|edge_cases|type_safety|resource_management|logic_errors|api_contract|state_management|failure_modes|code_smell|test_gap",
       "title": "string",
       "detail": "string",
@@ -211,6 +211,7 @@ SEVERITY DEFINITIONS
 =====================================================================
 
 CRITICAL: Bug that WILL cause incorrect behavior, data loss, or crashes in normal usage. Not a hypothetical — the code path is reachable and the bug is real.
+HIGH: Significant bug with clear impact. Race conditions in concurrent code, unhandled promise rejections that crash the process, SQL injection vectors, missing null checks on required data.
 WARNING: Bug that could cause issues under specific but realistic conditions. Requires certain inputs, timing, or state to trigger.
 INFO: Code smell, fragile pattern, or missing test that increases maintenance risk but isn't a bug today.
 
@@ -240,10 +241,10 @@ ${OUTPUT_SCHEMA}`;
 // All passes use the same prompt
 export const PASSES = {
   pass1: { name: "Pass 1 (Codex/GPT-5.4)", tool: "codex" },
-  pass2: { name: "Pass 2 (Gemini 2.5 Pro)", tool: "gemini" },
-  pass3: { name: "Pass 3 (Grok)", tool: "opencode:grok" },
-  pass4: { name: "Pass 4 (Kimi K2)", tool: "opencode:kimi" },
-  pass5: { name: "Pass 5 (Qwen3 Coder)", tool: "qwen" },
+  pass2: { name: "Pass 2 (MiniMax M2.5)", tool: "direct-api" },
+  pass3: { name: "Pass 3 (MiMo-V2-Flash)", tool: "direct-api" },
+  pass4: { name: "Pass 4 (Kimi K2)", tool: "direct-api" },
+  pass5: { name: "Pass 5 (GLM-5)", tool: "direct-api" },
 };
 
 export const SYNTHESIS_PROMPT = `You are the QA synthesis agent for the University of Montana AI Production Readiness Framework. You received independent QA / Bug Detection reports from multiple AI models. Each model was given the SAME rubric and independently analyzed the SAME codebase.
@@ -316,11 +317,11 @@ For the SUMMARY, focus on:
 OUTPUT the merged report as JSON with this schema:
 
 {
-  "bugFindings": [{ "title": "", "category": "", "severity": "critical|warning|info", "file": "", "line": 0, "detail": "", "evidence": "", "suggestedFix": "", "confidence": "confirmed|potential", "reportedBy": [], "convergenceCount": 0 }],
+  "bugFindings": [{ "title": "", "category": "", "severity": "critical|high|warning|info", "file": "", "line": 0, "detail": "", "evidence": "", "suggestedFix": "", "confidence": "confirmed|potential", "reportedBy": [], "convergenceCount": 0 }],
   "failureModeAnalysis": [{ "scenario": "", "trigger": "", "impact": "", "likelihood": "", "file": "", "line": 0, "mitigation": "" }],
   "codeSmells": [{ "title": "", "category": "", "file": "", "line": 0, "detail": "", "suggestion": "", "reportedBy": [], "convergenceCount": 0 }],
   "testCoverageGaps": [{ "area": "", "file": "", "risk": "", "suggestedTests": [] }],
-  "findings": [{ "severity": "critical|warning|info", "category": "", "title": "", "detail": "", "evidence": "file:line", "remediation": "", "reportedBy": [], "convergenceCount": 0, "confidence": "confirmed|potential", "priorStatus": "new|open|resolved|partial", "priorFindingTitle": "title from prior run if this matches a prior finding, omit if new" }],
+  "findings": [{ "severity": "critical|high|warning|info", "category": "", "title": "", "detail": "", "evidence": "file:line", "remediation": "", "reportedBy": [], "convergenceCount": 0, "confidence": "confirmed|potential", "priorStatus": "new|open|resolved|partial", "priorFindingTitle": "title from prior run if this matches a prior finding, omit if new" }],
   "disputes": [{
     "topic": "",
     "type": "factual|judgment",

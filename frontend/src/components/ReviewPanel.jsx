@@ -111,9 +111,16 @@ export default function ReviewPanel({ tool, onUpdate }) {
         )}
 
         {/* Activate approved tool */}
-        {canActivate && (
+        {canActivate && !tool.sandbox && (
           <div style={{ padding: "0 16px" }}>
             <Btn onClick={handleActivate} disabled={submitting}>Activate Tool</Btn>
+          </div>
+        )}
+        {canActivate && tool.sandbox && (
+          <div style={{ padding: "0 16px" }}>
+            <div className="info-banner" style={{ borderColor: "#7C3AED" }}>
+              <div style={{ fontSize: 12, color: "#7C3AED" }}><strong>Sandbox mode active.</strong> Remove sandbox mode before activating.</div>
+            </div>
           </div>
         )}
 

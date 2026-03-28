@@ -20,9 +20,14 @@ import log from "../../logger.js";
 function detectUIFramework(codebasePath) {
   const frameworks = [];
 
-  // Check package.json for React/Vue/Angular/Svelte
-  const pkgPath = join(codebasePath, "package.json");
-  if (existsSync(pkgPath)) {
+  // Check package.json in root and common subdirectories
+  const searchDirs = [codebasePath, ...[
+    "frontend", "client", "web", "app", "src",
+  ].map(d => join(codebasePath, d)).filter(d => existsSync(d))];
+
+  for (const dir of searchDirs) {
+    const pkgPath = join(dir, "package.json");
+    if (!existsSync(pkgPath)) continue;
     try {
       const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
       const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };

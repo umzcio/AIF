@@ -26,6 +26,7 @@ import TopBar from "./components/TopBar.jsx";
 import Registry from "./components/Registry.jsx";
 import IntakeForm from "./components/IntakeForm.jsx";
 import CodeUpload from "./components/CodeUpload.jsx";
+import FindingsReview from "./components/FindingsReview.jsx";
 import ToolDetail from "./components/ToolDetail.jsx";
 import Pipeline from "./components/Pipeline.jsx";
 import Report from "./components/Report.jsx";
@@ -78,9 +79,9 @@ export default function App() {
       case "intake-edit":
         return <IntakeForm draftId={params.draftId} />;
       case "upload":
-        return <CodeUpload key={`upload-${params.toolId}`} toolId={params.toolId} />;
+        return <CodeUpload key={`upload-${params.toolId}`} toolId={params.toolId} user={user} />;
       case "review":
-        return <CodeUpload key={`review-${params.toolId}-${params.runId || ""}`} toolId={params.toolId} runId={params.runId} initialPhase="review" />;
+        return <FindingsReview key={`review-${params.toolId}-${params.runId || ""}`} toolId={params.toolId} runId={params.runId} />;
       case "detail":
         return <ToolDetail key={params.toolId} toolId={params.toolId} />;
       case "pipeline":

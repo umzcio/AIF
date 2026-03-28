@@ -22,7 +22,7 @@ import { runEslintQA } from "../agents/qa-analysis/eslint-qa.js";
 import { PASSES as QA_PASSES, QA_PROMPT, SYNTHESIS_PROMPT as QA_SYNTHESIS } from "../agents/qa-analysis/prompts.js";
 import { runDocGenerationParallel } from "../agents/documentation/runner.js";
 import { runCLIWithRetry, extractJSON } from "../agents/shared/cli.js";
-import { generateAgentDefinitions, cleanupAgentDefinitions } from "./opencode-agents.js";
+import { generateAgentDefinitions, cleanupAgentDefinitions, PROMPT_SUFFIX } from "./opencode-agents.js";
 import { runOpencodeAgent } from "./opencode-runner.js";
 import log from "../logger.js";
 
@@ -109,7 +109,7 @@ async function runAgentOpencode(agentDef, codebasePath, passKeys, outputDir, emi
           result = await runOpencodeAgent(agentMap.get(agentKey), codebasePath, { runId, signal, onOutput });
         } else {
           // Direct CLI (Codex)
-          result = await runCLIWithRetry(pass.tool, agentDef.prompt, resolvedPath, outputDir, {
+          result = await runCLIWithRetry(pass.tool, agentDef.prompt + PROMPT_SUFFIX, resolvedPath, outputDir, {
             runId, signal, maxRetries: 1, retryDelayMs: 5000, onOutput,
             onRetry: (attempt, err) => {
               emit({ type: "pass_retry", agent: agentDef.name, pass: key, model: pass.name, attempt, error: err.message });
@@ -152,15 +152,34 @@ async function runAgentOpencode(agentDef, codebasePath, passKeys, outputDir, emi
     const passCount = Object.keys(reports).length;
     if (passCount === 0) throw new Error("All passes failed: " + failures.join("; "));
 
-    // Build synthesis input
+    // Build synthesis input — trim verbose sections to keep prompt under ~80KB
+    const MAX_PASS_CHARS = 15000;
     const synthesisInput = Object.entries(reports).map(([key, r]) => {
       let content;
       if (r.parsed) {
         const trimmed = { ...r.parsed };
         delete trimmed.filesReviewed;
+        // Truncate verbose WCAG checklist entries to keep each pass compact
+        if (trimmed.wcagChecklist && typeof trimmed.wcagChecklist === "object") {
+          for (const [criterion, val] of Object.entries(trimmed.wcagChecklist)) {
+            if (typeof val === "object" && val !== null) {
+              // Keep status/result but truncate long detail/evidence fields
+              for (const field of ["detail", "evidence", "notes", "description"]) {
+                if (typeof val[field] === "string" && val[field].length > 200) {
+                  val[field] = val[field].slice(0, 200) + "…";
+                }
+              }
+            }
+          }
+        }
         content = JSON.stringify(trimmed);
+        // Hard cap per pass — if a model is extremely verbose, truncate
+        if (content.length > MAX_PASS_CHARS) {
+          pLog.info("Truncating verbose pass for synthesis", { pass: key, original: content.length, truncated: MAX_PASS_CHARS });
+          content = content.slice(0, MAX_PASS_CHARS) + '…(truncated)';
+        }
       } else {
-        content = r.raw.slice(0, 50000);
+        content = r.raw.slice(0, MAX_PASS_CHARS);
       }
       return `## ${r.name} (${key})\n\n${content}`;
     }).join("\n\n---\n\n");
@@ -313,22 +332,39 @@ export async function runOpencodePipeline({ codebasePath, track, toolName, outpu
   emit({ type: "agent_start", agent: "accessibility", label: "Accessibility Audit", index: 1, passesTotal: passes.length });
   const accessibilityDir = join(runDir, "agent2_accessibility");
 
+  // Wrap tool calls with SSE events
+  async function runToolWithEvents(name, target, fn) {
+    pipelineLog.info("Tool started", { tool: name, target });
+    emit({ type: "tool_start", tool: name, target });
+    const start = Date.now();
+    try {
+      const result = await fn();
+      const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+      const findings = result?.findings?.length || result?.totalVulnerabilities || 0;
+      emit({ type: "tool_complete", tool: name, target, elapsed: parseFloat(elapsed), findings, skipped: !result });
+      return result;
+    } catch (err) {
+      const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+      emit({ type: "tool_complete", tool: name, target, elapsed: parseFloat(elapsed), findings: 0, skipped: true, error: err.message });
+      pipelineLog.warn(`${name} failed (non-fatal)`, { error: err.message });
+      return null;
+    }
+  }
+
   const [codeAnalysis, accessibility, a11yLinterResult, depAuditResult, semgrepResult] = await Promise.all([
     runAgentOpencode(AGENTS[0], codebasePath, passes, codeAnalysisDir, emit, agentOpts),
     runAgentOpencode(AGENTS[1], codebasePath, passes, accessibilityDir, emit, agentOpts),
-    runA11yLinter(codebasePath, join(runDir, "agent2_accessibility")).catch(err => {
-      pipelineLog.warn("A11y linter failed (non-fatal)", { error: err.message });
-      return null;
-    }),
-    runDepAudit(codebasePath, join(runDir, "agent1_code_analysis")).catch(err => {
-      pipelineLog.warn("Dependency audit failed (non-fatal)", { error: err.message });
-      return null;
-    }),
-    runSemgrep(codebasePath, join(runDir, "agent1_code_analysis")).catch(err => {
-      pipelineLog.warn("Semgrep SAST failed (non-fatal)", { error: err.message });
-      return null;
-    }),
+    runToolWithEvents("jsx-a11y", "accessibility", () => runA11yLinter(codebasePath, join(runDir, "agent2_accessibility"))),
+    runToolWithEvents("npm-audit", "security", () => runDepAudit(codebasePath, join(runDir, "agent1_code_analysis"))),
+    runToolWithEvents("semgrep", "security", () => runSemgrep(codebasePath, join(runDir, "agent1_code_analysis"))),
   ]);
+
+  // Emit tools_summary so late-connecting SSE clients get tool states
+  emit({ type: "tools_summary", tools: {
+    "jsx-a11y": { status: a11yLinterResult ? "complete" : "skipped", findings: a11yLinterResult?.findings?.length || 0 },
+    "npm-audit": { status: depAuditResult ? "complete" : "skipped", findings: depAuditResult?.totalVulnerabilities || 0 },
+    "semgrep": { status: semgrepResult ? "complete" : "skipped", findings: semgrepResult?.findings?.length || 0 },
+  }});
 
   // If linter found issues and Agent 2 synthesized, merge linter findings
   if (a11yLinterResult?.findings?.length && accessibility.synthesis) {
@@ -440,11 +476,13 @@ export async function runOpencodePipeline({ codebasePath, track, toolName, outpu
   const qaDir = join(runDir, "agent3_qa");
   const [qaAnalysis, eslintQAResult] = await Promise.all([
     runAgentOpencode(AGENTS[2], codebasePath, passes, qaDir, emit, { ...agentOpts, runDir }),
-    runEslintQA(codebasePath, join(runDir, "agent3_qa")).catch(err => {
-      pipelineLog.warn("ESLint QA failed (non-fatal)", { error: err.message });
-      return null;
-    }),
+    runToolWithEvents("eslint-qa", "qa", () => runEslintQA(codebasePath, join(runDir, "agent3_qa"))),
   ]);
+
+  // Emit eslint-qa tool summary for late-connecting SSE clients
+  emit({ type: "tools_summary", tools: {
+    "eslint-qa": { status: eslintQAResult ? "complete" : "skipped", findings: eslintQAResult?.findings?.length || 0 },
+  }});
 
   // Merge ESLint QA findings into Agent 3 synthesis
   if (eslintQAResult?.findings?.length && qaAnalysis.synthesis) {

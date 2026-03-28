@@ -147,6 +147,7 @@ export default function IntakeForm({ draftId }) {
   const [a, setA] = useState({});
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [sandbox, setSandbox] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [serverDraftId, setServerDraftId] = useState(draftId || null);
   const [saveStatus, setSaveStatus] = useState(null); // null | "unsaved" | "saving" | "saved"
@@ -171,6 +172,7 @@ export default function IntakeForm({ draftId }) {
       if (tool.intake_answers) {
         setA(typeof tool.intake_answers === "string" ? JSON.parse(tool.intake_answers) : tool.intake_answers);
       }
+      setSandbox(!!tool.sandbox);
       setServerDraftId(tool.id);
       setSaveStatus("saved");
       setLastSaved(new Date(tool.updated_at));
@@ -201,6 +203,7 @@ export default function IntakeForm({ draftId }) {
       setA(recoveryData.answers || {});
       setName(recoveryData.name || "");
       setDescription(recoveryData.description || "");
+      setSandbox(!!recoveryData.sandbox);
       if (recoveryData.draftId) setServerDraftId(recoveryData.draftId);
       toast.success("Progress recovered");
     }
@@ -217,7 +220,7 @@ export default function IntakeForm({ draftId }) {
   function saveToLocal() {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
-        answers: a, name, description,
+        answers: a, name, description, sandbox,
         draftId: serverDraftId,
         timestamp: Date.now(),
       }));
@@ -230,9 +233,9 @@ export default function IntakeForm({ draftId }) {
     setSaveStatus("saving");
     try {
       if (serverDraftId) {
-        await updateDraft(serverDraftId, { name, description, artifactType: a.q1 || "other", intakeAnswers: a });
+        await updateDraft(serverDraftId, { name, description, artifactType: a.q1 || "other", intakeAnswers: a, sandbox });
       } else {
-        const res = await saveDraft({ name, description, artifactType: a.q1 || "other", intakeAnswers: a });
+        const res = await saveDraft({ name, description, artifactType: a.q1 || "other", intakeAnswers: a, sandbox });
         setServerDraftId(res.tool.id);
       }
       const now = Date.now();
@@ -362,6 +365,7 @@ export default function IntakeForm({ draftId }) {
         description,
         artifactType: a.q1 || "other",
         intakeAnswers: a,
+        sandbox,
       });
       // Clear localStorage on successful submit
       localStorage.removeItem(LS_KEY);
@@ -536,7 +540,18 @@ export default function IntakeForm({ draftId }) {
             </Q>
           </>}
 
-          <div style={{ marginTop: 36, paddingTop: 20, borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ marginTop: 28, padding: "14px 16px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
+              <input type="checkbox" checked={sandbox} onChange={e => { setSandbox(e.target.checked); markChanged(); }}
+                style={{ width: 16, height: 16, accentColor: C.accent }} />
+              Sandbox mode — run pipeline analysis without listing in registry
+            </label>
+            <div style={{ fontSize: 11.5, color: C.textDim, marginTop: 4, marginLeft: 26, lineHeight: 1.4 }}>
+              Sandboxed tools are only visible to you and admins. Pipeline runs normally. You can remove sandbox mode later from the tool detail page.
+            </div>
+          </div>
+
+          <div style={{ marginTop: 16, paddingTop: 20, borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, alignItems: "center" }}>
             <Btn onClick={handleSubmit} disabled={submitting || !name.trim()}>
               {submitting ? "Submitting..." : "Submit Intake & Upload Code"}
             </Btn>

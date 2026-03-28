@@ -11,10 +11,12 @@
 import { execSync } from "child_process";
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "fs";
 import { join, resolve } from "path";
-import { DOC_PROMPT } from "./prompts.js";
+import { DOC_PROMPT, GUIDES_PROMPT, COMPLIANCE_PROMPT } from "./prompts.js";
 import { HECVAT_PROMPT } from "./hecvat-prompt.js";
 import { runCLIWithRetry, extractJSON, loadEnv } from "../shared/cli.js";
 import { exportHecvatXlsx } from "./xlsx-export.js";
+import { runOpencodeAgent } from "../../orchestrator/opencode-runner.js";
+import { generateAgentDefinitions, cleanupAgentDefinitions } from "../../orchestrator/opencode-agents.js";
 
 loadEnv();
 
@@ -186,5 +188,211 @@ export async function runDocGeneration(codebasePath, runDir, outputDir, opts = {
     documentation: parsed,
     hecvat: hecvatParsed,
     raw: result.output,
+  };
+}
+
+/**
+ * Run documentation generation with 3 parallel passes (opencode mode).
+ *
+ * 1. Gemini 3.1 Pro Preview → User Guide + Admin Guide
+ * 2. GLM-5 via opencode → HECVAT assessment
+ * 3. Claude Opus 4.6 → Compliance Summary
+ *
+ * Same return shape as runDocGeneration().
+ */
+export async function runDocGenerationParallel(codebasePath, runDir, outputDir, opts = {}) {
+  mkdirSync(outputDir, { recursive: true });
+
+  const resolvedPath = resolve(codebasePath);
+  console.log(`\nDocumentation Generation (parallel mode): ${resolvedPath}`);
+
+  const agentReports = collectAgentReports(runDir);
+
+  if (opts.signal?.aborted) throw new Error("Pipeline cancelled");
+
+  // Build prompts with agent reports appended
+  const guidesFullPrompt = GUIDES_PROMPT + agentReports;
+  const complianceFullPrompt = COMPLIANCE_PROMPT + agentReports;
+  const hecvatFullPrompt = HECVAT_PROMPT + agentReports;
+
+  writeFileSync(join(outputDir, "_guides_prompt.txt"), guidesFullPrompt);
+  writeFileSync(join(outputDir, "_compliance_prompt.txt"), complianceFullPrompt);
+  writeFileSync(join(outputDir, "_hecvat_prompt.txt"), hecvatFullPrompt);
+
+  // Generate opencode agent definition for HECVAT (GLM-5)
+  generateAgentDefinitions(codebasePath, {
+    "doc-hecvat": {
+      model: "openrouter/z-ai/glm-5",
+      prompt: hecvatFullPrompt,
+    },
+  });
+
+  const cliOpts = { runId: opts.runId, signal: opts.signal, maxRetries: 1, retryDelayMs: 10000 };
+
+  console.log("[docs] Starting 3 parallel passes: Gemini (guides), GLM-5 (HECVAT), Claude (compliance)");
+
+  // Run all 3 in parallel
+  const [guidesResult, hecvatResult, complianceResult] = await Promise.allSettled([
+    // Pass 1: Gemini 3.1 Pro Preview → User Guide + Admin Guide
+    (async () => {
+      const start = Date.now();
+      console.log("[docs/guides] Starting Gemini 3.1 Pro Preview...");
+      const result = await runCLIWithRetry("gemini", guidesFullPrompt, resolvedPath, outputDir, cliOpts);
+      const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+      console.log(`[docs/guides] Gemini completed in ${elapsed}s`);
+      return result;
+    })(),
+
+    // Pass 2: GLM-5 via opencode → HECVAT
+    (async () => {
+      const start = Date.now();
+      console.log("[docs/hecvat] Starting GLM-5 via opencode...");
+      const result = await runOpencodeAgent("doc-hecvat", codebasePath, {
+        runId: opts.runId,
+        signal: opts.signal,
+        timeoutMs: 25 * 60 * 1000, // 25 min for HECVAT
+      });
+      const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+      console.log(`[docs/hecvat] GLM-5 completed in ${elapsed}s`);
+      return result;
+    })(),
+
+    // Pass 3: Claude Opus 4.6 → Compliance Summary
+    (async () => {
+      const start = Date.now();
+      console.log("[docs/compliance] Starting Claude Opus 4.6...");
+      const result = await runCLIWithRetry("claude", complianceFullPrompt, resolvedPath, outputDir, cliOpts);
+      const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+      console.log(`[docs/compliance] Claude completed in ${elapsed}s`);
+      return result;
+    })(),
+  ]);
+
+  // Clean up opencode agent definitions
+  cleanupAgentDefinitions(codebasePath);
+
+  // Process guides result
+  let guidesParsed = null;
+  if (guidesResult.status === "fulfilled") {
+    guidesParsed = extractJSON(guidesResult.value.output);
+    if (guidesParsed) {
+      writeFileSync(join(outputDir, "guides.json"), JSON.stringify(guidesParsed, null, 2));
+    } else {
+      writeFileSync(join(outputDir, "guides_raw.txt"), guidesResult.value.output);
+      console.log("[docs/guides] Could not parse JSON output. Saved as guides_raw.txt");
+    }
+  } else {
+    console.log(`[docs/guides] Gemini failed: ${guidesResult.reason.message}`);
+  }
+
+  // Process compliance result
+  let complianceParsed = null;
+  if (complianceResult.status === "fulfilled") {
+    complianceParsed = extractJSON(complianceResult.value.output);
+    if (complianceParsed) {
+      writeFileSync(join(outputDir, "compliance.json"), JSON.stringify(complianceParsed, null, 2));
+    } else {
+      writeFileSync(join(outputDir, "compliance_raw.txt"), complianceResult.value.output);
+      console.log("[docs/compliance] Could not parse JSON output. Saved as compliance_raw.txt");
+    }
+  } else {
+    console.log(`[docs/compliance] Claude failed: ${complianceResult.reason.message}`);
+  }
+
+  // Merge into the same shape as runDocGeneration
+  const parsed = {
+    userGuide: guidesParsed?.userGuide || null,
+    adminGuide: guidesParsed?.adminGuide || null,
+    complianceSummary: complianceParsed?.complianceSummary || null,
+    metadata: {
+      toolName: guidesParsed?.metadata?.toolName || complianceParsed?.metadata?.toolName || "Unknown",
+      generatedFrom: {
+        codeAnalysis: guidesParsed?.metadata?.generatedFrom?.codeAnalysis || complianceParsed?.metadata?.generatedFrom?.codeAnalysis || false,
+        accessibility: guidesParsed?.metadata?.generatedFrom?.accessibility || complianceParsed?.metadata?.generatedFrom?.accessibility || false,
+        qaAnalysis: guidesParsed?.metadata?.generatedFrom?.qaAnalysis || complianceParsed?.metadata?.generatedFrom?.qaAnalysis || false,
+      },
+      filesRead: guidesParsed?.metadata?.filesRead || [],
+      todoCount: (guidesParsed?.metadata?.todoCount || 0) + (complianceParsed?.metadata?.todoCount || 0),
+      wordCount: {
+        userGuide: guidesParsed?.metadata?.wordCount?.userGuide || 0,
+        adminGuide: guidesParsed?.metadata?.wordCount?.adminGuide || 0,
+        complianceSummary: complianceParsed?.metadata?.wordCount || 0,
+      },
+    },
+  };
+
+  // Write merged documentation.json
+  writeFileSync(join(outputDir, "documentation.json"), JSON.stringify(parsed, null, 2));
+
+  // Write individual markdown files and convert to docx
+  const mdFiles = [
+    ["userGuide", "USER_GUIDE"],
+    ["adminGuide", "ADMIN_GUIDE"],
+    ["complianceSummary", "COMPLIANCE_SUMMARY"],
+  ];
+  for (const [key, name] of mdFiles) {
+    if (parsed[key]) {
+      const mdPath = join(outputDir, `${name}.md`);
+      const docxPath = join(outputDir, `${name}.docx`);
+      writeFileSync(mdPath, parsed[key]);
+      try {
+        execSync(`pandoc "${mdPath}" -o "${docxPath}" --from=markdown --to=docx`, { timeout: 30000 });
+        console.log(`[docs] ${name}.docx written`);
+      } catch (err) {
+        console.log(`[docs] ${name}.md written (docx conversion failed: ${err.message})`);
+      }
+    }
+  }
+
+  // Process HECVAT result
+  let hecvatParsed = null;
+  if (hecvatResult.status === "fulfilled") {
+    hecvatParsed = extractJSON(hecvatResult.value.output);
+    if (hecvatParsed) {
+      writeFileSync(join(outputDir, "hecvat_assessment.json"), JSON.stringify(hecvatParsed, null, 2));
+
+      // Compute scoring if not provided
+      let s = hecvatParsed.scoring;
+      if (!s && hecvatParsed.questions?.length) {
+        const qs = hecvatParsed.questions;
+        const yes = qs.filter(q => q.status === "yes").length;
+        const no = qs.filter(q => q.status === "no").length;
+        const partial = qs.filter(q => q.status === "partial").length;
+        const na = qs.filter(q => q.status === "not_applicable").length;
+        const human = qs.filter(q => q.status === "requires_human_input").length;
+        const answerable = qs.length - human;
+        s = {
+          totalQuestions: qs.length,
+          answeredFromCode: qs.length - human,
+          requiresHumanInput: human,
+          readiness: { yes, no, partial, not_applicable: na, percentage: answerable > 0 ? Math.round((yes + na) / answerable * 100) : 0 },
+        };
+        hecvatParsed.scoring = s;
+        writeFileSync(join(outputDir, "hecvat_assessment.json"), JSON.stringify(hecvatParsed, null, 2));
+      }
+      if (s) {
+        console.log(`[docs/hecvat] Questions: ${s.totalQuestions} total, ${s.answeredFromCode} from code, ${s.requiresHumanInput} need human input`);
+        console.log(`[docs/hecvat] Readiness: ${s.readiness?.percentage}% (${s.readiness?.yes} yes, ${s.readiness?.no} no, ${s.readiness?.partial} partial, ${s.readiness?.not_applicable} n/a)`);
+      }
+
+      // Export to XLSX
+      try {
+        const xlsxPath = join(outputDir, "hecvat_assessment.xlsx");
+        exportHecvatXlsx(hecvatParsed, xlsxPath);
+      } catch (err) {
+        console.log(`[docs/hecvat] XLSX export failed: ${err.message}`);
+      }
+    } else {
+      writeFileSync(join(outputDir, "hecvat_raw.txt"), hecvatResult.value.output);
+      console.log("[docs/hecvat] Could not parse JSON output. Saved as hecvat_raw.txt");
+    }
+  } else {
+    console.log(`[docs/hecvat] GLM-5 failed (non-fatal): ${hecvatResult.reason.message}`);
+  }
+
+  return {
+    documentation: parsed,
+    hecvat: hecvatParsed,
+    raw: guidesResult.status === "fulfilled" ? guidesResult.value.output : null,
   };
 }
