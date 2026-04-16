@@ -23,11 +23,7 @@
 ---
 
 <p align="center">
-  <video src="https://github.com/umzcio/AIF/raw/main/demo.mp4" controls width="700"></video>
-</p>
-
-<p align="center">
-  <a href="https://github.com/umzcio/AIF/raw/main/demo.mp4">▶ Watch demo video (if not displayed above)</a>
+  <img src="demo.gif" alt="AIF portal demo" width="700" />
 </p>
 
 ---
