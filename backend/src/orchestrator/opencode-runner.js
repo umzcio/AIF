@@ -12,7 +12,7 @@ import { tmpdir } from "os";
 import { activeProcesses, MODEL_TIMEOUTS } from "../agents/shared/cli.js";
 import log from "../logger.js";
 
-const OPENCODE_CONFIG = process.env.OPENCODE_CONFIG_PATH || "/home/zach/opencode.json";
+const OPENCODE_CONFIG = process.env.OPENCODE_CONFIG_PATH || "";
 
 /**
  * Run an opencode agent definition against a codebase.
@@ -39,7 +39,7 @@ export function runOpencodeAgent(agentName, codebasePath, opts = {}) {
     // Ensure opencode.json symlink exists
     const ocLink = join(codebasePath, "opencode.json");
     let createdLink = false;
-    if (!existsSync(ocLink) && existsSync(OPENCODE_CONFIG)) {
+    if (OPENCODE_CONFIG && !existsSync(ocLink) && existsSync(OPENCODE_CONFIG)) {
       try { symlinkSync(OPENCODE_CONFIG, ocLink); createdLink = true; } catch {}
     }
 

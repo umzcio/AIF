@@ -10,7 +10,7 @@
   <strong>Risk-tiered governance for AI-assisted tools at scale</strong><br/>
   Score risk across 7 dimensions, route to the right review track, and run a uniform<br/>
   5-model agent pipeline that produces structured findings no human could replicate alone.<br/><br/>
-  <a href="https://github.com/umt-cio/aif">GitHub</a>
+  <a href="https://aif.zachrosmiller.com">AIF Demo</a>
 </p>
 
 <p align="center">

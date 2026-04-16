@@ -12,7 +12,7 @@ import { join, resolve, dirname } from "path";
 import { tmpdir } from "os";
 import log from "../../logger.js";
 
-const OPENCODE_CONFIG = process.env.OPENCODE_CONFIG_PATH || "/home/zach/opencode.json";
+const OPENCODE_CONFIG = process.env.OPENCODE_CONFIG_PATH || "";
 
 /**
  * Build a minimal env for deterministic tool subprocesses (Snyk, Semgrep, ESLint, etc.).
@@ -238,7 +238,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
       };
       const ocLink = join(codebasePath, "opencode.json");
       let createdLink = false;
-      if (!existsSync(ocLink) && existsSync(OPENCODE_CONFIG)) {
+      if (OPENCODE_CONFIG && !existsSync(ocLink) && existsSync(OPENCODE_CONFIG)) {
         try { symlinkSync(OPENCODE_CONFIG, ocLink); createdLink = true; } catch {}
       }
       args = [
