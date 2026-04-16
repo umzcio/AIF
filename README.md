@@ -493,24 +493,6 @@ SMTP_FROM=noreply-aif@example.edu
 
 ---
 
-## Design Decisions
-
-**Why 5 models instead of 1?** A single model has blind spots. GPT misses things Kimi catches. MiMo flags patterns GLM ignores. Independent agreement from 3+ models on the same finding is a stronger signal than one model's high-confidence flag. The cost is ~$1 per run — trivial compared to the cost of a missed FERPA violation.
-
-**Why deterministic tools alongside AI?** AI models hallucinate findings. They claim a SQL injection exists at line 47 when line 47 is a comment. Deterministic tools don't hallucinate — if Semgrep flags a pattern, the pattern is there. The two layers complement each other: tools catch what's mechanically checkable, models catch what requires judgment.
-
-**Why raw SQL instead of an ORM?** The query patterns are simple (CRUD + a few analytics aggregations). An ORM would add complexity without reducing it. Raw parameterized SQL is easier to audit for injection and easier to optimize.
-
-**Why hash routing?** The portal runs behind a reverse proxy at a subpath (`/aif/`). Hash routing (`#/tool/uuid`) avoids server-side route configuration entirely — no catch-all needed, no path rewriting.
-
-**Why pluggable auth?** Every institution has a different SSO stack — CAS, SAML, Entra/OIDC, Shibboleth behind a reverse proxy. AIF ships with CAS (chosen for simplicity — one redirect, one ticket validation) and header-based auth (for Shibboleth/mod_shib). OIDC and SAML providers are stubbed. Set `AUTH_PROVIDER=cas|oidc|saml|header|bypass` in your `.env` — no code changes required. Adding a new provider means implementing 3 functions (`getLoginUrl`, `authenticate`, `getLogoutUrl`) in a single file under `auth/providers/`.
-
-**Why all tracks run the full pipeline?** Early versions varied analysis depth by track. This created a perverse incentive: builders would try to score lower to avoid scrutiny. Uniform analysis means every tool gets the same thorough review — the track only determines the governance response (auto-activate vs. formal review), not how hard the system looks.
-
-**Why HECVAT?** EDUCAUSE HECVAT is the standard higher-ed vendor security assessment. Pre-filling 65% of the 87 questions from code analysis saves weeks of manual work and gives reviewers a head start on compliance documentation.
-
----
-
 ## Testing
 
 ```bash
