@@ -23,7 +23,11 @@
 ---
 
 <p align="center">
-  <video src="demo.mp4" controls width="700"></video>
+  <video src="https://github.com/umzcio/AIF/raw/main/demo.mp4" controls width="700"></video>
+</p>
+
+<p align="center">
+  <a href="https://github.com/umzcio/AIF/raw/main/demo.mp4">▶ Watch demo video (if not displayed above)</a>
 </p>
 
 ---
