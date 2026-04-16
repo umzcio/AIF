@@ -1,7 +1,7 @@
 /**
  * Direct API Orchestrator
  *
- * Replaces the opencode orchestrator for passes 2-5 with direct
+ * Orchestrator using direct OpenRouter API calls for passes 2-5 (replacing
  * OpenRouter API calls. Pass 1 (Codex) stays as CLI. Synthesis
  * stays as Claude Code CLI. Deterministic tools unchanged.
  *
@@ -20,7 +20,7 @@ import { runEslintQA } from "../agents/qa-analysis/eslint-qa.js";
 import { PASSES as QA_PASSES, QA_PROMPT, SYNTHESIS_PROMPT as QA_SYNTHESIS } from "../agents/qa-analysis/prompts.js";
 import { runDocGenerationParallel } from "../agents/documentation/runner.js";
 import { runCLIWithRetry, extractJSON } from "../agents/shared/cli.js";
-import { PROMPT_SUFFIX } from "./opencode-agents.js";
+import { PROMPT_SUFFIX } from "../agents/shared/direct-api.js";
 import { runDirectPass, DIRECT_MODELS } from "../agents/shared/direct-api.js";
 import { bundleCodebase } from "../agents/shared/codebase-bundle.js";
 import { CODE_ANALYSIS_SCHEMA } from "../agents/code-analysis/schema.js";

@@ -14,9 +14,8 @@ import { join, resolve } from "path";
 import { DOC_PROMPT, GUIDES_PROMPT, COMPLIANCE_PROMPT } from "./prompts.js";
 import { HECVAT_PROMPT } from "./hecvat-prompt.js";
 import { runCLIWithRetry, extractJSON, loadEnv } from "../shared/cli.js";
+import { runDirectPass, DIRECT_MODELS } from "../shared/direct-api.js";
 import { exportHecvatXlsx } from "./xlsx-export.js";
-import { runOpencodeAgent } from "../../orchestrator/opencode-runner.js";
-import { generateAgentDefinitions, cleanupAgentDefinitions } from "../../orchestrator/opencode-agents.js";
 
 loadEnv();
 
@@ -192,11 +191,11 @@ export async function runDocGeneration(codebasePath, runDir, outputDir, opts = {
 }
 
 /**
- * Run documentation generation with 3 parallel passes (opencode mode).
+ * Run documentation generation with 3 parallel passes.
  *
- * 1. Gemini 3.1 Pro Preview → User Guide + Admin Guide
- * 2. GLM-5 via opencode → HECVAT assessment
- * 3. Claude Opus 4.6 → Compliance Summary
+ * 1. Gemini 3.1 Pro Preview → User Guide + Admin Guide (CLI)
+ * 2. GLM-5 → HECVAT assessment (direct OpenRouter API)
+ * 3. Claude Opus 4.6 → Compliance Summary (CLI)
  *
  * Same return shape as runDocGeneration().
  */
@@ -219,14 +218,6 @@ export async function runDocGenerationParallel(codebasePath, runDir, outputDir, 
   writeFileSync(join(outputDir, "_compliance_prompt.txt"), complianceFullPrompt);
   writeFileSync(join(outputDir, "_hecvat_prompt.txt"), hecvatFullPrompt);
 
-  // Generate opencode agent definition for HECVAT (GLM-5)
-  generateAgentDefinitions(codebasePath, {
-    "doc-hecvat": {
-      model: "openrouter/z-ai/glm-5",
-      prompt: hecvatFullPrompt,
-    },
-  });
-
   const cliOpts = { runId: opts.runId, signal: opts.signal, maxRetries: 1, retryDelayMs: 10000 };
 
   console.log("[docs] Starting 3 parallel passes: Gemini (guides), GLM-5 (HECVAT), Claude (compliance)");
@@ -243,14 +234,14 @@ export async function runDocGenerationParallel(codebasePath, runDir, outputDir, 
       return result;
     })(),
 
-    // Pass 2: GLM-5 via opencode → HECVAT
+    // Pass 2: GLM-5 via direct OpenRouter API → HECVAT
     (async () => {
       const start = Date.now();
-      console.log("[docs/hecvat] Starting GLM-5 via opencode...");
-      const result = await runOpencodeAgent("doc-hecvat", codebasePath, {
+      console.log("[docs/hecvat] Starting GLM-5 via direct API...");
+      const result = await runDirectPass(DIRECT_MODELS.pass5, hecvatFullPrompt, "", outputDir, {
         runId: opts.runId,
         signal: opts.signal,
-        timeoutMs: 25 * 60 * 1000, // 25 min for HECVAT
+        timeout: 25 * 60 * 1000, // 25 min for HECVAT
       });
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
       console.log(`[docs/hecvat] GLM-5 completed in ${elapsed}s`);
@@ -267,9 +258,6 @@ export async function runDocGenerationParallel(codebasePath, runDir, outputDir, 
       return result;
     })(),
   ]);
-
-  // Clean up opencode agent definitions
-  cleanupAgentDefinitions(codebasePath);
 
   // Process guides result
   let guidesParsed = null;
@@ -347,7 +335,8 @@ export async function runDocGenerationParallel(codebasePath, runDir, outputDir, 
   // Process HECVAT result
   let hecvatParsed = null;
   if (hecvatResult.status === "fulfilled") {
-    hecvatParsed = extractJSON(hecvatResult.value.output);
+    // runDirectPass returns { output, parsed, ... } — parsed is already done
+    hecvatParsed = hecvatResult.value.parsed || extractJSON(hecvatResult.value.output);
     if (hecvatParsed) {
       writeFileSync(join(outputDir, "hecvat_assessment.json"), JSON.stringify(hecvatParsed, null, 2));
 

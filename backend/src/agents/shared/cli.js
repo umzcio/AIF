@@ -7,12 +7,9 @@
  */
 
 import { spawn } from "child_process";
-import { readFileSync, writeFileSync, existsSync, symlinkSync, unlinkSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join, resolve, dirname } from "path";
-import { tmpdir } from "os";
 import log from "../../logger.js";
-
-const OPENCODE_CONFIG = process.env.OPENCODE_CONFIG_PATH || "";
 
 /**
  * Build a minimal env for deterministic tool subprocesses (Snyk, Semgrep, ESLint, etc.).
@@ -48,26 +45,18 @@ function filteredEnv(tool) {
     case "qwen":
       return { ...base, OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY };
     default:
-      // opencode:grok, opencode:kimi
-      if (tool.startsWith("opencode:")) {
-        return { ...base, OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY };
-      }
       return base;
   }
 }
 
 /**
- * Per-model timeout configuration (milliseconds).
- * Codex is consistently slowest (7-10 min), Grok fastest (~30-40s).
- * Claude synthesis can be slow with dispute resolution.
+ * Per-model timeout configuration (milliseconds) for CLI-based passes.
+ * Passes 2-5 use direct API and manage their own timeouts in direct-api.js.
  */
 export const MODEL_TIMEOUTS = {
-  codex:           15 * 60 * 1000,  // 15 min (slow, large model)
-  "opencode:mimo":  5 * 60 * 1000,  // 5 min (MiMo-V2-Flash via OpenRouter)
-  "opencode:minimax": 8 * 60 * 1000, // 8 min (MiniMax M2.5 via OpenRouter)
-  "opencode:glm":   8 * 60 * 1000,  // 8 min (GLM-5 via OpenRouter)
-  "opencode:kimi": 12 * 60 * 1000,  // 12 min (can be slow)
-  claude:          25 * 60 * 1000,  // 25 min (synthesis — processes large merged reports)
+  codex:  15 * 60 * 1000,  // 15 min — Codex is consistently slowest
+  gemini: 10 * 60 * 1000,  // 10 min — Gemini (Agent 4 docs)
+  claude: 25 * 60 * 1000,  // 25 min — Claude synthesis, processes large merged reports
 };
 
 /** Map of runId → Set<ChildProcess> for cancellation support. */
@@ -127,7 +116,7 @@ export function loadEnv() {
  * Run a single CLI tool against a codebase with a given prompt.
  * Returns the tool's text output.
  *
- * @param {string} tool - CLI tool name (codex, gemini, claude, qwen, opencode:grok, opencode:kimi)
+ * @param {string} tool - CLI tool name (codex, gemini, claude, qwen)
  * @param {string} prompt - The prompt to send
  * @param {string} codebasePath - Absolute path to the codebase
  * @param {string} outputDir - Where to write output files
@@ -227,37 +216,6 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
         env: filteredEnv("qwen"),
         stdio: ["ignore", "pipe", "pipe"],
       });
-    } else if (tool.startsWith("opencode:")) {
-      const model = tool.split(":")[1];
-      const modelMap = {
-        // grok: "openrouter/x-ai/grok-code-fast-1",  // swapped for MiMo-V2-Flash
-        mimo: "openrouter/xiaomi/mimo-v2-flash",
-        minimax: "openrouter/minimax/minimax-m2.5",
-        glm: "openrouter/z-ai/glm-5",
-        kimi: "openrouter/moonshotai/kimi-k2",
-      };
-      const ocLink = join(codebasePath, "opencode.json");
-      let createdLink = false;
-      if (OPENCODE_CONFIG && !existsSync(ocLink) && existsSync(OPENCODE_CONFIG)) {
-        try { symlinkSync(OPENCODE_CONFIG, ocLink); createdLink = true; } catch {}
-      }
-      args = [
-        "run", prompt,
-        "--format", "json",
-        "-m", modelMap[model],
-        "--dir", codebasePath,
-      ];
-      // Give each opencode instance its own data dir to avoid SQLite lock conflicts
-      const instanceDataDir = join(tmpdir(), `opencode-${model}-${Date.now()}`);
-      mkdirSync(instanceDataDir, { recursive: true });
-      const cleanup = () => { if (createdLink) try { unlinkSync(ocLink); } catch {} };
-      proc = spawn("opencode", args, {
-        timeout,
-        env: { ...filteredEnv(tool), XDG_DATA_HOME: instanceDataDir },
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      proc.on("close", cleanup);
-      proc.on("error", cleanup);
     } else {
       reject(new Error(`Unknown tool: ${tool}`));
       return;
@@ -329,7 +287,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
         return;
       }
       if (code !== 0 && code !== null) {
-        // Non-zero exit is always a failure — even if the tool wrote output (e.g. opencode writes error JSON)
+        // Non-zero exit is always a failure — even if the tool wrote partial output to stdout
         const detail = stderr.slice(0, 500) || (result ? result.slice(0, 500) : "no output");
         reject(new Error(`${tool} exited ${code}: ${detail}`));
         return;
@@ -393,7 +351,7 @@ export async function runCLIWithRetry(tool, prompt, codebasePath, outputDir, opt
 
 /**
  * Extract JSON from a tool's output.
- * Handles: raw JSON, Claude CLI JSON output, opencode JSONL events,
+ * Handles: raw JSON, Claude CLI JSON output, JSONL event streams,
  * markdown fences, bare {...} blocks.
  */
 export function extractJSON(text) {
@@ -410,15 +368,15 @@ export function extractJSON(text) {
   // Try direct parse — but check for error responses and Claude CLI wrapper first
   try {
     const parsed = JSON.parse(text);
-    // Reject API error responses (e.g. opencode writes {"type":"error","error":{...}} on 402/4xx)
+    // Reject API error response envelopes ({"type":"error","error":{...}})
     if (parsed.type === "error" && parsed.error) {
       log.warn("extractJSON: skipping API error response", { error: parsed.error?.data?.message || parsed.error?.message || "unknown" });
       return null;
     }
-    // Reject opencode session metadata envelopes (step_finish, step_start, etc.)
+    // Reject CLI session metadata envelopes (step_finish, step_start, etc.)
     // These contain session/token info but NOT the analysis output
     if (parsed.type && parsed.type.startsWith("step_") && parsed.sessionID && parsed.part) {
-      log.warn("extractJSON: skipping opencode session metadata", { type: parsed.type, sessionID: parsed.sessionID });
+      log.warn("extractJSON: skipping session metadata envelope", { type: parsed.type, sessionID: parsed.sessionID });
       // Fall through to JSONL parsing below — the real content may be in other events
     } else {
     // Claude CLI --output-format json wraps in { type: "result", result: "..." }
@@ -446,7 +404,7 @@ export function extractJSON(text) {
     }
   } catch {}
 
-  // opencode outputs JSONL events — text may be split across multiple events.
+  // Some CLIs output JSONL event streams — text may be split across multiple events.
   // Models produce analysis JSON in different locations:
   //   1. Text events (most common) — narrative + JSON in the last text event
   //   2. Tool output state — when model uses tool-use to produce the report

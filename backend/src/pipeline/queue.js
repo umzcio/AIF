@@ -41,12 +41,13 @@ function validateUrl(url) {
  * Updated periodically as pricing changes.
  */
 const MODEL_COST_USD = {
-  "codex":              0.30,  // GPT-5.4 via Codex
-  "opencode:minimax":   0.10,  // MiniMax M2.5 via OpenRouter
-  "opencode:mimo":      0.06,  // MiMo-V2-Flash via OpenRouter
-  "opencode:glm":       0.08,  // GLM-5 via OpenRouter
-  "opencode:kimi":      0.12,  // Kimi K2 via OpenRouter
-  "claude":             0.45,  // Claude Opus 4.6 (synthesis)
+  "codex":     0.30,  // GPT-5.4 via Codex CLI (pass 1)
+  "minimax":   0.10,  // MiniMax M2.5 via OpenRouter (pass 2)
+  "mimo":      0.06,  // MiMo-V2-Flash via OpenRouter (pass 3)
+  "kimi":      0.12,  // Kimi K2 via OpenRouter (pass 4)
+  "glm":       0.08,  // GLM-5 via OpenRouter (pass 5 + Agent 4 HECVAT)
+  "gemini":    0.15,  // Gemini 3.1 Pro Preview (Agent 4 guides)
+  "claude":    0.45,  // Claude Opus 4.6 (synthesis + Agent 4 compliance)
 };
 
 const OUTPUT_BASE = process.env.OUTPUT_DIR || "/data/output";
@@ -74,7 +75,7 @@ export async function recoverOnStartup() {
   }
 }
 
-export async function enqueue(toolId, track, parentRunId = null, mode = "opencode") {
+export async function enqueue(toolId, track, parentRunId = null, mode = "direct-api") {
   const { rows: [tool] } = await pool.query("SELECT * FROM tools WHERE id = $1", [toolId]);
   if (!tool) throw new Error("Tool not found");
 

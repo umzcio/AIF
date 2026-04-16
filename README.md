@@ -320,9 +320,7 @@ AIF/
 │       │   ├── queue.js                 # Job queue, SSE streaming, cancel/retry, metrics
 │       │   └── events.js               # SSE event emitter
 │       ├── orchestrator/
-│       │   ├── direct-api.js            # Pipeline orchestration (5 models + tools + synthesis)
-│       │   ├── opencode-agents.js       # Agent definition file generation (for opencode CLI)
-│       │   └── opencode-runner.js       # Opencode CLI execution (used by doc runner)
+│       │   └── direct-api.js            # Pipeline orchestration (5 models + tools + synthesis)
 │       ├── agents/
 │       │   ├── shared/
 │       │   │   ├── cli.js               # CLI execution, JSON extraction, env filtering, timeouts
@@ -534,7 +532,6 @@ The framework document (`um-ai-built-tool-intake.docx`) and scoring model are in
 ### CLI Tools
 - [Codex](https://github.com/openai/codex) (OpenAI) — GPT-5.4 with filesystem access
 - [Claude Code](https://github.com/anthropics/claude-code) (Anthropic) — Claude with filesystem access
-- [opencode](https://github.com/sst/opencode) (SST) — OpenRouter agent orchestration
 
 ---
 

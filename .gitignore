@@ -29,9 +29,6 @@ code_proto.jsx
 FRAMEWORK_REPLICA.jsx
 files.json
 
-# opencode working dirs
-opencode/
-
 # Architecture, project docs, planning, and research (local reference only)
 ARCHITECTURE.md
 CLAUDE.md
@@ -48,4 +45,3 @@ codex_*
 
 # UM standards reference files
 um-standards/
-opencode

@@ -1,9 +1,9 @@
 /**
  * Documentation Generation Prompts
  *
- * Standard mode: single Claude pass for all 3 docs (DOC_PROMPT), then HECVAT.
- * Opencode mode: 3 parallel passes — GUIDES_PROMPT (Gemini), COMPLIANCE_PROMPT (Claude),
- *   HECVAT (GLM-5 via opencode).
+ * Parallel mode (current): GUIDES_PROMPT (Gemini CLI), HECVAT (GLM-5 via direct API),
+ *   COMPLIANCE_PROMPT (Claude Code CLI) — all 3 run in parallel.
+ * Legacy DOC_PROMPT: single Claude pass for all 3 docs + HECVAT sequentially.
  *
  * HECVAT was moved here from the former Agent 3 — it runs as a separate call.
  */
@@ -122,7 +122,7 @@ Output a single JSON object. Do not wrap in markdown fences. Output ONLY the JSO
   }
 }`;
 
-// ─── Split prompts for parallel opencode mode ───────────────────────
+// ─── Split prompts for parallel mode ────────────────────────────────
 
 export const GUIDES_PROMPT = `You are the documentation generation agent for the AI Production Readiness Framework (AIF). Your job is to produce a User Guide and an Admin/Deployment Guide for the tool under review.
 

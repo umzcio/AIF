@@ -11,12 +11,13 @@ import { pipelineRunSchema } from "../validation.js";
 const MAX_RETRIES = 2;
 
 const MODEL_COST_USD = {
-  "codex":           0.30,
-  "gemini":          0.08,
-  "opencode:grok":   0.10,
-  "opencode:kimi":   0.12,
-  "qwen":            0.08,
-  "claude":          0.45,
+  "codex":     0.30,
+  "minimax":   0.10,
+  "mimo":      0.06,
+  "kimi":      0.12,
+  "glm":       0.08,
+  "gemini":    0.15,
+  "claude":    0.45,
 };
 
 /**
@@ -265,7 +266,7 @@ describe("retry logic constants", () => {
 // ===========================================================================
 
 describe("MODEL_COST_USD", () => {
-  const expectedModels = ["codex", "gemini", "opencode:grok", "opencode:kimi", "qwen", "claude"];
+  const expectedModels = ["codex", "minimax", "mimo", "kimi", "glm", "gemini", "claude"];
 
   it("contains all expected model keys", () => {
     for (const model of expectedModels) {
@@ -302,10 +303,10 @@ describe("MODEL_COST_USD", () => {
 
     const passCosts = [
       MODEL_COST_USD["codex"],
-      MODEL_COST_USD["gemini"],
-      MODEL_COST_USD["opencode:grok"],
-      MODEL_COST_USD["opencode:kimi"],
-      MODEL_COST_USD["qwen"],
+      MODEL_COST_USD["minimax"],
+      MODEL_COST_USD["mimo"],
+      MODEL_COST_USD["kimi"],
+      MODEL_COST_USD["glm"],
     ];
     // Two multi-model agents use all 5 models
     const twoAgentPassCost = passCosts.reduce((a, b) => a + b, 0) * 2;

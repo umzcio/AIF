@@ -3,7 +3,7 @@
  *
  * Sends prompts directly to OpenRouter's OpenAI-compatible endpoint
  * with structured output enforcement (json_schema → json_object → none fallback).
- * Replaces the opencode CLI wrapper for passes 2–5.
+ * Used for passes 2–5 of every multi-model agent, plus HECVAT in Agent 4.
  *
  * No external dependencies — uses Node.js built-in fetch.
  */
@@ -20,6 +20,16 @@ const ANALYSIS_KEYS = [
   "ariaAudit", "scorecard", "bugFindings", "summary", "scoringSignals",
   "questions", "userGuide", "adminGuide", "complianceSummary", "stackFindings",
 ];
+
+/**
+ * Prompt suffix appended to every analysis prompt.
+ * Addresses a failure mode where models exhaust their output budget on file
+ * exploration and never produce the final JSON report.
+ */
+export const PROMPT_SUFFIX = `
+
+CRITICAL OUTPUT REQUIREMENT:
+You MUST produce the JSON report above as your final output. Do NOT end your response with file-reading or exploration. Budget your work: spend at most 60% of your effort on reading files, then produce the complete JSON. If you are running low on output capacity, STOP exploring and emit the JSON immediately with whatever findings you have so far. An incomplete JSON report is far more valuable than an exhaustive exploration that never produces a report. Your response MUST end with valid JSON matching the schema above.`;
 
 /**
  * Current direct-API model roster for passes 2–5.

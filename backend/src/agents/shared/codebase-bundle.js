@@ -5,7 +5,7 @@ const DEFAULT_MAX_CHARS = 400_000;
 
 // Directories to skip entirely
 const EXCLUDED_DIRS = new Set([
-  '.git', 'node_modules', '.opencode', '__pycache__', '.venv', 'venv',
+  '.git', 'node_modules', '__pycache__', '.venv', 'venv',
   'env', '.env', 'dist', 'build', '.next', '.nuxt', 'coverage', '.cache',
 ]);
 

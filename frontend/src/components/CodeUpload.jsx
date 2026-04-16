@@ -71,7 +71,6 @@ export default function CodeUpload({ toolId, user }) {
   const [hasCompletedRun, setHasCompletedRun] = useState(false);
   const [starting, setStarting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
-  const [pipelineMode, setPipelineMode] = useState("direct-api");
 
   // Phase: upload | running
   const [phase, setPhase] = useState("upload");
@@ -317,7 +316,7 @@ export default function CodeUpload({ toolId, user }) {
     try {
       await uploadCodebase(toolId, file, setUploadProgress);
       setUploadProgress(null);
-      const result = await startPipelineRun(toolId, tool?.track, pipelineMode);
+      const result = await startPipelineRun(toolId, tool?.track, "direct-api");
       setRunId(result.run.id);
       setPhase("running");
       toast.success("Pipeline started");
@@ -400,19 +399,6 @@ export default function CodeUpload({ toolId, user }) {
               </div>
             ))}
           </div>
-
-          {user?.role === "admin" && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 16 }}>
-              <label htmlFor="pipelineMode" style={{ fontSize: 13, color: C.textMid }}>Pipeline Mode:</label>
-              <select id="pipelineMode" value={pipelineMode} onChange={e => setPipelineMode(e.target.value)}
-                style={{ fontSize: 13, padding: "4px 8px", borderRadius: 6, border: `1px solid ${C.border}`,
-                  background: C.surface, color: C.text, fontFamily: "'DM Sans', sans-serif" }}>
-                <option value="direct-api">Direct API (recommended)</option>
-                <option value="opencode">opencode agents</option>
-                <option value="standard">Legacy (direct CLI)</option>
-              </select>
-            </div>
-          )}
 
           <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
             {file && uploadProgress && (

@@ -37,9 +37,6 @@ RUN mkdir -p /home/aif/.qwen && echo '{\
   "model": { "name": "qwen/qwen3-coder" }\
 }' > /home/aif/.qwen/settings.json
 
-# opencode (Go binary) — copy from host if available, otherwise download
-COPY opencode /usr/local/bin/opencode
-
 WORKDIR /app
 
 # Backend deps
