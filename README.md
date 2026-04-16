@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/AIF-AI_Production_Readiness_Framework-1A6B4B?style=for-the-badge&labelColor=080a0f" alt="AIF" />
+  <img src="AIF.png" alt="AIF" width="400" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/AIF-AI_Production_Readiness_Framework-A3242E?style=for-the-badge&labelColor=080a0f" alt="AIF" />
 </p>
 
 <p align="center">
