@@ -13,6 +13,7 @@ import { spawn } from "child_process";
 import { existsSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import log from "../../logger.js";
+import { toolEnv } from "../shared/cli.js";
 
 /**
  * Detect if the codebase has JS/TS source files worth linting.
@@ -280,7 +281,7 @@ export async function runEslintQA(codebasePath, outputDir) {
     const proc = spawn(eslintBin, args, {
       timeout: 120000,
       cwd: codebasePath,
-      env: { ...process.env, NODE_PATH: join(configDir, "node_modules") },
+      env: toolEnv({ NODE_PATH: join(configDir, "node_modules") }),
       stdio: ["ignore", "pipe", "pipe"],
     });
 

@@ -141,7 +141,7 @@ export async function runDirectPass(model, prompt, codeBundle, outputDir, option
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
-          "HTTP-Referer": "https://portal.example.edu/aif",
+          "HTTP-Referer": process.env.FRONTEND_URL || "https://github.com/aif-framework",
           "X-Title": "AIF Pipeline",
         },
         body: JSON.stringify(body),

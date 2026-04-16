@@ -2,7 +2,7 @@ export const APP_META = {
   productName: "AI Tool Intake",
   shortName: "AIF",
   edition: "Higher Education Edition",
-  institutionName: "University of Montana",
+  institutionName: "",  // loaded from /api/config at runtime
   summary: "Guide builders through intake, route risk proportionally, and produce decision-ready review artifacts.",
   frameworkVersion: "2026.1",
 };
@@ -84,7 +84,7 @@ export const DIMENSION_SHORT = {
 };
 
 /** Preview-only: backend recomputes authoritatively on submit via scoring.js. */
-export function computeDimensionScores(a) {
+function computeDimensionScores(a) {
   const s = { security: 0, accessibility: 0, dataSensitivity: 0, blastRadius: 0, autonomy: 0, comprehension: 0, maintenance: 0 };
   if (a.q5 === "public-noauth") s.security = 3;
   else if (a.q5 === "public-auth") s.security = 2;
@@ -118,7 +118,7 @@ export function computeDimensionScores(a) {
   return s;
 }
 
-export function checkEscalations(a) {
+function checkEscalations(a) {
   const e = [];
   const dt = a.q10 || [];
   if (dt.some(d => ["hipaa","irb","export","tribal"].includes(d))) e.push("Regulated data (HIPAA/IRB/Export/Tribal)");

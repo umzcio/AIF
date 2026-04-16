@@ -16,7 +16,7 @@ const TEMPLATE_PATH = process.env.HECVAT_TEMPLATE_PATH || join(__dirname, "..", 
 /**
  * Map agent status values to HECVAT-style answer text.
  */
-function statusToAnswer(status, answer) {
+function statusToAnswer(status) {
   switch (status) {
     case "yes": return "Yes";
     case "no": return "No";

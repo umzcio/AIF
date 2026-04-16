@@ -15,6 +15,17 @@ import log from "../../logger.js";
 const OPENCODE_CONFIG = process.env.OPENCODE_CONFIG_PATH || "/home/zach/opencode.json";
 
 /**
+ * Build a minimal env for deterministic tool subprocesses (Snyk, Semgrep, ESLint, etc.).
+ * Only includes essential system vars + any extras the caller specifies.
+ * Prevents untrusted codebases from exfiltrating API keys via malicious configs.
+ * @param {object} [extras] - Additional env vars the tool needs (e.g. { SNYK_TOKEN, NODE_PATH })
+ * @returns {object} Filtered environment object
+ */
+export function toolEnv(extras = {}) {
+  return { HOME: process.env.HOME, PATH: process.env.PATH, NODE_ENV: process.env.NODE_ENV, ...extras };
+}
+
+/**
  * Build a filtered env object for a CLI tool.
  * Each tool only gets the API keys it needs, plus essential system vars.
  * Prevents prompt-injected agents from exfiltrating unrelated secrets.
@@ -52,9 +63,6 @@ function filteredEnv(tool) {
  */
 export const MODEL_TIMEOUTS = {
   codex:           15 * 60 * 1000,  // 15 min (slow, large model)
-  // gemini:           8 * 60 * 1000,  // 8 min — swapped for MiniMax M2.5
-  // "opencode:grok":  3 * 60 * 1000,  // 3 min — swapped for MiMo-V2-Flash
-  // qwen:             8 * 60 * 1000,  // 8 min — swapped for GLM-5
   "opencode:mimo":  5 * 60 * 1000,  // 5 min (MiMo-V2-Flash via OpenRouter)
   "opencode:minimax": 8 * 60 * 1000, // 8 min (MiniMax M2.5 via OpenRouter)
   "opencode:glm":   8 * 60 * 1000,  // 8 min (GLM-5 via OpenRouter)

@@ -338,9 +338,9 @@ export default function FrameworkDoc() {
 
         <div style={{ padding: 20, borderRadius: 10, background: C.surfaceAlt, border: `1px solid ${C.border}`, marginTop: 32 }}>
           <h3 style={{ ...h3Style, marginTop: 0 }}>Document Preparation Notice</h3>
-          <p style={{ ...pStyle, marginBottom: 8 }}>Prepared collaboratively by {config.institutionName} Enterprise IT staff and an AI assistant (Anthropic Claude). Frameworks, decisions, and editorial judgment are those of UM IT leadership.</p>
+          <p style={{ ...pStyle, marginBottom: 8 }}>Prepared collaboratively by {config.institutionName} Enterprise IT staff and an AI assistant (Anthropic Claude). Frameworks, decisions, and editorial judgment are those of {config.institutionName} IT leadership.</p>
           <p style={{ ...pStyle, marginBottom: 0, fontStyle: "italic" }}>This is a living draft. It does not constitute legal advice, official policy, or a final governance determination. Direct questions to the Office of the CIO.</p>
-          <p style={{ fontSize: 12, color: C.textDim, margin: "12px 0 0" }}>Last updated March 7, 2026</p>
+          <p style={{ fontSize: 12, color: C.textDim, margin: "12px 0 0" }}>Last updated April 16, 2026</p>
         </div>
       </div>
     </div>

@@ -75,7 +75,7 @@ app.use((req, res, next) => {
   const exempt = ["GET", "HEAD", "OPTIONS"];
   if (exempt.includes(req.method)) return next();
   if (req.path.includes("/auth/login") || req.path.includes("/auth/callback")) return next();
-  if (req.path.includes("/stream")) return next();
+  if (req.path.endsWith("/stream")) return next();
   if (req.path.includes("/health")) return next();
 
   // File uploads via multipart may not include the header — check form field or header
@@ -146,9 +146,8 @@ async function preflight() {
 
   // Required for pipeline (warn, don't block server)
   const pipelineKeys = {
-    OPENAI_API_KEY: "Codex (GPT-5.4)",
-    GOOGLE_GENERATIVE_AI_API_KEY: "Gemini CLI",
-    OPENROUTER_API_KEY: "Grok + Kimi + Qwen via OpenRouter",
+    OPENAI_API_KEY: "Codex (GPT-5.4, pass 1)",
+    OPENROUTER_API_KEY: "MiniMax + MiMo + Kimi + GLM via OpenRouter (passes 2-5)",
     ANTHROPIC_API_KEY: "Claude Code CLI (synthesis)",
   };
   for (const [key, label] of Object.entries(pipelineKeys)) {
@@ -166,25 +165,26 @@ async function preflight() {
     issues.push(`Database unreachable: ${err.message}`);
   }
 
-  // Report
+  // Report critical issues
   if (issues.length > 0) {
     log.error("Preflight failed", { issues });
     process.exit(1);
   }
-  if (warnings.length > 0) {
-    log.warn("Preflight warnings", { warnings });
-  }
 
-  // Verify SMTP connectivity
+  // Verify SMTP connectivity before logging warnings
   const smtp = await verifySmtp();
   if (smtp.configured && !smtp.reachable) {
     warnings.push(`SMTP configured but unreachable: ${smtp.error}`);
   }
 
-  const authMode = process.env.AUTH_BYPASS === "true" ? "BYPASS (dev)" : "CAS";
+  if (warnings.length > 0) {
+    log.warn("Preflight warnings", { warnings });
+  }
+
+  const authMode = process.env.AUTH_PROVIDER || (process.env.AUTH_BYPASS === "true" ? "bypass" : "cas");
   const emailStatus = !smtp.configured ? "disabled" : smtp.reachable ? `${process.env.SMTP_HOST}:${process.env.SMTP_PORT || 25}` : "unreachable";
   const apiKeyCount = Object.keys(pipelineKeys).filter(k => process.env[k]).length;
-  log.info("Preflight OK", { auth: authMode, email: emailStatus, pipelineKeys: `${apiKeyCount}/4` });
+  log.info("Preflight OK", { auth: authMode, email: emailStatus, pipelineKeys: `${apiKeyCount}/${Object.keys(pipelineKeys).length}` });
 }
 
 async function start() {

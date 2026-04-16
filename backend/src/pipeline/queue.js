@@ -1,6 +1,4 @@
 import pool, { withTransaction } from "../db/pool.js";
-import { runPipeline } from "../orchestrator/index.js";
-import { runOpencodePipeline } from "../orchestrator/opencode.js";
 import { runDirectApiPipeline } from "../orchestrator/direct-api.js";
 import log from "../logger.js";
 import { emitProgress, removeAllForRun } from "./events.js";
@@ -44,9 +42,6 @@ function validateUrl(url) {
  */
 const MODEL_COST_USD = {
   "codex":              0.30,  // GPT-5.4 via Codex
-  // "gemini":          0.08,  // Gemini 2.5 Pro — swapped for MiniMax M2.5
-  // "opencode:grok":   0.10,  // Grok 3 Fast — swapped for MiMo-V2-Flash
-  // "qwen":            0.08,  // Qwen3 Coder — swapped for GLM-5
   "opencode:minimax":   0.10,  // MiniMax M2.5 via OpenRouter
   "opencode:mimo":      0.06,  // MiMo-V2-Flash via OpenRouter
   "opencode:glm":       0.08,  // GLM-5 via OpenRouter
@@ -170,13 +165,13 @@ export async function retryRun(runId) {
 
 async function processNext() {
   if (processing) return;
+  processing = true;
 
   const { rows: [next] } = await pool.query(
     `SELECT pr.*, t.name as tool_name, t.codebase_url, t.codebase_path FROM pipeline_runs pr JOIN tools t ON pr.tool_id = t.id WHERE pr.status = 'queued' ORDER BY pr.queued_at ASC LIMIT 1`
   );
-  if (!next) return;
+  if (!next) { processing = false; return; }
 
-  processing = true;
   const runId = next.id;
 
   // Create AbortController for this run
@@ -312,10 +307,7 @@ async function processNext() {
       }
     };
 
-    const pipelineFn = next.pipeline_mode === "direct-api" ? runDirectApiPipeline
-      : next.pipeline_mode === "opencode" ? runOpencodePipeline
-      : runPipeline;
-    const result = await pipelineFn({
+    const result = await runDirectApiPipeline({
       codebasePath,
       track: next.track,
       toolName: next.tool_name,
@@ -427,7 +419,7 @@ async function computePipelineMetrics(runId) {
 
   // Aggregate pass results
   const { rows: passes } = await pool.query(
-    `SELECT model_name, tool, status, json_parsed, elapsed_seconds
+    `SELECT agent_name, model_name, tool, status, json_parsed, elapsed_seconds
      FROM pass_results WHERE run_id = $1
      ORDER BY created_at`,
     [runId]

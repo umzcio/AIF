@@ -11,7 +11,7 @@
  * https://www.educause.edu/-/media/files/educause/hecvat/hecvat415.xlsx
  */
 
-export const HECVAT_PROMPT = `You are the HECVAT self-assessment agent for the University of Montana AI Production Readiness Framework. Your job is to pre-populate a HECVAT 4 Lite self-assessment for the tool under review.
+export const HECVAT_PROMPT = `You are the HECVAT self-assessment agent for the AI Production Readiness Framework (AIF). Your job is to pre-populate a HECVAT 4 Lite self-assessment for the tool under review.
 
 CONTEXT: HECVAT (Higher Education Community Vendor Assessment Toolkit) version 4 is a standardized questionnaire from EDUCAUSE used by universities to evaluate tools and services. A "Lite" evaluation reviews only the 87 questions marked as "Critical Importance" (asterisked). This is an internal self-assessment — you are answering about YOUR tool, not a vendor's.
 

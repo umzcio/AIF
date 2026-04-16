@@ -102,6 +102,7 @@ export default function FindingsReview({ toolId, runId: runIdProp }) {
     high: allFindings.filter(f => f.severity === "high").length,
     warning: allFindings.filter(f => f.severity === "warning").length,
     medium: allFindings.filter(f => f.severity === "medium").length,
+    low: allFindings.filter(f => f.severity === "low").length,
     info: allFindings.filter(f => f.severity === "info").length,
     open: allFindings.filter(f => f.status === "open").length,
     resolved: allFindings.filter(f => f.status === "resolved").length,
@@ -193,13 +194,13 @@ export default function FindingsReview({ toolId, runId: runIdProp }) {
         </div>
         {viewMode === "findings" && (
           <div style={{ display: "flex", gap: 4 }}>
-            <select value={sevFilter} onChange={e => setSevFilter(e.target.value)}
+            <select value={sevFilter} onChange={e => setSevFilter(e.target.value)} aria-label="Filter by severity"
               style={{ padding: "5px 10px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.surface,
                 color: C.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
               <option value="all">All severities</option>
               {Object.entries(SEV).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
-            <select value={agentFilter} onChange={e => setAgentFilter(e.target.value)}
+            <select value={agentFilter} onChange={e => setAgentFilter(e.target.value)} aria-label="Filter by category"
               style={{ padding: "5px 10px", borderRadius: 5, border: `1px solid ${C.border}`, background: C.surface,
                 color: C.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
               <option value="all">All categories</option>
@@ -307,9 +308,9 @@ export default function FindingsReview({ toolId, runId: runIdProp }) {
           <div style={{ padding: 20, borderRadius: 10, background: C.surface, border: `1px solid ${C.border}` }}>
             <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 14px" }}>Remediation Progress</h3>
             <div style={{ display: "flex", height: 10, borderRadius: 5, overflow: "hidden", background: C.border, marginBottom: 12 }}>
-              {stats.resolved > 0 && <div style={{ width: `${(stats.resolved / stats.total) * 100}%`, background: TRACK_COLORS[1], transition: "width .3s" }} />}
-              {stats.falsePositive > 0 && <div style={{ width: `${(stats.falsePositive / stats.total) * 100}%`, background: "#7C3AED", transition: "width .3s" }} />}
-              {allFindings.filter(f => f.status === "wontfix").length > 0 && <div style={{ width: `${(allFindings.filter(f => f.status === "wontfix").length / stats.total) * 100}%`, background: C.textDim, transition: "width .3s" }} />}
+              {stats.total > 0 && stats.resolved > 0 && <div style={{ width: `${(stats.resolved / stats.total) * 100}%`, background: TRACK_COLORS[1], transition: "width .3s" }} />}
+              {stats.total > 0 && stats.falsePositive > 0 && <div style={{ width: `${(stats.falsePositive / stats.total) * 100}%`, background: "#7C3AED", transition: "width .3s" }} />}
+              {stats.total > 0 && allFindings.filter(f => f.status === "wontfix").length > 0 && <div style={{ width: `${(allFindings.filter(f => f.status === "wontfix").length / stats.total) * 100}%`, background: C.textDim, transition: "width .3s" }} />}
             </div>
             <div style={{ display: "flex", gap: 20, fontSize: 13, color: C.textMid }}>
               <span><span style={{ fontWeight: 700, color: TRACK_COLORS[1] }}>{stats.resolved}</span> resolved</span>

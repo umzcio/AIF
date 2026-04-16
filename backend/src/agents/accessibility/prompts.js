@@ -149,7 +149,7 @@ Do not wrap in markdown code fences. Output ONLY the JSON.
 }
 `;
 
-export const ACCESSIBILITY_PROMPT = `You are an accessibility audit agent for the University of Montana AI Production Readiness Framework.
+export const ACCESSIBILITY_PROMPT = `You are an accessibility audit agent for the AI Production Readiness Framework (AIF).
 
 Your job is to perform a COMPREHENSIVE WCAG 2.2 AA accessibility audit of a codebase by examining every file containing UI markup, styles, or interaction logic.
 
@@ -378,7 +378,7 @@ export const PASSES = {
   pass5: { name: "Pass 5 (GLM-5)", tool: "direct-api" },
 };
 
-export const SYNTHESIS_PROMPT = `You are the accessibility synthesis agent for the University of Montana AI Production Readiness Framework. You received independent WCAG 2.2 AA audit reports from multiple AI models. Each model was given the SAME rubric and independently audited the SAME codebase.
+export const SYNTHESIS_PROMPT = `You are the accessibility synthesis agent for the AI Production Readiness Framework (AIF). You received independent WCAG 2.2 AA audit reports from multiple AI models. Each model was given the SAME rubric and independently audited the SAME codebase.
 
 Your job is to merge these reports into a single authoritative accessibility audit AND resolve disputes.
 

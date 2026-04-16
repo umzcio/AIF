@@ -96,16 +96,9 @@ describe("pipelineRunSchema", () => {
     assert.equal(result.data.mode, "direct-api");
   });
 
-  it("accepts mode 'opencode'", () => {
-    const result = pipelineRunSchema.safeParse({ mode: "opencode" });
-    assert.ok(result.success);
-    assert.equal(result.data.mode, "opencode");
-  });
-
-  it("accepts mode 'standard'", () => {
-    const result = pipelineRunSchema.safeParse({ mode: "standard" });
-    assert.ok(result.success);
-    assert.equal(result.data.mode, "standard");
+  it("rejects removed legacy modes", () => {
+    assert.ok(!pipelineRunSchema.safeParse({ mode: "opencode" }).success);
+    assert.ok(!pipelineRunSchema.safeParse({ mode: "standard" }).success);
   });
 
   it("defaults mode to 'direct-api'", () => {

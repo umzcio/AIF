@@ -33,12 +33,6 @@ async function request(path, options = {}) {
   return res;
 }
 
-export async function getAuthStatus() {
-  const res = await fetch(`${BASE}/auth/status`, { credentials: "same-origin" });
-  if (!res.ok) return { authenticated: false };
-  return res.json();
-}
-
 export async function logout() {
   const res = await request("/auth/logout", { method: "POST" });
   return res.json();
@@ -91,10 +85,6 @@ export async function updateDraft(draftId, data, file) {
 export async function deleteDraft(draftId) {
   const res = await request(`/intake/draft/${draftId}`, { method: "DELETE" });
   return res.json();
-}
-
-export async function submitTool(data, file) {
-  return postForm("/intake", buildIntakeForm(data, file));
 }
 
 export async function getTools(params = {}) {

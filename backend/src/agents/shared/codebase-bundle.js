@@ -66,12 +66,12 @@ function hasMinExt(name) {
   return name.endsWith('.min.js') || name.endsWith('.min.css');
 }
 
-function shouldIncludeFile(name) {
+function shouldIncludeFile(name, extsOverride) {
   if (EXCLUDED_FILES.has(name)) return false;
   if (hasMinExt(name)) return false;
   const ext = extname(name).toLowerCase();
   if (EXCLUDED_EXTS.has(ext)) return false;
-  if (INCLUDED_EXTS.has(ext)) return true;
+  if ((extsOverride || INCLUDED_EXTS).has(ext)) return true;
   if (matchesIncludedName(name)) return true;
   // .R extension (case-sensitive)
   if (extname(name) === '.R') return true;
@@ -100,7 +100,7 @@ function isPriorityConfig(name) {
     /^(vite|webpack|jest)\.config\./.test(lower);
 }
 
-async function walkDir(dir, baseDir, extraExcludeDirs, extraExcludeExts) {
+async function walkDir(dir, baseDir, extraExcludeDirs, extraExcludeExts, includedExts) {
   const results = [];
   let entries;
   try {
@@ -114,9 +114,9 @@ async function walkDir(dir, baseDir, extraExcludeDirs, extraExcludeExts) {
     if (entry.isDirectory()) {
       if (EXCLUDED_DIRS.has(name)) continue;
       if (extraExcludeDirs && extraExcludeDirs.has(name)) continue;
-      await walkDir(join(dir, name), baseDir, extraExcludeDirs, extraExcludeExts).then(r => results.push(...r));
+      await walkDir(join(dir, name), baseDir, extraExcludeDirs, extraExcludeExts, includedExts).then(r => results.push(...r));
     } else if (entry.isFile()) {
-      if (!shouldIncludeFile(name)) continue;
+      if (!shouldIncludeFile(name, includedExts)) continue;
       if (extraExcludeExts) {
         const ext = extname(name).toLowerCase();
         if (extraExcludeExts.has(ext)) continue;
@@ -142,10 +142,11 @@ async function walkDir(dir, baseDir, extraExcludeDirs, extraExcludeExts) {
 export async function bundleCodebase(codebasePath, options = {}) {
   const maxChars = options.maxChars ?? DEFAULT_MAX_CHARS;
 
-  // Parse extra include/exclude patterns
+  // Clone INCLUDED_EXTS to avoid mutating the module-level set across pipeline runs
+  const includedExts = new Set(INCLUDED_EXTS);
   if (options.includePatterns) {
     for (const p of options.includePatterns) {
-      if (p.startsWith('.')) INCLUDED_EXTS.add(p.toLowerCase());
+      if (p.startsWith('.')) includedExts.add(p.toLowerCase());
     }
   }
   const extraExcludeDirs = new Set();
@@ -162,6 +163,7 @@ export async function bundleCodebase(codebasePath, options = {}) {
     codebasePath, codebasePath,
     extraExcludeDirs.size ? extraExcludeDirs : null,
     extraExcludeExts.size ? extraExcludeExts : null,
+    includedExts,
   );
 
   // Sort alphabetically for determinism

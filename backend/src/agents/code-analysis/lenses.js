@@ -88,7 +88,7 @@ Do not wrap in markdown code fences. Output ONLY the JSON.
 }
 `;
 
-export const ANALYSIS_PROMPT = `You are a code analysis agent for the University of Montana AI Production Readiness Framework.
+export const ANALYSIS_PROMPT = `You are a code analysis agent for the AI Production Readiness Framework (AIF).
 
 Your job is to perform a COMPREHENSIVE analysis of a codebase against a specific evaluation rubric. You MUST examine EVERY FILE — no exceptions. Start by listing the full directory tree, then systematically read and analyze every single file.
 
@@ -133,7 +133,7 @@ SECTION 4: AUTHENTICATION (how are users identified?)
 =====================================================================
 
 Check these specific things:
-1. Does the app use University of Montana CAS, Shibboleth, or another institutional SSO? Look for CAS URLs (login.umt.edu), SAML config, or Shibboleth attributes.
+1. Does the app use institutional CAS, Shibboleth, SAML, or another SSO? Look for CAS URLs, SAML config, or Shibboleth attributes.
 2. Is there an auth bypass mechanism? (e.g., AUTH_BYPASS env var, dev mode that skips login, hardcoded admin accounts)
 3. Are there hardcoded credential fallbacks? (default passwords, fallback JWT secrets in source code that activate when env vars are missing)
 4. For each finding, cite the exact file and line.
@@ -284,7 +284,7 @@ export const PASSES = {
   pass5: { name: "Pass 5 (GLM-5)", tool: "direct-api" },
 };
 
-export const SYNTHESIS_PROMPT = `You are the synthesis agent for the University of Montana AI Production Readiness Framework. You received independent code analysis reports from multiple AI models. Each model was given the SAME rubric and independently analyzed the SAME codebase.
+export const SYNTHESIS_PROMPT = `You are the synthesis agent for the AI Production Readiness Framework (AIF). You received independent code analysis reports from multiple AI models. Each model was given the SAME rubric and independently analyzed the SAME codebase.
 
 Your job is to merge these reports into a single authoritative report AND resolve disputes.
 
@@ -567,7 +567,7 @@ export function buildStackChecklists(inventory) {
   return checklists.length > 0 ? checklists.join("\n\n") : null;
 }
 
-export const STACK_SYNTHESIS_PROMPT = `You are performing a stack-specific deep dive for the University of Montana AI Production Readiness Framework. You have already received the merged synthesis from 5 independent model passes.
+export const STACK_SYNTHESIS_PROMPT = `You are performing a stack-specific deep dive for the AI Production Readiness Framework (AIF). You have already received the merged synthesis from 5 independent model passes.
 
 Your job is to go through each checklist item below, READ THE ACTUAL CODE, and identify issues that were NOT already caught in the existing findings.
 

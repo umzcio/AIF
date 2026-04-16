@@ -14,6 +14,7 @@ import { spawn } from "child_process";
 import { existsSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
 import log from "../../logger.js";
+import { toolEnv } from "../shared/cli.js";
 
 /**
  * Map Semgrep severity to our schema.
@@ -78,7 +79,7 @@ export async function runSemgrep(codebasePath, outputDir) {
       codebasePath,
     ], {
       timeout: 300000, // 5 min max total
-      env: { ...process.env },
+      env: toolEnv(),
       stdio: ["ignore", "pipe", "pipe"],
     });
 

@@ -251,11 +251,9 @@ export default function CodeUpload({ toolId, user }) {
         }
       }
       if (event.type === "tool_start") {
-        console.log("[AIF] tool_start:", event.tool, event.target);
         setToolStates(p => ({ ...p, [event.tool]: { status: "running", target: event.target } }));
       }
       if (event.type === "tool_complete") {
-        console.log("[AIF] tool_complete:", event.tool, event.findings, event.skipped);
         setToolStates(p => ({ ...p, [event.tool]: {
           status: event.skipped ? "skipped" : "complete",
           target: event.target,

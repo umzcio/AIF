@@ -127,37 +127,3 @@ export const QA_SCHEMA = {
   }
 };
 
-/**
- * Validate parsed output against required fields.
- * @param {object} parsed - Parsed JSON output from a model pass
- * @returns {{ valid: boolean, errors: string[] }}
- */
-export function validateOutput(parsed) {
-  const errors = [];
-
-  if (!parsed || typeof parsed !== "object") {
-    return { valid: false, errors: ["Output is not an object"] };
-  }
-
-  // findings
-  if (!Array.isArray(parsed.findings)) {
-    errors.push("Missing or invalid 'findings' array");
-  } else {
-    for (let i = 0; i < parsed.findings.length; i++) {
-      const f = parsed.findings[i];
-      for (const field of ["severity", "category", "title", "detail", "evidence"]) {
-        if (typeof f[field] !== "string") {
-          errors.push(`findings[${i}].${field} is not a string`);
-          break;
-        }
-      }
-    }
-  }
-
-  // summary
-  if (typeof parsed.summary !== "string") {
-    errors.push("Missing or invalid 'summary' string");
-  }
-
-  return { valid: errors.length === 0, errors };
-}

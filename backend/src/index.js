@@ -10,7 +10,7 @@
  *   node src/index.js /projects/otto-bot DEPLOY    (legacy, maps to TRACK_3)
  */
 
-import { runPipeline } from "./orchestrator/index.js";
+import { runDirectApiPipeline as runPipeline } from "./orchestrator/direct-api.js";
 import { resolve, basename } from "path";
 
 const LEGACY_MAP = { EXPLORE: 1, PILOT: 2, DEPLOY: 3, ESCALATE: 4 };

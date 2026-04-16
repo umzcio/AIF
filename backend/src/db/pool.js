@@ -19,7 +19,7 @@ export async function withTransaction(fn) {
     await client.query("COMMIT");
     return result;
   } catch (err) {
-    await client.query("ROLLBACK");
+    try { await client.query("ROLLBACK"); } catch { /* connection may be dead */ }
     throw err;
   } finally {
     client.release();

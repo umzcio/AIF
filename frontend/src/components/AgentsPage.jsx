@@ -27,7 +27,7 @@ const AGENT_DETAILS = [
     ],
     promptExcerpts: [
       "Trace every data path. For each operation, classify the data: public, internal, PII, FERPA, HIPAA, financial, research. If user-submitted content is stored alongside user identity, that is at minimum PII. If those users are students, it is FERPA.",
-      "Does the app use University of Montana CAS, Shibboleth, or another institutional SSO? Look for CAS URLs (login.umt.edu), SAML config, or Shibboleth attributes. Is there an auth bypass mechanism?",
+      "Does the app use institutional CAS, Shibboleth, SAML, or another SSO? Look for CAS URLs, SAML config, or Shibboleth attributes. Is there an auth bypass mechanism?",
       "You MUST read every single file. Do not skip files. Do not sample. Do not summarize file contents without reading them.",
       "For EVERY case where models disagree, you MUST: identify the dispute, READ THE RELEVANT SOURCE FILES to determine the truth, state what you found with the exact file and line.",
     ],
@@ -141,7 +141,6 @@ const AGENT_DETAILS = [
     ],
     tools: [
       { name: "Pandoc", desc: "Markdown to DOCX conversion", url: "https://github.com/jgm/pandoc" },
-      { name: "Notion API", desc: "User Guide and Admin Guide auto-published to IT knowledge base", url: "https://developers.notion.com" },
     ],
     inspirations: [
       { name: "ai-doc-gen", desc: "Multi-agent concurrent documentation generation", url: "https://github.com/divar-ir/ai-doc-gen" },
@@ -207,7 +206,7 @@ function PipelineDiagram({ onScrollTo }) {
   const models = [
     { label: "Pass 1", name: "GPT-5.4" },
     { label: "Pass 2", name: "MiniMax M2.5" },
-    { label: "Pass 3", name: "MiMo-V2" },
+    { label: "Pass 3", name: "MiMo-V2-Flash" },
     { label: "Pass 4", name: "Kimi K2" },
     { label: "Pass 5", name: "GLM-5" },
   ];
@@ -899,7 +898,7 @@ export default function AgentsPage() {
             onMouseLeave={e => e.currentTarget.style.background = C.surface}>
             <Github size={14} /> View on GitHub
           </a>
-          <p style={{ fontSize: 12, color: C.textDim, margin: "10px 0 0" }}>Office of the CIO &middot; Enterprise IT &middot; Last updated March 15, 2026</p>
+          <p style={{ fontSize: 12, color: C.textDim, margin: "10px 0 0" }}>Office of the CIO &middot; Enterprise IT &middot; Last updated April 16, 2026</p>
         </div>
       </div>
     </div>

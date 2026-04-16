@@ -14,6 +14,10 @@ backend/.env
 # OS
 .DS_Store
 Thumbs.db
+__pycache__/
+
+# Audit results (generated, not shipped)
+audit-results/
 
 # Editor
 .vscode/
@@ -28,9 +32,14 @@ files.json
 # opencode working dirs
 opencode/
 
-# Architecture and project docs (local reference only)
+# Architecture, project docs, planning, and research (local reference only)
 ARCHITECTURE.md
 CLAUDE.md
+PLAN-*.md
+paper-*.md
+*-investigation.md
+direct_api.md
+codex_*
 
 # Office documents (except hecvat template needed by build)
 *.docx

@@ -11,7 +11,7 @@
 // Re-export HECVAT prompt (moved from agents/hecvat/prompts.js)
 export { HECVAT_PROMPT } from "./hecvat-prompt.js";
 
-export const DOC_PROMPT = `You are the documentation generation agent for the University of Montana AI Production Readiness Framework. Your job is to produce complete, actionable documentation for the tool under review.
+export const DOC_PROMPT = `You are the documentation generation agent for the AI Production Readiness Framework (AIF). Your job is to produce complete, actionable documentation for the tool under review.
 
 You have two inputs:
 1. FULL FILESYSTEM ACCESS to the codebase — read any file you need
@@ -124,7 +124,7 @@ Output a single JSON object. Do not wrap in markdown fences. Output ONLY the JSO
 
 // ─── Split prompts for parallel opencode mode ───────────────────────
 
-export const GUIDES_PROMPT = `You are the documentation generation agent for the University of Montana AI Production Readiness Framework. Your job is to produce a User Guide and an Admin/Deployment Guide for the tool under review.
+export const GUIDES_PROMPT = `You are the documentation generation agent for the AI Production Readiness Framework (AIF). Your job is to produce a User Guide and an Admin/Deployment Guide for the tool under review.
 
 You have two inputs:
 1. FULL FILESYSTEM ACCESS to the codebase — read any file you need
@@ -208,7 +208,7 @@ Output a single JSON object. Do not wrap in markdown fences. Output ONLY the JSO
   }
 }`;
 
-export const COMPLIANCE_PROMPT = `You are the compliance summary agent for the University of Montana AI Production Readiness Framework. Your job is to produce a concise compliance summary for reviewers and decision-makers.
+export const COMPLIANCE_PROMPT = `You are the compliance summary agent for the AI Production Readiness Framework (AIF). Your job is to produce a concise compliance summary for reviewers and decision-makers.
 
 You have two inputs:
 1. FULL FILESYSTEM ACCESS to the codebase — read any file you need

@@ -61,7 +61,7 @@ export const emailUpdateSchema = z.object({
 
 export const pipelineRunSchema = z.object({
   track: z.number().int().min(1).max(4).optional(),
-  mode: z.enum(["standard", "opencode", "direct-api"]).default("direct-api"),
+  mode: z.enum(["direct-api"]).default("direct-api"),
 });
 
 export const toolEditSchema = z.object({

@@ -60,8 +60,3 @@ export const PROVIDERS = {
   },
 };
 
-// Which models run passes, in order. Tier determines how many we use.
-export const PASS_ROSTER = ["openai", "gemini", "grok", "kimi", "qwen"];
-
-// Synthesis is always Claude
-export const SYNTHESIS_PROVIDER = "claude";

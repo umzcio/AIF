@@ -1,4 +1,4 @@
-import { C, TRACK_COLORS, TRACK_LABELS, STATUS_META, DIMENSION_LABELS, DIMENSION_SHORT } from "../constants.js";
+import { C, TRACK_COLORS, TRACK_LABELS, STATUS_META } from "../constants.js";
 
 export function TrackBadge({ track, size = "sm" }) {
   const color = TRACK_COLORS[track];
@@ -17,15 +17,6 @@ export function TrackBadge({ track, size = "sm" }) {
     >
       <span style={{ fontSize: lg ? 12 : 10 }}>TRACK</span> {track}
       {lg && <span style={{ fontSize: 12, fontWeight: 500, fontFamily: "var(--font-primary)", opacity: 0.85 }}> {TRACK_LABELS[track]}</span>}
-    </span>
-  );
-}
-
-export function SeverityBadge({ severity, config }) {
-  const cfg = config || {};
-  return (
-    <span className="severity-pill" style={{ background: cfg.bg, color: cfg.color }}>
-      {cfg.label || severity}
     </span>
   );
 }
@@ -96,14 +87,6 @@ export function PageHeader({ eyebrow, title, subtitle, children }) {
       </div>
       {children ? <div className="page-actions">{children}</div> : null}
     </header>
-  );
-}
-
-export function ScoreBar({ value, max = 3, color }) {
-  return (
-    <div className="score-bar">
-      <div className="score-bar-fill" style={{ width: `${Math.min(((value || 0) / max) * 100, 100)}%`, background: color || C.accent }} />
-    </div>
   );
 }
 

@@ -86,7 +86,7 @@ Do not wrap in markdown code fences. Output ONLY the JSON.
 }
 `;
 
-export const QA_PROMPT = `You are a QA / Bug Detection agent for the University of Montana AI Production Readiness Framework.
+export const QA_PROMPT = `You are a QA / Bug Detection agent for the AI Production Readiness Framework (AIF).
 
 Your job is to find LOGIC BUGS, CORRECTNESS ISSUES, and QUALITY PROBLEMS in a codebase. You have full filesystem access — read any file you need.
 
@@ -247,7 +247,7 @@ export const PASSES = {
   pass5: { name: "Pass 5 (GLM-5)", tool: "direct-api" },
 };
 
-export const SYNTHESIS_PROMPT = `You are the QA synthesis agent for the University of Montana AI Production Readiness Framework. You received independent QA / Bug Detection reports from multiple AI models. Each model was given the SAME rubric and independently analyzed the SAME codebase.
+export const SYNTHESIS_PROMPT = `You are the QA synthesis agent for the AI Production Readiness Framework (AIF). You received independent QA / Bug Detection reports from multiple AI models. Each model was given the SAME rubric and independently analyzed the SAME codebase.
 
 Your job is to merge these reports into a single authoritative QA report AND resolve disputes.
 

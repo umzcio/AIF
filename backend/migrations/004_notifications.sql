@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_tool ON notifications(tool_id);
 
--- Add email column to users (netid@umontana.edu default pattern)
+-- Add email column to users
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_in_app BOOLEAN NOT NULL DEFAULT true;

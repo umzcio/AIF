@@ -10,11 +10,15 @@ services:
       - OUTPUT_DIR=/data/output
       - CODEBASES_DIR=/data/codebases
       - HECVAT_TEMPLATE_PATH=/app/hecvat415.xlsx
+      - AUTH_PROVIDER=${AUTH_PROVIDER:-bypass}
       - AUTH_BYPASS=${AUTH_BYPASS:-false}
       - JWT_SECRET=${JWT_SECRET}
       - ADMIN_NETIDS=${ADMIN_NETIDS:-}
-      - CAS_SERVICE_URL=${CAS_SERVICE_URL:-https://portal.example.edu/aif/api/auth/callback}
-      - FRONTEND_URL=${FRONTEND_URL:-https://portal.example.edu/aif/}
+      - CAS_BASE_URL=${CAS_BASE_URL:-}
+      - CAS_SERVICE_URL=${CAS_SERVICE_URL:-}
+      - FRONTEND_URL=${FRONTEND_URL:-}
+      - INSTITUTION_NAME=${INSTITUTION_NAME:-}
+      - INSTITUTION_DOMAIN=${INSTITUTION_DOMAIN:-}
     volumes:
       - aif_output:/data/output
       - aif_codebases:/data/codebases

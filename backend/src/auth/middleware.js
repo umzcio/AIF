@@ -2,14 +2,14 @@ import { verifyToken } from "./jwt.js";
 import pool from "../db/pool.js";
 import log from "../logger.js";
 
-const AUTH_BYPASS_RAW = process.env.AUTH_BYPASS === "true";
+const AUTH_PROVIDER = process.env.AUTH_PROVIDER || (process.env.AUTH_BYPASS === "true" ? "bypass" : "");
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
-// Block AUTH_BYPASS in production — log error but don't crash
-if (AUTH_BYPASS_RAW && IS_PRODUCTION) {
-  log.error("AUTH_BYPASS cannot be enabled in production — ignoring");
+// Block bypass in production — log error but don't crash
+if (AUTH_PROVIDER === "bypass" && IS_PRODUCTION) {
+  log.error("AUTH_PROVIDER=bypass cannot be used in production — ignoring");
 }
-const AUTH_BYPASS = AUTH_BYPASS_RAW && !IS_PRODUCTION;
+const AUTH_BYPASS = AUTH_PROVIDER === "bypass" && !IS_PRODUCTION;
 
 const COOKIE_NAME = "aif_token";
 

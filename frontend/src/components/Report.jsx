@@ -22,10 +22,10 @@ const AGENT_TABS = [
 
 const PASS_MODEL_NAMES = {
   pass1: "GPT-5.4 (Codex)",
-  pass2: "Gemini 2.5 Pro",
-  pass3: "Grok 3",
+  pass2: "MiniMax M2.5",
+  pass3: "MiMo-V2-Flash",
   pass4: "Kimi K2",
-  pass5: "Qwen3 Coder",
+  pass5: "GLM-5",
 };
 
 function formatPassNames(passes) {

@@ -3,19 +3,9 @@ import { Bell, CheckCheck, Settings, X, Mail, FlaskConical, ClipboardCheck, Circ
 import { C } from "../constants.js";
 import { getNotifications, markNotificationsRead, getNotificationPreferences, updateNotificationPreferences, updateEmail } from "../api.js";
 import { navigate } from "../hooks/useHashRouter.js";
+import { relativeTime } from "./primitives.jsx";
 
 const POLL_INTERVAL = 30000; // 30s
-
-function relativeTime(dateStr) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
 const TYPE_ICONS = {
   pipeline_complete: FlaskConical,
@@ -332,7 +322,7 @@ export default function NotificationBell() {
                   autoComplete="email"
                   value={emailInput}
                   onChange={e => setEmailInput(e.target.value)}
-                  placeholder="netid@umontana.edu"
+                  placeholder="user@institution.edu"
                   style={{
                     width: "100%", padding: "8px 12px", borderRadius: 8,
                     border: `1px solid ${C.border}`, background: C.surface,
