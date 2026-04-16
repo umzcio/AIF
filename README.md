@@ -15,9 +15,15 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-production-1A6B4B?style=flat-square" alt="Production" />
-  <img src="https://img.shields.io/badge/license-internal-c8a96e?style=flat-square" alt="Internal" />
+  <img src="https://img.shields.io/badge/license-MIT-c8a96e?style=flat-square" alt="MIT" />
   <img src="https://img.shields.io/badge/stack-React%20%7C%20Express%20%7C%20PostgreSQL%20%7C%20Docker-4a9eff?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/AI-5%20models%20%2B%20Claude%20synthesis-34d399?style=flat-square" alt="5-model pipeline" />
+</p>
+
+---
+
+<p align="center">
+  <video src="demo.mp4" controls width="700"></video>
 </p>
 
 ---
