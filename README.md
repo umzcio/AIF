@@ -442,9 +442,25 @@ AUTH_PROVIDER=bypass                 # cas | oidc | saml | header | bypass
 JWT_SECRET=...                       # generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ADMIN_NETIDS=                        # comma-separated usernames for auto-admin
 
-# === CAS (when AUTH_PROVIDER=cas) ===
+# --- CAS (AUTH_PROVIDER=cas) ---
 CAS_BASE_URL=https://login.example.edu/cas
 CAS_SERVICE_URL=https://your-domain.edu/aif/api/auth/callback
+
+# --- Header / Shibboleth (AUTH_PROVIDER=header) ---
+# AUTH_HEADER_USER=REMOTE_USER
+# AUTH_HEADER_DISPLAY_NAME=displayName
+
+# --- OIDC / Entra (AUTH_PROVIDER=oidc) — stub, not yet implemented ---
+# OIDC_ISSUER=https://login.microsoftonline.com/{tenant}/v2.0
+# OIDC_CLIENT_ID=
+# OIDC_CLIENT_SECRET=
+# OIDC_REDIRECT_URI=https://your-domain.edu/aif/api/auth/callback
+
+# --- SAML (AUTH_PROVIDER=saml) — stub, not yet implemented ---
+# SAML_ENTRY_POINT=https://idp.example.edu/idp/profile/SAML2/Redirect/SSO
+# SAML_ISSUER=aif-portal
+# SAML_CERT=
+# SAML_CALLBACK_URL=https://your-domain.edu/aif/api/auth/callback
 
 # === Institution ===
 INSTITUTION_NAME=Your Institution
