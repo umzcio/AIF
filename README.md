@@ -355,6 +355,23 @@ AIF/
 
 ---
 
+## Documentation
+
+Full reference documentation lives in [`docs/`](docs/README.md). Quick links:
+
+| Section | Audience | Start with |
+|---------|----------|-----------|
+| [Getting Started](docs/getting-started/) | New installers | [Installation](docs/getting-started/installation.md) |
+| [User Guide](docs/user-guide/) | Builders + Reviewers | [Overview](docs/user-guide/overview.md) |
+| [Admin Guide](docs/admin-guide/) | System admins | [Overview](docs/admin-guide/overview.md) |
+| [Architecture](docs/architecture/) | Engineers | [Overview](docs/architecture/overview.md) |
+| [API Reference](docs/api/) | Integrators | [Overview](docs/api/overview.md) |
+| [Framework](docs/framework/) | Policy / compliance | [Scoring model](docs/framework/scoring-model.md) |
+| [Development](docs/development/) | Contributors | [Setup](docs/development/setup.md) |
+| [Institutional Adoption](docs/institutional-adoption/) | Other institutions | [Porting](docs/institutional-adoption/porting.md) |
+
+---
+
 ## Quick Start
 
 ### Prerequisites
