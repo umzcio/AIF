@@ -1,12 +1,9 @@
 /**
- * Direct API Orchestrator
+ * Pipeline Orchestrator
  *
- * Orchestrator using direct OpenRouter API calls for passes 2-5 (replacing
- * OpenRouter API calls. Pass 1 (Codex) stays as CLI. Synthesis
- * stays as Claude Code CLI. Deterministic tools unchanged.
- *
- * Returns the IDENTICAL result shape as runOpencodePipeline() so all
- * downstream (SSE, DB, reports, findings) works without changes.
+ * Drives the full 4-agent pipeline. Pass 1 (Codex) runs via CLI,
+ * passes 2-5 run via direct OpenRouter API, synthesis runs via Claude Code CLI.
+ * Deterministic tools (Semgrep, ESLint, npm audit, Snyk) run in parallel with model passes.
  */
 
 import { join } from "path";
@@ -295,8 +292,8 @@ ${JSON.stringify(priorFindings, null, 2)}`;
 }
 
 /**
- * Run the full pipeline using direct API for OpenRouter passes.
- * Same signature and return shape as runOpencodePipeline().
+ * Run the full pipeline.
+ * Returns { toolName, track, outputDir, runDir, agents: { codeAnalysis, accessibility, qa, documentation } }.
  */
 export async function runDirectApiPipeline({ codebasePath, track, toolName, outputBase, onProgress, runId, signal, previousFindings }) {
   const emit = onProgress || (() => {});

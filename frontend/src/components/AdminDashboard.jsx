@@ -150,10 +150,10 @@ function OverviewTab() {
 /** Model display metadata — colors match agent colors from constants.js */
 const MODEL_META = {
   "Pass 1 (Codex/GPT-5.4)": { short: "Codex", color: "#F97316" },
-  "Pass 2 (Gemini 2.5 Pro)": { short: "Gemini", color: "#8B5CF6" },
-  "Pass 3 (Grok)": { short: "Grok", color: "#06B6D4" },
-  "Pass 4 (Kimi K2)": { short: "Kimi K2", color: "#22C55E" },
-  "Pass 5 (Qwen3 Coder)": { short: "Qwen3", color: "#EC4899" },
+  "Pass 2 (MiniMax M2.5)":  { short: "MiniMax", color: "#8B5CF6" },
+  "Pass 3 (MiMo-V2-Flash)": { short: "MiMo", color: "#06B6D4" },
+  "Pass 4 (Kimi K2)":       { short: "Kimi K2", color: "#22C55E" },
+  "Pass 5 (GLM-5)":         { short: "GLM-5", color: "#EC4899" },
 };
 
 function getModelMeta(name) {
