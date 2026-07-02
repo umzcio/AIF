@@ -88,7 +88,8 @@ active ─ retire  ─▶ retired
 Reviewers can escalate an `active` tool back to `under_review` or `suspended`.
 Admins have all reviewer transitions plus `retire`. The `system` role is a
 synthetic role used when the pipeline itself transitions status (Track 1
-auto-activate, `in_progress → under_review` on completion).
+auto-activate — gated by the activation gate, which can instead route to
+`under_review` — `in_progress → under_review` on completion).
 
 ## Scores and Escalations
 

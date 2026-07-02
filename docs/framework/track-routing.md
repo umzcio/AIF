@@ -13,7 +13,7 @@ Track routing converts the weighted percentage produced by the scoring model int
 
 | Track | Label | Action | Human Review |
 |------:|-------|--------|--------------|
-| 1 | Register & Go | Register in institutional registry; acknowledge findings | None (auto-activates on pipeline completion) |
+| 1 | Register & Go | Register in institutional registry; acknowledge findings | None, subject to the activation gate (auto-activates on pipeline completion unless the gate blocks it — see [Activation Gate](#activation-gate)) |
 | 2 | Self-Certify | Complete self-assessment; owner signs off | Builder self-certifies |
 | 3 | IT Review | Submit to IT/security review | Reviewer approval required |
 | 4 | Formal Project | Formal IT project governance | Reviewer approval plus institutional sign-off |
@@ -166,15 +166,27 @@ Each track maps to a specific handling path enforced in `backend/src/routes/regi
 ### Track 1 — Register & Go
 
 - Automated pipeline runs (all five models, all four agents).
-- On pipeline completion, the tool auto-activates; status transitions directly to `active`.
-- No human review is required. The builder acknowledges the generated findings.
+- On pipeline completion, the tool auto-activates; status transitions directly to `active`. Track 1 auto-activation is gated: intake-vs-code contradictions, confirmed critical findings, partial analysis, or truncated bundle coverage route the tool to human review instead (see [Activation Gate](#activation-gate)).
+- No human review is required unless the activation gate blocks. The builder acknowledges the generated findings.
 - Intended for low-impact tools with no regulated data and limited audience.
+
+### Activation Gate
+
+Track 1 is the only track that can skip human review entirely, so before the pipeline auto-activates a Track 1 tool, `backend/src/pipeline/activation-gate.js` runs a fail-safe check. It blocks activation — routing the tool to `under_review` for a human look instead — on any of the following conditions:
+
+1. **Intake-vs-code contradictions.** The pipeline independently derives signals from Agent 1's code-analysis synthesis (SSO usage, data classifications, AI disclosure) and diffs them against the builder's self-reported intake answers (q6, q9/q10, q12, q21). Any mismatch blocks activation.
+2. **Confirmed critical findings.** Any Agent 1 finding with `severity: critical` and `confidence: confirmed` blocks activation.
+3. **Partial analysis.** If not all model passes completed, activation is blocked.
+4. **Truncated bundle coverage.** If the codebase bundle used by passes 2–5 was truncated (incomplete coverage), activation is blocked.
+5. **Synthesis unavailable.** If Agent 1's synthesis is missing, or is a `deterministicMerge` fallback (produced when Claude synthesis itself fails), the contradiction check in (1) could not meaningfully run — this blocks activation too, since a fallback synthesis omits `authentication`/`escalationSignals`/`dataOperations`/`aiUsage` and would otherwise silently pass the contradiction check.
+
+The gate only evaluates for Track 1 runs; Tracks 2–4 always require their normal human review step regardless of gate output. The result — `activate`, `blocked`, `reasons`, and any `contradictions` detail — is persisted on `pipeline_runs.activation_gate`. When the gate blocks, the tool's status is set to `under_review` instead of `active`, and users with the reviewer role are notified in-app with the block reasons so they know why a Track 1 tool needs a look.
 
 ### Track 2 — Self-Certify
 
 - Automated pipeline runs.
 - Builder reviews findings and completes the self-certification step in `ReviewPanel`.
-- On self-certification, status transitions to `approved` then `active`.
+- On self-certification, status transitions directly to `active` (there is no intermediate `approved` state for Track 2; `backend/src/routes/review.js` sets `status = 'active'`, `review_decision = 'self_certified'` in one update).
 - The builder submits a written attestation (minimum 20 characters) plus explicit confirmations that findings were reviewed and escalation conditions understood; all of it is stored on the review note and audit log.
 
 ### Track 3 — IT Review
@@ -195,7 +207,7 @@ Each track maps to a specific handling path enforced in `backend/src/routes/regi
 
 Reviewers and admins can escalate or de-escalate a track with a documented reason:
 
-- `POST /review/:id/track-override` accepts `{ track, reason }` and validates that the reason is a non-empty string.
+- `POST /review/:id/track-override` accepts `{ newTrack, reason }` (`trackOverrideSchema` in `backend/src/validation.js`) and validates that the reason is a non-empty string.
 - Track overrides are logged to the `audit_log` table with the original and new track values, actor user ID, and reason.
 - Escalations from a lower track to Track 4 are always permitted. De-escalation from Track 4 is permitted only when no escalation condition currently applies, and only by admins.
 
@@ -220,8 +232,8 @@ draft → pending → in_progress → under_review → approved → active
                               changes_requested → under_review (resubmit)
 ```
 
-- Track 1 skips `under_review` and auto-transitions from `in_progress` directly to `active` on pipeline completion.
-- Track 2 transitions from `under_review` to `approved` via builder self-certification.
+- Track 1 skips `under_review` and auto-transitions from `in_progress` directly to `active` on pipeline completion — unless the activation gate blocks it, in which case it transitions to `under_review` like the other tracks (see [Activation Gate](#activation-gate)).
+- Track 2 transitions from `under_review` directly to `active` via builder self-certification (no `approved` intermediate state).
 - Track 3 and Track 4 transitions from `under_review` to `approved` require reviewer or admin role.
 - The `changes_requested → under_review` edge is not in the registry TRANSITIONS map (which only allows `changes_requested → pending`); it is handled by the dedicated `POST /intake/:id/resubmit` route, which snapshots and recomputes scoring before setting status directly to `under_review`.
 

@@ -40,7 +40,7 @@ Each state has explicit transition rules enforced per role. See [Tracks](tracks.
 2. **Pending** — Builder submits the intake. Backend recomputes scores authoritatively, assigns a track, and queues the pipeline.
 3. **In progress** — The four-agent pipeline runs. The builder can watch progress via the live event stream.
 4. **Outcome by track:**
-   - Track 1 auto-activates on pipeline completion.
+   - Track 1 auto-activates on pipeline completion. Track 1 auto-activation is gated: intake-vs-code contradictions, confirmed critical findings, partial analysis, or truncated bundle coverage route the tool to human review instead (see the activation gate in the Framework Reference).
    - Track 2 surfaces findings for the builder to review and self-certify.
    - Track 3 and Track 4 enter `under_review`; a reviewer approves or requests changes.
 5. **Under review** — Reviewer reads findings, posts notes, renders a decision.

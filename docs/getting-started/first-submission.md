@@ -110,7 +110,7 @@ When all four agents complete, the portal navigates to the Report view automatic
 
 Track-specific next steps are surfaced at the top of the report:
 
-- **Track 1** — auto-activates on pipeline completion. The tool moves directly to `active` status.
+- **Track 1** — auto-activates on pipeline completion; the tool moves directly to `active` status. Track 1 auto-activation is gated: intake-vs-code contradictions, confirmed critical findings, partial analysis, or truncated bundle coverage route the tool to human review instead (see the activation gate in the Framework Reference).
 - **Track 2** — a Self-Certify button appears for the tool owner. Clicking it transitions status to `approved`, pending builder sign-off in the attestation dialog.
 - **Track 3 / Track 4** — the tool sits in `under_review` until a reviewer or admin clicks Approve or Request Changes in the Review Panel.
 

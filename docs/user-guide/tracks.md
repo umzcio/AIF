@@ -6,7 +6,7 @@ Track assignment determines the governance path for a submission. All four track
 
 | Track | Label | Weighted Score | Human Review | Activation |
 |-------|-------|----------------|--------------|------------|
-| 1 | Register & Go | < 22% | None | Auto-activates on pipeline completion. |
+| 1 | Register & Go | < 22% | None, unless the activation gate blocks | Auto-activates on pipeline completion; the activation gate can route it to human review instead. |
 | 2 | Self-Certify | 22% - 42% | Builder reviews own findings. | Builder self-certifies to activate. |
 | 3 | IT Review | 42% - 65% | IT reviewer approves. | Reviewer or admin activates after approval. |
 | 4 | Formal Project | >= 65% or any escalation condition | Formal IT project governance. | Track 4 follows institutional project intake; activation requires explicit reviewer sign-off. |
@@ -19,10 +19,10 @@ Track assignment determines the governance path for a submission. All four track
 
 1. Builder submits intake.
 2. Pipeline runs all four agents.
-3. On pipeline completion, the tool's status transitions `in_progress` -> `active` automatically.
+3. On pipeline completion, the tool's status transitions `in_progress` -> `active` automatically. Track 1 auto-activation is gated: intake-vs-code contradictions, confirmed critical findings, partial analysis, or truncated bundle coverage route the tool to human review instead (see the activation gate, `docs/framework/track-routing.md#activation-gate`).
 4. Builder receives a `pipeline_complete` notification with a link to findings.
 
-Findings are informational. No gate blocks activation. Builders are expected to address critical and high-severity findings as a matter of practice, but there is no formal approval requirement.
+When the activation gate does not block, findings are informational — builders are expected to address critical and high-severity findings as a matter of practice, but there is no formal approval requirement. When the gate blocks, the tool goes to `under_review` and a reviewer decision is required before it can activate.
 
 ## Track 2 — Self-Certify
 

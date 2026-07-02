@@ -62,7 +62,7 @@ The NIST AI RMF organizes AI governance into four functions: GOVERN, MAP, MEASUR
 | RMF subcategory | AIF implementation |
 |----------------|--------------------|
 | MANAGE 1.1 — Prioritization | Weighted-percentage track routing prioritizes reviewer attention on higher-risk submissions. |
-| MANAGE 1.2 — Risk response | Track 1 auto-activates; Track 2 allows builder self-certification; Tracks 3–4 require reviewer approval. |
+| MANAGE 1.2 — Risk response | Track 1 auto-activates, subject to the activation gate (intake-vs-code contradictions, confirmed critical findings, partial analysis, or truncated bundle coverage route it to human review instead); Track 2 allows builder self-certification; Tracks 3–4 require reviewer approval. |
 | MANAGE 1.3 — Response types | Approve, request changes, escalate, de-escalate, suspend, retire — all with documented reason and audit trail. |
 | MANAGE 2.1 — Resource allocation | Per-run cost telemetry in `MODEL_COST_USD` and analytics dashboard informs pipeline budget. |
 | MANAGE 3.1 — Communications | In-app and email notifications on pipeline completion, review-needed events, and status changes. |
