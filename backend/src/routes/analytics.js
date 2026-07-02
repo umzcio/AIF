@@ -310,13 +310,17 @@ router.get("/distribution", async (req, res) => {
        WHERE status <> 'draft' AND track IS NOT NULL GROUP BY track ORDER BY track`
     ),
     pool.query(
-      `SELECT width_bucket(weighted_percentage, 0, 100, 20) AS bucket,
-              (width_bucket(weighted_percentage, 0, 100, 20) - 1) * 5 AS lo,
-              width_bucket(weighted_percentage, 0, 100, 20) * 5 AS hi,
+      `SELECT bucket,
+              (bucket - 1) * 5 AS lo,
+              bucket * 5 AS hi,
               COUNT(*)::int AS count
-       FROM tools
-       WHERE status <> 'draft' AND weighted_percentage IS NOT NULL
-       GROUP BY 1 ORDER BY 1`
+       FROM (
+         SELECT LEAST(width_bucket(weighted_percentage, 0, 100, 20), 20) AS bucket
+         FROM tools
+         WHERE status <> 'draft' AND weighted_percentage IS NOT NULL
+       ) b
+       GROUP BY bucket
+       ORDER BY bucket`
     ),
   ]);
   res.json({ tracks, histogram, thresholds: { track2: 22, track3: 42, track4: 65 } });
