@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { C, TRACK_COLORS, STATUS_META } from "../constants.js";
 import { Btn, ErrorBanner, Skeleton, TrackBadge, relativeTime } from "./primitives.jsx";
 import { getAdminDashboard, getAuditLog, getUsers, updateUserRole, toggleUserActive,
-  getAnalyticsOverview, getAnalyticsTrends } from "../api.js";
+  getAnalyticsOverview, getAnalyticsTrends, getAnalyticsReview, getAnalyticsDistribution } from "../api.js";
 import { navigate } from "../hooks/useHashRouter.js";
 import { useAuth } from "../hooks/useAuth.jsx";
 import { useToast } from "./Toast.jsx";
@@ -178,17 +178,29 @@ function pct(n, d) {
   return `${Math.round((n / d) * 100)}%`;
 }
 
+/** Format seconds as a coarse "Xh" / "Xd" duration for review-latency display */
+function fmtLatency(s) {
+  if (s == null) return "—";
+  const n = Number(s);
+  if (n > 86400) return `${(n / 86400).toFixed(1)}d`;
+  return `${(n / 3600).toFixed(1)}h`;
+}
+
 function AnalyticsTab() {
   const [data, setData] = useState(null);
   const [trends, setTrends] = useState(null);
+  const [review, setReview] = useState(null);
+  const [distribution, setDistribution] = useState(null);
   const [days, setDays] = useState(90);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([getAnalyticsOverview(days), getAnalyticsTrends(days)])
-      .then(([overview, trendData]) => { setData(overview); setTrends(trendData); })
+    Promise.all([getAnalyticsOverview(days), getAnalyticsTrends(days), getAnalyticsReview(), getAnalyticsDistribution()])
+      .then(([overview, trendData, reviewData, distData]) => {
+        setData(overview); setTrends(trendData); setReview(reviewData); setDistribution(distData);
+      })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
   }, [days]);
@@ -363,6 +375,81 @@ function AnalyticsTab() {
           <TrendChart data={trends.timeSeries} />
         </section>
       )}
+
+      {/* Review Latency + Score Distribution side by side */}
+      <div className="responsive-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+        {/* Review Latency (FW-14) */}
+        {review && (
+          <section className="section-card">
+            <div className="card-header">
+              <div><h2>Review Latency</h2></div>
+            </div>
+            {review.latency.length === 0 ? (
+              <div style={{ padding: 16, fontSize: 13, color: C.textDim }}>No decided reviews yet.</div>
+            ) : (
+              <div className="table-scroll-wrapper" style={{ borderRadius: 0, overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr className="registry-table-header" style={{ gridTemplateColumns: "70px 80px 90px 90px" }}>
+                      <th scope="col">Track</th><th scope="col">Decided</th><th scope="col">Median</th><th scope="col">P90</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {review.latency.map((r, i) => (
+                      <tr key={r.track} className="registry-table-row"
+                        style={{ background: i % 2 === 0 ? "transparent" : C.surface,
+                          gridTemplateColumns: "70px 80px 90px 90px", cursor: "default" }}>
+                        <td><TrackBadge track={r.track} /></td>
+                        <td className="mono" style={{ fontSize: 12 }}>{r.decided}</td>
+                        <td className="mono" style={{ fontSize: 12 }}>{fmtLatency(r.median_seconds)}</td>
+                        <td className="mono" style={{ fontSize: 12 }}>{fmtLatency(r.p90_seconds)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {review.pending.length > 0 && (
+              <div style={{ padding: "10px 16px", borderTop: `1px solid ${C.border}`, display: "flex", flexWrap: "wrap", gap: 12 }}>
+                {review.pending.map(p => (
+                  <span key={p.track} style={{ fontSize: 12, color: C.textMid }}>
+                    Track {p.track} pending: <span className="mono" style={{ fontWeight: 600, color: C.text }}>{p.count}</span>
+                    {" "}(oldest {fmtLatency(p.oldest_age_seconds)})
+                  </span>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Score Distribution (FW-13) */}
+        {distribution && (
+          <section className="section-card" style={{ padding: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Score Distribution</div>
+            {distribution.histogram.length === 0 ? (
+              <div style={{ fontSize: 13, color: C.textDim }}>No scored tools yet.</div>
+            ) : (
+              <>
+                {(() => {
+                  const maxCount = Math.max(...distribution.histogram.map(b => b.count), 1);
+                  return distribution.histogram.map(b => (
+                    <div key={b.bucket} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <div className="mono" style={{ width: 55, fontSize: 11, color: C.textDim, textAlign: "right" }}>{b.lo}-{b.hi}%</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ width: `${(b.count / maxCount) * 100}%`, background: C.accent, height: 8, borderRadius: 2 }} />
+                      </div>
+                      <div className="mono" style={{ width: 20, fontSize: 11, color: C.textDim }}>{b.count}</div>
+                    </div>
+                  ));
+                })()}
+              </>
+            )}
+            <p style={{ marginTop: 12, marginBottom: 0, fontSize: 11, color: C.textDim }}>
+              Track thresholds 22 / 42 / 65 are provisional pending calibration against this distribution.
+            </p>
+          </section>
+        )}
+      </div>
 
       {/* Recent Runs Table */}
       {recentRuns.length > 0 && (

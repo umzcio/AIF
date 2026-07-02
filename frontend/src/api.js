@@ -337,6 +337,16 @@ export async function getAnalyticsTrends(days = 30) {
   return res.json();
 }
 
+export async function getAnalyticsReview() {
+  const res = await request(`/analytics/review`);
+  return res.json();
+}
+
+export async function getAnalyticsDistribution() {
+  const res = await request(`/analytics/distribution`);
+  return res.json();
+}
+
 // Admin
 export async function getAdminDashboard() {
   const res = await request("/admin/dashboard");

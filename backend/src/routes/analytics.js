@@ -268,4 +268,58 @@ router.get("/trends", async (req, res) => {
   });
 });
 
+/**
+ * GET /analytics/review
+ * Review latency per track (pipeline completion -> review decision) and
+ * current pending-review backlog per track (FW-14).
+ */
+router.get("/review", async (req, res) => {
+  const [{ rows: latency }, { rows: pending }] = await Promise.all([
+    pool.query(
+      `SELECT t.track,
+              COUNT(*)::int AS decided,
+              PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (t.review_decided_at - pr.completed_at))) AS median_seconds,
+              PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (t.review_decided_at - pr.completed_at))) AS p90_seconds
+       FROM tools t
+       JOIN LATERAL (
+         SELECT completed_at FROM pipeline_runs
+         WHERE tool_id = t.id AND status = 'completed' AND completed_at <= t.review_decided_at
+         ORDER BY completed_at DESC LIMIT 1
+       ) pr ON true
+       WHERE t.review_decided_at IS NOT NULL AND t.track IS NOT NULL
+       GROUP BY t.track ORDER BY t.track`
+    ),
+    pool.query(
+      `SELECT track, COUNT(*)::int AS count,
+              EXTRACT(EPOCH FROM (NOW() - MIN(updated_at))) AS oldest_age_seconds
+       FROM tools WHERE status = 'under_review' AND track IS NOT NULL
+       GROUP BY track ORDER BY track`
+    ),
+  ]);
+  res.json({ latency, pending });
+});
+
+/**
+ * GET /analytics/distribution
+ * Weighted-percentage distribution for track-threshold calibration (FW-13).
+ */
+router.get("/distribution", async (req, res) => {
+  const [{ rows: tracks }, { rows: histogram }] = await Promise.all([
+    pool.query(
+      `SELECT track, COUNT(*)::int AS count FROM tools
+       WHERE status <> 'draft' AND track IS NOT NULL GROUP BY track ORDER BY track`
+    ),
+    pool.query(
+      `SELECT width_bucket(weighted_percentage, 0, 100, 20) AS bucket,
+              (width_bucket(weighted_percentage, 0, 100, 20) - 1) * 5 AS lo,
+              width_bucket(weighted_percentage, 0, 100, 20) * 5 AS hi,
+              COUNT(*)::int AS count
+       FROM tools
+       WHERE status <> 'draft' AND weighted_percentage IS NOT NULL
+       GROUP BY 1 ORDER BY 1`
+    ),
+  ]);
+  res.json({ tracks, histogram, thresholds: { track2: 22, track3: 42, track4: 65 } });
+});
+
 export default router;
