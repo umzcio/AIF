@@ -297,9 +297,10 @@ export default function CodeUpload({ toolId, user }) {
       setAgentStates({ security: "complete", accessibility: "complete", qa: "complete", documentation: "complete" });
       setAgentProgress({ security: 1, accessibility: 1, qa: 1, documentation: 1 });
       // Brief delay so the user sees 100% before navigating
-      setTimeout(() => {
+      const id = setTimeout(() => {
         navigate(`/review/${toolId}/${runId}`);
       }, 800);
+      return () => clearTimeout(id);
     }
   }, [phase, sseDone, sseFailed, runId, toolId]);
 

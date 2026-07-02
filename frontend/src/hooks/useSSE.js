@@ -14,6 +14,7 @@ export function usePipelineStream(runId) {
   const [connectionLost, setConnectionLost] = useState(false);
   const esRef = useRef(null);
   const retriesRef = useRef(0);
+  const reconnectTimerRef = useRef(null);
 
   // pass_log callback — kept as ref so consumers can subscribe without re-renders
   const logCallbackRef = useRef(null);
@@ -62,7 +63,7 @@ export function usePipelineStream(runId) {
         if (retriesRef.current < MAX_RETRIES) {
           const delay = BACKOFF_BASE * Math.pow(2, retriesRef.current);
           retriesRef.current += 1;
-          window.setTimeout(connect, delay);
+          reconnectTimerRef.current = window.setTimeout(connect, delay);
         } else {
           setConnectionLost(true);
         }
@@ -75,6 +76,10 @@ export function usePipelineStream(runId) {
       if (esRef.current) {
         esRef.current.close();
         esRef.current = null;
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
       }
       retriesRef.current = 0;
     };

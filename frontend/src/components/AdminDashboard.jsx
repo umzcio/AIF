@@ -705,8 +705,9 @@ function AuditTab() {
   const [entityTypeFilter, setEntityTypeFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [queryVersion, setQueryVersion] = useState(0);
 
-  useEffect(() => { load(); }, [page]);
+  useEffect(() => { load(); }, [page, queryVersion]);
 
   function load() {
     setLoading(true);
@@ -723,7 +724,7 @@ function AuditTab() {
       .finally(() => setLoading(false));
   }
 
-  function applyFilters() { setPage(0); load(); }
+  function applyFilters() { setPage(0); setQueryVersion(v => v + 1); }
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 

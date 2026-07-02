@@ -41,12 +41,16 @@ export default function Pipeline({ toolId, runId }) {
   );
 
   useEffect(() => {
+    let ignore = false;
     setLoading(true);
     setError(null);
     Promise.all([getTool(toolId), getPipelineRun(runId)])
-      .then(([toolData, runData]) => { setTool(toolData.tool); setRun(runData.run || runData); })
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
+      .then(([toolData, runData]) => {
+        if (!ignore) { setTool(toolData.tool); setRun(runData.run || runData); }
+      })
+      .catch(err => { if (!ignore) setError(err.message); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
   }, [toolId, runId]);
 
   const agentStatuses = useMemo(() => {
