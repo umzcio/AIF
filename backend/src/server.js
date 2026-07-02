@@ -22,6 +22,7 @@ import { recoverOnStartup } from "./pipeline/queue.js";
 import pool from "./db/pool.js";
 import { INSTITUTION_NAME, INSTITUTION_DOMAIN } from "./config.js";
 import { verifySmtp } from "./notifications.js";
+import { runRetention } from "./jobs/retention.js";
 
 loadEnv();
 
@@ -206,12 +207,25 @@ async function preflight() {
   log.info("Preflight OK", { auth: authMode, email: emailStatus, pipelineKeys: `${apiKeyCount}/${Object.keys(pipelineKeys).length}` });
 }
 
+// Data retention (pass_results/notifications purge + retired-tool codebase
+// cleanup, DEAD-02) previously had no invoker — POST /admin/retention
+// existed but nothing ever called it. Default off (RETENTION_INTERVAL_MS=0)
+// preserves prior behavior; operators enable it by setting
+// RETENTION_INTERVAL_MS (e.g. 86400000 for daily).
+const RETENTION_INTERVAL_MS = parseInt(process.env.RETENTION_INTERVAL_MS || "0", 10);
+
 async function start() {
   await preflight();
   await recoverOnStartup();
   server = app.listen(PORT, () => {
     log.info("Server listening", { port: PORT, basePath: BASE_PATH });
   });
+  if (RETENTION_INTERVAL_MS > 0) {
+    log.info("Scheduled retention job enabled", { intervalMs: RETENTION_INTERVAL_MS });
+    setInterval(() => {
+      runRetention().catch((e) => log.error("retention job failed", { error: e.message }));
+    }, RETENTION_INTERVAL_MS).unref();
+  }
 }
 
 function shutdown(signal) {

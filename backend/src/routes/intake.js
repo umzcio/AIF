@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { join } from "path";
+import { rmSync } from "fs";
 import pool, { withTransaction } from "../db/pool.js";
 import { computeTrack } from "../scoring.js";
 import { logAudit } from "../audit.js";
@@ -11,6 +12,18 @@ import { wrap } from "../middleware/async-handler.js";
 const CODEBASES_DIR = process.env.CODEBASES_DIR || "/data/codebases";
 const upload = multer({ dest: "/tmp/aif-uploads", limits: { fileSize: 500 * 1024 * 1024 } });
 const router = Router();
+
+// Multer writes the uploaded temp file to disk before any handler-level
+// validation runs. If a handler returns early (validation failure,
+// ownership check, 404) before extractArchive() is reached, that temp file
+// is orphaned — extractArchive()'s own cleanup finally never runs for a
+// file it was never called with. Call this before every such early return
+// while req.file is present (BROKE-17).
+function cleanupUpload(req) {
+  if (req.file?.path) {
+    try { rmSync(req.file.path, { force: true }); } catch {}
+  }
+}
 
 function computeFromAnswers(answers, artifactType) {
   if (!answers || typeof answers !== "object") return null;
@@ -42,7 +55,7 @@ function parseBody(body) {
 // Save draft
 router.post("/draft", upload.single("codebase"), wrap(async (req, res) => {
   const { name, description, submissionType, artifactType, intakeAnswers, codebaseUrl, sandbox } = parseBody(req.body);
-  if (!name) return res.status(400).json({ error: "name is required" });
+  if (!name) { cleanupUpload(req); return res.status(400).json({ error: "name is required" }); }
 
   const computed = computeFromAnswers(intakeAnswers, artifactType);
   let ownerId = req.user?.userId || null;
@@ -91,9 +104,10 @@ router.post("/draft", upload.single("codebase"), wrap(async (req, res) => {
 // Update draft (owner only)
 router.put("/draft/:id", upload.single("codebase"), wrap(async (req, res) => {
   const { rows: [existing] } = await pool.query("SELECT * FROM tools WHERE id = $1", [req.params.id]);
-  if (!existing) return res.status(404).json({ error: "Tool not found" });
-  if (existing.status !== "draft") return res.status(400).json({ error: "Only drafts can be edited" });
+  if (!existing) { cleanupUpload(req); return res.status(404).json({ error: "Tool not found" }); }
+  if (existing.status !== "draft") { cleanupUpload(req); return res.status(400).json({ error: "Only drafts can be edited" }); }
   if (req.user && existing.owner_id && existing.owner_id !== req.user.userId && req.user.role !== "admin") {
+    cleanupUpload(req);
     return res.status(403).json({ error: "You can only edit your own drafts" });
   }
 
@@ -142,17 +156,18 @@ router.post("/", upload.single("codebase"), wrap(async (req, res) => {
 
   if (draftId) {
     const { rows: [existing] } = await pool.query("SELECT * FROM tools WHERE id = $1", [draftId]);
-    if (!existing) return res.status(404).json({ error: "Draft not found" });
-    if (existing.status !== "draft") return res.status(400).json({ error: "Tool already submitted" });
+    if (!existing) { cleanupUpload(req); return res.status(404).json({ error: "Draft not found" }); }
+    if (existing.status !== "draft") { cleanupUpload(req); return res.status(400).json({ error: "Tool already submitted" }); }
 
     const answers = intakeAnswers || (existing.intake_answers ? existing.intake_answers : null);
     const validation = validateIntakeAnswers(answers);
     if (!validation.ok) {
+      cleanupUpload(req);
       return res.status(400).json({ error: "Intake answers incomplete", details: validation.errors });
     }
     const artType = artifactType || existing.artifact_type;
     const computed = computeFromAnswers(answers, artType);
-    if (!computed) return res.status(400).json({ error: "Intake answers are required to submit" });
+    if (!computed) { cleanupUpload(req); return res.status(400).json({ error: "Intake answers are required to submit" }); }
     const sandboxVal = sandbox || existing.sandbox || false;
 
     const { rows: [tool] } = await pool.query(
@@ -195,13 +210,14 @@ router.post("/", upload.single("codebase"), wrap(async (req, res) => {
   }
 
   // Direct submit (no draft step)
-  if (!name) return res.status(400).json({ error: "name is required" });
+  if (!name) { cleanupUpload(req); return res.status(400).json({ error: "name is required" }); }
   const validation = validateIntakeAnswers(intakeAnswers);
   if (!validation.ok) {
+    cleanupUpload(req);
     return res.status(400).json({ error: "Intake answers incomplete", details: validation.errors });
   }
   const computed = computeFromAnswers(intakeAnswers, artifactType);
-  if (!computed) return res.status(400).json({ error: "Intake answers are required" });
+  if (!computed) { cleanupUpload(req); return res.status(400).json({ error: "Intake answers are required" }); }
 
   let ownerId = req.user?.userId || null;
   // Ensure user row exists (JWT may reference stale ID after DB recreate)
@@ -252,13 +268,15 @@ router.post("/", upload.single("codebase"), wrap(async (req, res) => {
 
 // Resubmit after changes_requested: snapshot old state, recompute, back to review
 router.post("/:id/resubmit", upload.single("codebase"), wrap(async (req, res) => {
-  if (!req.user) return res.status(401).json({ error: "Authentication required" });
+  if (!req.user) { cleanupUpload(req); return res.status(401).json({ error: "Authentication required" }); }
   const { rows: [existing] } = await pool.query("SELECT * FROM tools WHERE id = $1", [req.params.id]);
-  if (!existing) return res.status(404).json({ error: "Tool not found" });
+  if (!existing) { cleanupUpload(req); return res.status(404).json({ error: "Tool not found" }); }
   if (existing.status !== "changes_requested") {
+    cleanupUpload(req);
     return res.status(400).json({ error: "Only tools with changes requested can be resubmitted" });
   }
   if (existing.owner_id !== req.user.userId && req.user.role !== "admin") {
+    cleanupUpload(req);
     return res.status(403).json({ error: "Only the tool owner can resubmit" });
   }
 
@@ -267,6 +285,7 @@ router.post("/:id/resubmit", upload.single("codebase"), wrap(async (req, res) =>
   const artType = artifactType || existing.artifact_type;
   const validation = validateIntakeAnswers(answers);
   if (!validation.ok) {
+    cleanupUpload(req);
     return res.status(400).json({ error: "Intake answers incomplete", details: validation.errors });
   }
   const computed = computeFromAnswers(answers, artType);

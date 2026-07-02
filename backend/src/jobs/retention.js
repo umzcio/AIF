@@ -1,4 +1,8 @@
+import { rmSync, existsSync } from "fs";
+import { join } from "path";
 import pool from "../db/pool.js";
+
+const CODEBASES_DIR = process.env.CODEBASES_DIR || "/data/codebases";
 
 /**
  * Data retention job — archives/deletes old data based on configurable thresholds.
@@ -7,6 +11,7 @@ import pool from "../db/pool.js";
  * @param {number} options.passResultsDays  — delete pass_results older than N days (default 90)
  * @param {number} options.notificationDays — delete read notifications older than N days (default 30)
  * @param {number} options.auditLogDays     — report-only count of audit_log entries older than N days (default 365)
+ * @param {number} options.codebaseDays     — prune extracted codebase dirs for tools retired more than N days ago (default 30)
  * @param {boolean} options.dryRun          — if true, only report what would be affected (default false)
  * @returns {Promise<object>} summary of actions taken
  */
@@ -15,6 +20,7 @@ export async function runRetention(options = {}) {
     passResultsDays = 90,
     notificationDays = 30,
     auditLogDays = 365,
+    codebaseDays = 30,
     dryRun = false,
   } = options;
 
@@ -22,6 +28,7 @@ export async function runRetention(options = {}) {
     passResults: { deleted: 0, dryRun },
     notifications: { deleted: 0, dryRun },
     auditLog: { count: 0 },
+    codebaseDirs: { found: 0, removed: 0, dryRun },
   };
 
   // --- Pass results ---
@@ -85,6 +92,39 @@ export async function runRetention(options = {}) {
   );
   summary.auditLog.count = parseInt(auditCount.cnt);
   console.log(`[retention] ${summary.auditLog.count} audit_log entries older than ${auditLogDays} days (report only).`);
+
+  // --- Retired-tool codebase directories (PRAC-05) ---
+  // Uses the existing `updated_at` column (touched by every status change,
+  // including the transition to 'retired') as the retirement timestamp
+  // rather than adding a dedicated `retired_at` column — this only needs
+  // day-granularity for a disk-cleanup sweep, so a schema migration isn't
+  // warranted. If finer precision is ever needed, add `retired_at
+  // TIMESTAMPTZ` in a new migration and switch this query to it.
+  console.log(`[retention] Checking retired tools older than ${codebaseDays} days for codebase directory cleanup...`);
+  const { rows: retiredTools } = await pool.query(
+    `SELECT id FROM tools WHERE status = 'retired' AND updated_at < NOW() - make_interval(days => $1)`,
+    [codebaseDays]
+  );
+  summary.codebaseDirs.found = retiredTools.length;
+  console.log(`[retention] Found ${retiredTools.length} retired tools eligible for codebase cleanup.`);
+
+  if (retiredTools.length > 0 && !dryRun) {
+    let removed = 0;
+    for (const t of retiredTools) {
+      const dir = join(CODEBASES_DIR, t.id);
+      if (!existsSync(dir)) continue;
+      try {
+        rmSync(dir, { recursive: true, force: true });
+        removed++;
+      } catch (err) {
+        console.error(`[retention] Failed to remove codebase dir for tool ${t.id}: ${err.message}`);
+      }
+    }
+    summary.codebaseDirs.removed = removed;
+    console.log(`[retention] Removed ${removed} retired-tool codebase directories.`);
+  } else if (dryRun) {
+    console.log(`[retention] Dry run — would check ${retiredTools.length} retired-tool codebase directories.`);
+  }
 
   console.log("[retention] Complete.", JSON.stringify(summary));
   return summary;

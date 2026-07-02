@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { join } from "path";
+import { rmSync } from "fs";
 import pool, { withTransaction } from "../db/pool.js";
 import { requireRole, requireOwnerOrRole } from "../auth/middleware.js";
 import { logAudit } from "../audit.js";
@@ -8,6 +10,8 @@ import { wrap } from "../middleware/async-handler.js";
 
 // Valid status values — used for whitelist validation on query params
 const VALID_STATUSES = ["draft","pending","in_progress","under_review","approved","changes_requested","active","suspended","retired"];
+
+const CODEBASES_DIR = process.env.CODEBASES_DIR || "/data/codebases";
 
 const router = Router();
 
@@ -223,6 +227,15 @@ router.delete("/:id", requireOwnerOrRole("admin"), wrap(async (req, res) => {
       details: { name: tool.name },
     }, client);
   });
+
+  // Reclaim the extracted codebase directory on disk (PRAC-05). The DB
+  // delete already committed above — a failure here is disk hygiene, not a
+  // correctness issue, so it's log-only rather than surfaced to the caller.
+  try {
+    rmSync(join(CODEBASES_DIR, req.params.id), { recursive: true, force: true });
+  } catch (err) {
+    log.error("Failed to reclaim codebase directory on tool delete", { toolId: req.params.id, error: err.message });
+  }
 
   res.json({ ok: true });
 }));

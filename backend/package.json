@@ -9,7 +9,7 @@
     "cli": "node src/index.js",
     "migrate": "node src/db/migrate.js",
     "test:providers": "node src/providers/test.js",
-    "test": "node --test src/*.test.js src/**/*.test.js"
+    "test": "node --test $(find src -name '*.test.js')"
   },
   "license": "ISC",
   "dependencies": {

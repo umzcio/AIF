@@ -231,10 +231,25 @@ export async function bundleCodebase(codebasePath, options = {}) {
     return f.relPath.length + 16; // "=== FILE: " + " ===\n" + trailing "\n"
   }
 
-  // Add priority 1 + 2 unconditionally
+  // Add priority 1 + 2 (manifests/config/readme), but still respect the hard
+  // budget (BROKE-11): an oversized file here (e.g. a huge README) is
+  // truncated to a head slice that fits the remaining budget rather than
+  // included whole, so the overall bundle can never bust maxChars.
   for (const f of [...p1, ...p2]) {
-    usedChars += f.chars + overhead(f);
-    included.push(f);
+    const cost = f.chars + overhead(f);
+    if (usedChars + cost <= maxChars) {
+      usedChars += cost;
+      included.push(f);
+    } else {
+      const remaining = maxChars - usedChars - overhead(f);
+      if (remaining > 0) {
+        const truncatedContent = f.content.slice(0, remaining);
+        usedChars += truncatedContent.length + overhead(f);
+        included.push({ ...f, content: truncatedContent, chars: truncatedContent.length });
+      } else {
+        excluded.push(f.relPath);
+      }
+    }
   }
 
   // Add source files until budget
