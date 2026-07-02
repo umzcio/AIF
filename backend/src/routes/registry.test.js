@@ -281,3 +281,61 @@ describe("state machine — system role fallthrough", () => {
     assert.ok(canTransition("in_progress", "active", "reviewer"));
   });
 });
+
+// ===========================================================================
+// DELETE authorization gate (PRAC-03)
+//
+// canDeleteTool models only the in-handler status check added to the
+// DELETE /:id handler; it is not exported from registry.js (module-scoped
+// inline logic), so it is re-defined here identically. It assumes the
+// caller already passed requireOwnerOrRole("admin") — i.e. `role` is the
+// role of either the tool's owner or an admin — since that middleware
+// gates route access (and sets req.tool) before this predicate ever runs.
+// There is no HTTP test harness in this suite, so the full route
+// (ownership/role gate in middleware.js + this status gate) is covered
+// only by this predicate test plus manual code reading, not an
+// end-to-end request test.
+// ===========================================================================
+
+const PRE_REVIEW_STATUSES = ["draft", "pending"];
+
+function canDeleteTool(role, toolStatus) {
+  if (role === "admin") return true;
+  return PRE_REVIEW_STATUSES.includes(toolStatus);
+}
+
+describe("DELETE /:id — deletion authorization gate", () => {
+  it("owner (builder) can delete a draft tool", () => {
+    assert.ok(canDeleteTool("builder", "draft"));
+  });
+
+  it("owner (builder) can delete a pending tool", () => {
+    assert.ok(canDeleteTool("builder", "pending"));
+  });
+
+  it("owner (builder) cannot delete an under_review tool", () => {
+    assert.ok(!canDeleteTool("builder", "under_review"));
+  });
+
+  it("owner (builder) cannot delete an approved tool", () => {
+    assert.ok(!canDeleteTool("builder", "approved"));
+  });
+
+  it("owner (builder) cannot delete an active tool", () => {
+    assert.ok(!canDeleteTool("builder", "active"));
+  });
+
+  it("owner (builder) cannot delete a changes_requested tool", () => {
+    assert.ok(!canDeleteTool("builder", "changes_requested"));
+  });
+
+  it("owner (builder) cannot delete a suspended tool", () => {
+    assert.ok(!canDeleteTool("builder", "suspended"));
+  });
+
+  it("admin can delete a tool at any status", () => {
+    for (const status of ALL_STATUSES) {
+      assert.ok(canDeleteTool("admin", status), `admin should be able to delete a ${status} tool`);
+    }
+  });
+});

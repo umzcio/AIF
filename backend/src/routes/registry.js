@@ -209,6 +209,11 @@ router.patch("/:id/sandbox", validate(sandboxToggleSchema), wrap(async (req, res
 router.delete("/:id", requireOwnerOrRole("admin"), wrap(async (req, res) => {
   const tool = req.tool; // set by requireOwnerOrRole
 
+  const preReviewStatuses = ["draft", "pending"];
+  if (req.user.role !== "admin" && !preReviewStatuses.includes(req.tool.status)) {
+    return res.status(403).json({ error: "Only an admin can delete a tool once it has entered review" });
+  }
+
   await withTransaction(async (client) => {
     // All child tables cascade via ON DELETE CASCADE (migration 008)
     await client.query("DELETE FROM tools WHERE id = $1", [req.params.id]);
