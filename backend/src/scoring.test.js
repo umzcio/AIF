@@ -161,20 +161,24 @@ describe("computeDimensionScores", () => {
     assert.strictEqual(pubLarge.blastRadius, 3); // capped
   });
 
-  it("scores autonomy based on q21 and q20", () => {
-    // q21=no -> +2
+  it("scores autonomy based on q21 and legacy free-text q20 (improvement 17 rules)", () => {
+    // q20 undefined -> not in AUTONOMY_LEVELS ("undefined" key absent) -> legacy
+    // branch: a.q20 is falsy -> auto=0. q21=no -> +1 (was +2 pre-improvement-17).
     const noDisclosure = computeDimensionScores({ q21: "no" });
-    assert.strictEqual(noDisclosure.autonomy, 2);
+    assert.strictEqual(noDisclosure.autonomy, 1);
 
-    // q21=partial -> +1
+    // q21=partial no longer contributes (disclosure is one signal, not the
+    // dimension) -> auto stays 0.
     const partial = computeDimensionScores({ q21: "partial" });
-    assert.strictEqual(partial.autonomy, 1);
+    assert.strictEqual(partial.autonomy, 0);
 
-    // q20 with length > 10 adds 1
+    // q20 free text, not an AUTONOMY_LEVELS key -> legacy length heuristic:
+    // "Makes decisions autonomously".length > 10 -> auto=1. q21=no -> +1 = 2
+    // (was 3 pre-improvement-17, since q21=no used to add +2).
     const withDesc = computeDimensionScores({ q21: "no", q20: "Makes decisions autonomously" });
-    assert.strictEqual(withDesc.autonomy, 3);
+    assert.strictEqual(withDesc.autonomy, 2);
 
-    // q21=yes, short q20 -> 0
+    // q21=yes, empty q20 -> legacy branch, falsy -> 0. Unchanged.
     const fullyDisclosed = computeDimensionScores({ q21: "yes", q20: "" });
     assert.strictEqual(fullyDisclosed.autonomy, 0);
   });
@@ -221,7 +225,12 @@ describe("computeDimensionScores", () => {
     assert.strictEqual(scores.accessibility, 3);
     assert.strictEqual(scores.dataSensitivity, 3);
     assert.strictEqual(scores.blastRadius, 3);
-    assert.strictEqual(scores.autonomy, 3);
+    // highRiskAnswers().q20 is legacy free text ("AI makes autonomous
+    // decisions about student grading without oversight"), not an
+    // AUTONOMY_LEVELS key -> legacy length heuristic: length > 10 -> auto=1.
+    // q21="no" -> +1 = 2 (was 3 pre-improvement-17, since q21=no used to add
+    // +2 and the length heuristic alone hit the +1 cap headroom).
+    assert.strictEqual(scores.autonomy, 2);
     assert.strictEqual(scores.comprehension, 3);
     assert.strictEqual(scores.maintenance, 3);
   });
@@ -661,5 +670,41 @@ describe("comprehension is a universal dimension (FW-04)", () => {
   it("an unanswered q19 scores 3 (the question is always asked)", () => {
     const s = computeDimensionScores({ q1: "internal-app" });
     assert.strictEqual(s.comprehension, 3);
+  });
+});
+
+// ===========================================================================
+// structured q20 autonomy + new escalators (improvement 17)
+// ===========================================================================
+
+describe("structured q20 autonomy (improvement 17)", () => {
+  it("maps decision-scope enum to autonomy score", () => {
+    assert.strictEqual(computeDimensionScores({ q20: "none", q21: "yes" }).autonomy, 0);
+    assert.strictEqual(computeDimensionScores({ q20: "recommends", q21: "yes" }).autonomy, 1);
+    assert.strictEqual(computeDimensionScores({ q20: "acts-with-override", q21: "yes" }).autonomy, 2);
+    assert.strictEqual(computeDimensionScores({ q20: "autonomous", q21: "yes" }).autonomy, 3);
+  });
+  it("no disclosure adds one point, capped at 3", () => {
+    assert.strictEqual(computeDimensionScores({ q20: "recommends", q21: "no" }).autonomy, 2);
+    assert.strictEqual(computeDimensionScores({ q20: "autonomous", q21: "no" }).autonomy, 3);
+  });
+  it("legacy free-text q20 keeps the old +1 heuristic", () => {
+    assert.strictEqual(computeDimensionScores({ q20: "a human reviews everything", q21: "yes" }).autonomy, 1);
+    assert.strictEqual(computeDimensionScores({ q20: "short", q21: "yes" }).autonomy, 0);
+  });
+});
+
+describe("new escalators (improvement 17)", () => {
+  it("payment data escalates", () => {
+    const e = checkEscalations({ q9: "yes", q10: ["payment"] });
+    assert.ok(e.includes("Payment card data (PCI DSS)"));
+  });
+  it("autonomous decisions escalate", () => {
+    const e = checkEscalations({ q20: "autonomous" });
+    assert.ok(e.includes("Autonomous decisions without human review"));
+  });
+  it("acts-with-override does not escalate", () => {
+    const e = checkEscalations({ q20: "acts-with-override" });
+    assert.ok(!e.includes("Autonomous decisions without human review"));
   });
 });

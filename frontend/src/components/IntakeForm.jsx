@@ -40,7 +40,7 @@ const FIELD_HINTS = {
   q17: "How actively will this tool be maintained?",
   q18: "Who responds when the tool breaks?",
   q19: "Explain in plain language what the tool does and failure modes.",
-  q20: "What decisions does this tool influence? Is there human oversight?",
+  q20: "How independent is this tool's decision-making?",
   q21: "Will users know they're interacting with AI?",
 };
 
@@ -543,8 +543,9 @@ export default function IntakeForm({ draftId }) {
 
           {showAI && <>
             <SectionDivider num="6" title="AI-Specific Questions" sub="Your tool uses AI or sends data to an external AI model." />
-            <Q n={20} label="What decisions does this tool make or influence? Human reviewer at decision point?" req answered={isAnswered(a,"q20")} hint={FIELD_HINTS.q20} error={fieldErrors.q20}>
-              <textarea className="text-area" value={a.q20 || ""} onChange={e=>s("q20",e.target.value)} placeholder="Describe decisions and human oversight..." style={{ minHeight: 80 }} aria-labelledby="q20-label" />
+            <Q n={20} label="What decisions does this tool make or influence?" req routing="Autonomous decision-making without human review triggers escalation." esc={a.q20==="autonomous"?"Autonomous decisions = Track 4":null} answered={isAnswered(a,"q20")} hint={FIELD_HINTS.q20} error={fieldErrors.q20}>
+              {[["none","None — informational output only"],["recommends","Recommends — a human makes every decision"],["acts-with-override","Acts automatically — humans can review or override"],["autonomous","Fully autonomous — no human checkpoint"]
+              ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q20===v} onClick={x=>s("q20",x)} />)}
             </Q>
             <Q n={21} label="Will users know they're interacting with AI?" req esc={a.q21==="no"?"Users unaware of AI — pedagogy escalation":null} answered={isAnswered(a,"q21")} hint={FIELD_HINTS.q21} error={fieldErrors.q21}>
               {[["yes","Yes — clearly disclosed"],["no","No — users won't know"],["partial","Partially"],["na","N/A — no direct interaction"]

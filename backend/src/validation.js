@@ -118,7 +118,7 @@ const intakeAnswersBase = z.object({
   q17: z.enum(["set-forget","occasional","active","third-party-dep"]),
   q18: z.enum(["me-available","team-runbooks","only-me","unknown"]),
   q19: z.string().min(1),
-  q20: z.string().optional(),
+  q20: z.enum(["none","recommends","acts-with-override","autonomous"]).optional(),
   q21: z.enum(["yes","no","partial","na"]).optional(),
 }).passthrough();
 

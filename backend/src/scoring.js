@@ -19,6 +19,8 @@ export const SCORE_DIMENSIONS = [
   "autonomy", "comprehension", "maintenance",
 ];
 
+export const AUTONOMY_LEVELS = { "none": 0, "recommends": 1, "acts-with-override": 2, "autonomous": 3 };
+
 export function computeDimensionScores(a) {
   const s = { security: 0, accessibility: 0, dataSensitivity: 0, blastRadius: 0, autonomy: 0, comprehension: 0, maintenance: 0 };
   // Security
@@ -42,10 +44,13 @@ export function computeDimensionScores(a) {
   else if (u.includes("students") || u.includes("department")) s.blastRadius = 2;
   else if (u.includes("team")) s.blastRadius = 1;
   if (a.q8 === "500+") s.blastRadius = Math.min(s.blastRadius + 1, 3);
-  // Autonomy
-  if (a.q21 === "no") s.autonomy = Math.min(s.autonomy + 2, 3);
-  else if (a.q21 === "partial") s.autonomy = Math.min(s.autonomy + 1, 3);
-  if (a.q20 && a.q20.length > 10) s.autonomy = Math.min(s.autonomy + 1, 3);
+  // Autonomy: decision scope (q20 enum) + disclosure penalty.
+  // Legacy records hold free-text q20; keep the old length heuristic for them.
+  let auto;
+  if (a.q20 in AUTONOMY_LEVELS) auto = AUTONOMY_LEVELS[a.q20];
+  else auto = a.q20 && a.q20.length > 10 ? 1 : 0;
+  if (a.q21 === "no") auto += 1;
+  s.autonomy = Math.min(auto, 3);
   // Comprehension
   if (!a.q19 || a.q19.length < 20) s.comprehension = 3;
   else if (a.q19.length < 80) s.comprehension = 2;
@@ -70,6 +75,8 @@ export function checkEscalations(a) {
   if (a.q6 === "custom-auth") e.push("Auth outside campus SSO");
   if (a.q15 === "no-vc") e.push("No version control");
   if (a.q21 === "no" && (a.q3 || []).includes("students")) e.push("Students unaware of AI");
+  if (dt.includes("payment")) e.push("Payment card data (PCI DSS)");
+  if (a.q20 === "autonomous") e.push("Autonomous decisions without human review");
   return e;
 }
 
