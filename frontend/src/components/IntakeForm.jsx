@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, Children, cloneElement, isValidElement } from "react";
 import { Check, AlertTriangle, Save, Clock, CheckCircle, Loader } from "lucide-react";
 import { C, TRACK_COLORS, TRACK_LABELS, computeTrack, DIMENSION_SHORT, DIMENSION_LABELS, DIMENSION_NIST } from "../constants.js";
 import { navigate } from "../hooks/useHashRouter.js";
@@ -51,9 +51,9 @@ function isAnswered(a, key) {
   return true;
 }
 
-function SelectOption({ label, value, selected, onClick }) {
+function SelectOption({ label, value, selected, onClick, tabIndex }) {
   return (
-    <button type="button" role="radio" aria-checked={selected} onClick={() => onClick(value)} className="data-row" style={{
+    <button type="button" role="radio" aria-checked={selected} tabIndex={tabIndex} onClick={() => onClick(value)} className="data-row" style={{
       display: "block", width: "100%", textAlign: "left", cursor: "pointer",
       borderColor: selected ? C.accent : C.border, background: selected ? C.accentSoft : C.bg,
     }}>
@@ -87,6 +87,36 @@ function CheckOption({ label, value, checked, onChange }) {
 function Q({ n, label, req, routing, esc, hint, answered, children, multi, error }) {
   const qId = `q${n}-label`;
   const errId = `q${n}-error`;
+
+  // A11Y-03: WAI-ARIA radiogroup pattern for single-select SelectOption groups.
+  // Roving tabindex — only the checked option (or the first, if none checked) is
+  // reachable by Tab; ArrowUp/Down/Left/Right move focus + selection between
+  // siblings, wrapping at the ends. CheckOption/role="group" (multi-select) is
+  // left untouched — checkboxes are individually Tab-stoppable per APG, no
+  // roving tabindex required there.
+  let renderedChildren = children;
+  if (!multi) {
+    const options = Children.toArray(children).filter(isValidElement);
+    const checkedIndex = options.findIndex(c => c.props.selected);
+    const activeIndex = checkedIndex >= 0 ? checkedIndex : 0;
+    renderedChildren = options.map((child, i) => cloneElement(child, { tabIndex: i === activeIndex ? 0 : -1 }));
+  }
+
+  function handleRadioGroupKeyDown(e) {
+    if (multi) return;
+    if (!["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft"].includes(e.key)) return;
+    const radios = Array.from(e.currentTarget.querySelectorAll('[role="radio"]'));
+    if (radios.length === 0) return;
+    e.preventDefault();
+    const currentIndex = radios.indexOf(document.activeElement);
+    const base = currentIndex < 0 ? 0 : currentIndex;
+    const delta = (e.key === "ArrowDown" || e.key === "ArrowRight") ? 1 : -1;
+    const nextIndex = (base + delta + radios.length) % radios.length; // wraps at both ends
+    const next = radios[nextIndex];
+    next.focus();
+    next.click(); // reuses existing onClick -> selection handler; roving tabIndex updates on next render
+  }
+
   return (
     <div style={{ marginBottom: 24 }}>
       <div id={qId} tabIndex={-1} style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
@@ -98,8 +128,8 @@ function Q({ n, label, req, routing, esc, hint, answered, children, multi, error
       {routing && <p style={{ fontSize: 11.5, color: C.textMid, marginBottom: 8, fontStyle: "italic", lineHeight: 1.4, maxWidth: 600, marginTop: 0 }}>{routing}</p>}
       {hint && !answered && <p style={{ fontSize: 11.5, color: C.textDim, marginBottom: 6, lineHeight: 1.3, marginTop: 0 }}>{hint}</p>}
       <div role={multi ? "group" : "radiogroup"} aria-labelledby={qId} aria-invalid={!!error || undefined}
-        aria-describedby={error ? errId : undefined}
-        style={{ display: "flex", flexDirection: "column", gap: 4 }}>{children}</div>
+        aria-describedby={error ? errId : undefined} onKeyDown={multi ? undefined : handleRadioGroupKeyDown}
+        style={{ display: "flex", flexDirection: "column", gap: 4 }}>{renderedChildren}</div>
       {error && <div id={errId} role="alert" style={{ fontSize: 12, color: TRACK_COLORS[4], marginTop: 4, fontWeight: 500 }}>{error}</div>}
       {esc && <div style={{ marginTop: 8, padding: "7px 12px", borderRadius: 6, background: "rgba(239,68,68,0.07)", border: `1px solid rgba(239,68,68,0.18)`,
         display: "flex", alignItems: "center", gap: 8 }}>

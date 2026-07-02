@@ -24,6 +24,7 @@ export default function FindingsReview({ toolId, runId: runIdProp }) {
   const [viewMode, setViewMode] = useState("summary");
   const [selectedFile, setSelectedFile] = useState(null);
   const [submitted, setSubmitted] = useState(null);
+  const [activeTreePath, setActiveTreePath] = useState(null); // A11Y-04: roving tabindex target
 
   // Load tool + report + saved statuses
   useEffect(() => {
@@ -109,6 +110,75 @@ export default function FindingsReview({ toolId, runId: runIdProp }) {
     falsePositive: allFindings.filter(f => f.status === "false_positive").length,
   }), [allFindings]);
   const fileTree = useMemo(() => buildFileTree(allFindings), [allFindings]);
+  // Roving tabindex target for the file tree (A11Y-04) — falls back to the
+  // first top-level node until the user focuses/selects something else.
+  const effectiveTreeActivePath = activeTreePath ?? (fileTree[0]?.name || null);
+
+  // A11Y-04: ARIA APG Tree View keyboard pattern, coordinated across the
+  // recursive FileTreeNode instances from this container. Collapsed subtrees
+  // don't exist in the DOM, so querying `[role="treeitem"]` in DOM order gives
+  // exactly the currently *visible* nodes — no separate "visible nodes" model
+  // needs to be maintained.
+  //   ArrowDown/ArrowUp — move focus to the next/previous visible node (no wrap).
+  //   ArrowRight — on a collapsed dir: expand it, focus stays put.
+  //                on an expanded dir: move focus to its first child.
+  //                on a file: no-op.
+  //   ArrowLeft  — on an expanded dir: collapse it, focus stays put.
+  //                on a collapsed dir or a file: move focus to the parent node.
+  //   Home/End   — jump to the first/last visible node.
+  // Expand/collapse is triggered by calling `.click()` on the treeitem (reuses
+  // FileTreeNode's own onClick/setOpen — no separate expand API needed).
+  const handleTreeKeyDown = useCallback((e) => {
+    const NAV_KEYS = ["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft", "Home", "End"];
+    if (!NAV_KEYS.includes(e.key)) return;
+    const items = Array.from(e.currentTarget.querySelectorAll('[role="treeitem"]'));
+    if (items.length === 0) return;
+    const currentIndex = items.indexOf(document.activeElement);
+
+    const focusItem = (el) => {
+      if (!el) return;
+      e.preventDefault();
+      el.focus();
+      const p = el.dataset.path;
+      if (p) setActiveTreePath(p);
+    };
+
+    switch (e.key) {
+      case "ArrowDown":
+        focusItem(items[Math.min(currentIndex < 0 ? 0 : currentIndex + 1, items.length - 1)]);
+        break;
+      case "ArrowUp":
+        focusItem(items[Math.max(currentIndex < 0 ? 0 : currentIndex - 1, 0)]);
+        break;
+      case "Home":
+        focusItem(items[0]);
+        break;
+      case "End":
+        focusItem(items[items.length - 1]);
+        break;
+      case "ArrowRight": {
+        if (currentIndex < 0) break;
+        const el = items[currentIndex];
+        const expanded = el.getAttribute("aria-expanded");
+        if (expanded === "false") { e.preventDefault(); el.click(); }
+        else if (expanded === "true") focusItem(items[currentIndex + 1]);
+        // file (no aria-expanded): no-op
+        break;
+      }
+      case "ArrowLeft": {
+        if (currentIndex < 0) break;
+        const el = items[currentIndex];
+        const expanded = el.getAttribute("aria-expanded");
+        if (expanded === "true") { e.preventDefault(); el.click(); }
+        else {
+          const groupDiv = el.closest('[role="group"]');
+          const parentItem = groupDiv?.previousElementSibling;
+          if (parentItem?.getAttribute("role") === "treeitem") focusItem(parentItem);
+        }
+        break;
+      }
+    }
+  }, []);
 
   if (loading) return <div style={{ padding: 24 }}><Skeleton height={200} /></div>;
   if (error) return <div style={{ padding: 24 }}><ErrorBanner message={error} /></div>;
@@ -231,9 +301,10 @@ export default function FindingsReview({ toolId, runId: runIdProp }) {
             <div style={{ fontSize: 11, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 10, fontFamily: "'JetBrains Mono', monospace" }}>
               Project Files
             </div>
-            {fileTree.length > 0 ? <div role="tree" aria-label="Project files">{fileTree.map((node, i) => (
+            {fileTree.length > 0 ? <div role="tree" aria-label="Project files" onKeyDown={handleTreeKeyDown}>{fileTree.map((node, i) => (
               <FileTreeNode key={i} node={node} selectedFile={selectedFile}
-                onSelect={f => setSelectedFile(selectedFile === f ? null : f)} />
+                onSelect={f => setSelectedFile(selectedFile === f ? null : f)}
+                activePath={effectiveTreeActivePath} onFocusNode={setActiveTreePath} />
             ))}</div> : (
               <div style={{ fontSize: 12, color: C.textMid }}>No file data available.</div>
             )}
