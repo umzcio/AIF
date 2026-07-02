@@ -448,13 +448,35 @@ export async function runDirectApiPipeline({ codebasePath, track, toolName, outp
     }
   }
 
-  const [codeAnalysis, accessibility, a11yLinterResult, depAuditResult, semgrepResult] = await Promise.all([
+  // allSettled (not all): a total failure of one agent (all 5 passes + synthesis
+  // fallback exhausted — see runAgentDirect's "All passes failed" throw) must not
+  // discard the sibling agent's completed work or abandon its still-running child
+  // processes before they finish. The deterministic tools (runToolWithEvents) never
+  // reject — they catch internally and resolve null on failure — so in practice only
+  // the two agent promises can land in the 'rejected' branch below.
+  const settled = await Promise.allSettled([
     runAgentDirect(AGENTS[0], codebasePath, codeBundle, passes, codeAnalysisDir, emit, agentOpts),
     runAgentDirect(AGENTS[1], codebasePath, codeBundle, passes, accessibilityDir, emit, agentOpts),
     runToolWithEvents("jsx-a11y", "accessibility", () => runA11yLinter(codebasePath, join(runDir, "agent2_accessibility"))),
     runToolWithEvents("npm-audit", "security", () => runDepAudit(codebasePath, join(runDir, "agent1_code_analysis"))),
     runToolWithEvents("semgrep", "security", () => runSemgrep(codebasePath, join(runDir, "agent1_code_analysis"))),
   ]);
+
+  // Fallback shape for a rejected agent — mirrors what runAgentDirect returns when
+  // some (but not all) passes succeed, so every downstream `.synthesis`/`.passes`/
+  // `.failures`/`.partial` access below stays safe without special-casing rejection.
+  function agentRejectionFallback(name, reason) {
+    const message = reason?.message || String(reason);
+    pipelineLog.error(`${name} agent failed entirely (all passes + synthesis exhausted)`, { error: message });
+    emit({ type: "agent_failed", agent: name, error: message });
+    return { passes: {}, failures: [message], synthesis: null, raw: null, partial: true, synthesisFailed: true };
+  }
+
+  const codeAnalysis = settled[0].status === "fulfilled" ? settled[0].value : agentRejectionFallback("code-analysis", settled[0].reason);
+  const accessibility = settled[1].status === "fulfilled" ? settled[1].value : agentRejectionFallback("accessibility", settled[1].reason);
+  const a11yLinterResult = settled[2].status === "fulfilled" ? settled[2].value : null;
+  const depAuditResult = settled[3].status === "fulfilled" ? settled[3].value : null;
+  const semgrepResult = settled[4].status === "fulfilled" ? settled[4].value : null;
 
   // Emit tools_summary so late-connecting SSE clients get tool states
   emit({ type: "tools_summary", tools: {

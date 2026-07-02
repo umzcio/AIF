@@ -7,7 +7,7 @@
  */
 
 import { spawn } from "child_process";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, rmSync } from "fs";
 import { join, resolve, dirname } from "path";
 import log from "../../logger.js";
 
@@ -142,6 +142,10 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
     let args;
 
     if (tool === "codex") {
+      // A prior failed/killed attempt may have left its output file behind at this
+      // same path (outputFile is deterministic per-tool, not per-attempt). Remove it
+      // before spawning so a stale file can never be mistaken for this attempt's result.
+      if (existsSync(outputFile)) rmSync(outputFile, { force: true });
       args = [
         "exec", prompt,
         "-m", process.env.CODEX_MODEL || "gpt-5.4-2026-03-05",

@@ -95,6 +95,17 @@ export async function enqueue(toolId, track, parentRunId = null, mode = "direct-
 
   const runTrack = track || tool.track;
 
+  // Idempotency guard: reject if this tool already has an active (queued/running) run.
+  // Race-proof backstop is the partial unique index added in migration 019 — this
+  // check just gives a friendly error in the common (non-racing) case.
+  const { rows: activeRuns } = await pool.query(
+    "SELECT id FROM pipeline_runs WHERE tool_id = $1 AND status IN ('queued','running') LIMIT 1",
+    [toolId]
+  );
+  if (activeRuns.length) {
+    throw new Error("A pipeline run is already active for this tool");
+  }
+
   // Check retry count for dead letter queue
   if (parentRunId) {
     const { rows: [parent] } = await pool.query("SELECT retry_count FROM pipeline_runs WHERE id = $1", [parentRunId]);
@@ -105,20 +116,25 @@ export async function enqueue(toolId, track, parentRunId = null, mode = "direct-
 
   const retryCount = parentRunId ? (await pool.query("SELECT retry_count FROM pipeline_runs WHERE id = $1", [parentRunId]).then(r => (r.rows[0]?.retry_count || 0) + 1)) : 0;
 
-  const { rows: [run] } = await pool.query(
-    `INSERT INTO pipeline_runs (tool_id, track, total_agents, retry_count, parent_run_id, pipeline_mode) VALUES ($1, $2, 4, $3, $4, $5) RETURNING *`,
-    [toolId, runTrack, retryCount, parentRunId || null, mode]
-  );
-
-  // Create agent_results rows
-  const agents = ["code-analysis", "accessibility", "qa-analysis", "documentation"];
-  for (let i = 0; i < agents.length; i++) {
-    const passesTotal = i < 3 ? 5 : 1;
-    await pool.query(
-      `INSERT INTO agent_results (run_id, agent_name, agent_index, passes_total) VALUES ($1, $2, $3, $4)`,
-      [run.id, agents[i], i, passesTotal]
+  // Run row + its 4 agent_results children are created atomically — a crash or
+  // dropped connection mid-way must never leave a run with a partial agent set.
+  const run = await withTransaction(async (client) => {
+    const { rows: [run] } = await client.query(
+      `INSERT INTO pipeline_runs (tool_id, track, total_agents, retry_count, parent_run_id, pipeline_mode) VALUES ($1, $2, 4, $3, $4, $5) RETURNING *`,
+      [toolId, runTrack, retryCount, parentRunId || null, mode]
     );
-  }
+
+    // Create agent_results rows
+    const agents = ["code-analysis", "accessibility", "qa-analysis", "documentation"];
+    for (let i = 0; i < agents.length; i++) {
+      const passesTotal = i < 3 ? 5 : 1;
+      await client.query(
+        `INSERT INTO agent_results (run_id, agent_name, agent_index, passes_total) VALUES ($1, $2, $3, $4)`,
+        [run.id, agents[i], i, passesTotal]
+      );
+    }
+    return run;
+  });
 
   processNext();
   return run;
@@ -194,10 +210,17 @@ async function processNext() {
   runControllers.set(runId, controller);
 
   try {
-    await pool.query(
-      `UPDATE pipeline_runs SET status = 'running', started_at = NOW() WHERE id = $1`,
+    // Guard against a concurrent cancel landing between the SELECT above and this
+    // UPDATE — only claim the run if it is still 'queued'. If a cancel already
+    // flipped the status, rowCount is 0 and we treat this run as already-cancelled.
+    const { rowCount } = await pool.query(
+      `UPDATE pipeline_runs SET status = 'running', started_at = NOW() WHERE id = $1 AND status = 'queued'`,
       [runId]
     );
+    if (rowCount === 0) {
+      log.info("Run no longer queued at claim time (concurrent cancel) — skipping", { runId });
+      return;
+    }
     await pool.query(
       `UPDATE tools SET status = 'in_progress', updated_at = NOW() WHERE id = $1`,
       [next.tool_id]
@@ -410,6 +433,15 @@ async function processNext() {
   } catch (err) {
     const isCancelled = err.message.includes("cancelled") || controller.signal.aborted;
     const status = isCancelled ? "cancelled" : "failed";
+
+    // cancelRun() already aborts + kills for the user-cancel path. For every other
+    // failure (agent throw, bundling error, DB error, etc.) nothing has torn down
+    // in-flight child processes yet — do it here so a failed run can't orphan them.
+    if (!isCancelled) {
+      controller.abort();
+      const killed = killRunProcesses(runId);
+      if (killed > 0) log.warn("Killed orphaned child processes after run failure", { runId, killed });
+    }
 
     log.error("Pipeline run ended", { runId, status, error: err.message });
     await pool.query(

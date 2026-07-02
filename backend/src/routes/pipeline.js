@@ -56,6 +56,11 @@ router.post("/:toolId/run", requireOwnerOrRole("admin"), validate(pipelineRunSch
     const run = await enqueue(toolId, null, null, mode);
     res.status(201).json({ run });
   } catch (err) {
+    // Unique-violation (partial index, migration 019) or the application-level
+    // active-run check in enqueue() — both mean a run is already in flight.
+    if (err.code === "23505" || err.message.includes("already active")) {
+      return res.status(409).json({ error: "A pipeline run is already active for this tool" });
+    }
     res.status(500).json({ error: err.message });
   }
 }));
