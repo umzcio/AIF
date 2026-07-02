@@ -176,6 +176,18 @@ router.get("/:runId/stream", wrap(async (req, res) => {
     }
   });
 
+  // Wire disconnect cleanup immediately after subscribing, BEFORE the awaited
+  // catch-up queries below — otherwise a client that disconnects mid-await
+  // leaves this listener subscribed for the run's lifetime (no handler was
+  // registered yet to unsub() it). `heartbeat` is assigned later (after the
+  // awaits); this closure reads it at call time, so clearInterval(undefined)
+  // is a harmless no-op if close fires before the heartbeat is set up.
+  let heartbeat;
+  req.on("close", () => {
+    unsub();
+    clearInterval(heartbeat);
+  });
+
   // Now fetch current state as catch-up
   const { rows: agents } = await pool.query(
     "SELECT * FROM agent_results WHERE run_id = $1 ORDER BY agent_index", [req.params.runId]
@@ -218,12 +230,7 @@ router.get("/:runId/stream", wrap(async (req, res) => {
     return;
   }
 
-  const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 30000);
-
-  req.on("close", () => {
-    unsub();
-    clearInterval(heartbeat);
-  });
+  heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 30000);
 }));
 
 export default router;

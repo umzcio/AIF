@@ -127,7 +127,7 @@ export async function enqueue(toolId, track, parentRunId = null, mode = "direct-
     // Create agent_results rows
     const agents = ["code-analysis", "accessibility", "qa-analysis", "documentation"];
     for (let i = 0; i < agents.length; i++) {
-      const passesTotal = i < 3 ? 5 : 1;
+      const passesTotal = i < 3 ? 5 : 3;
       await client.query(
         `INSERT INTO agent_results (run_id, agent_name, agent_index, passes_total) VALUES ($1, $2, $3, $4)`,
         [run.id, agents[i], i, passesTotal]
