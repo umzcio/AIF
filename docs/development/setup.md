@@ -157,13 +157,9 @@ node src/index.js /path/to/codebase TRACK_4
 
 Output lands in `backend/output/<tool>_<timestamp>/`. The CLI invokes the same `runDirectApiPipeline` used by the portal queue. See [architecture/pipeline.md](../architecture/pipeline.md) for pass-level detail.
 
-### Smoke Test LLM Providers
+### Verify LLM Provider Keys
 
-```bash
-npm run test:providers
-```
-
-This sends a trivial prompt to every configured provider and reports which keys resolve. Use it after rotating keys or changing model IDs.
+There is no standalone provider smoke-test script. After rotating keys or changing model IDs, verify connectivity by running the pipeline against a small fixture codebase (`node src/index.js /path/to/codebase`) — this exercises the actual `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, and `ANTHROPIC_API_KEY` code paths used in production.
 
 ## Database Migrations
 

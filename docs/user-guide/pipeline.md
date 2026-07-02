@@ -107,7 +107,7 @@ Completed runs unlock the **Open report** button in the page actions area.
 | Pipeline stuck at `queued` | Job queue worker not consuming. | Ask an admin to inspect job queue health. |
 | One agent fails, others succeed | API provider timeout or rate limit. | Retry the run. See provider status in analytics. |
 | Synthesis fails with valid pass results | Claude CLI environment misconfigured. | Admin: verify `ANTHROPIC_API_KEY` and Claude CLI installation. |
-| Partial results on every run | Persistent provider issue. | Admin: check provider smoke tests via `npm run test:providers` in the backend. |
+| Partial results on every run | Persistent provider issue. | Admin: check `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, and `ANTHROPIC_API_KEY` are valid, and review per-model stats in pipeline analytics. |
 
 ## Related Reading
 

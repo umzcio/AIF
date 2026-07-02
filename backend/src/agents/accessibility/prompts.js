@@ -543,5 +543,3 @@ OUTPUT the merged report as JSON with this schema:
 }
 
 Do not output anything except the JSON. No markdown fences, no commentary.`;
-
-export { OUTPUT_SCHEMA };

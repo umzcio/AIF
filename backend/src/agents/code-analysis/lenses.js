@@ -609,5 +609,3 @@ Output a JSON object with this schema:
 }
 
 Do not output anything except the JSON. No markdown fences, no commentary.`;
-
-export { OUTPUT_SCHEMA };

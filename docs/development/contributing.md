@@ -26,7 +26,6 @@ Before opening a PR, confirm:
 
 - [ ] `cd backend && npm test` passes (currently 324 tests)
 - [ ] `cd frontend && npm run build` succeeds
-- [ ] `npm run test:providers` passes if you touched provider config
 - [ ] No hardcoded institution values (use env vars + `src/config.js`)
 - [ ] No secrets, API keys, or `.env` files committed
 - [ ] New state-changing routes have a Zod schema in `src/validation.js`

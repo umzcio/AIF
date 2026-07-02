@@ -42,8 +42,6 @@ function filteredEnv(tool) {
       // Do NOT pass CLAUDECODE — allows nesting
       return env;
     }
-    case "qwen":
-      return { ...base, OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY };
     default:
       return base;
   }
@@ -116,7 +114,7 @@ export function loadEnv() {
  * Run a single CLI tool against a codebase with a given prompt.
  * Returns the tool's text output.
  *
- * @param {string} tool - CLI tool name (codex, gemini, claude, qwen)
+ * @param {string} tool - CLI tool name (codex, gemini, claude)
  * @param {string} prompt - The prompt to send
  * @param {string} codebasePath - Absolute path to the codebase
  * @param {string} outputDir - Where to write output files
@@ -209,18 +207,6 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
           stdio: ["ignore", "pipe", "pipe"],
         });
       }
-    } else if (tool === "qwen") {
-      args = [
-        "-p", prompt,
-        "-m", process.env.QWEN_MODEL || "openrouter/qwen/qwen3-coder",
-        "--approval-mode", "yolo",
-      ];
-      proc = spawn("qwen", args, {
-        timeout,
-        cwd: codebasePath,
-        env: filteredEnv("qwen"),
-        stdio: ["ignore", "pipe", "pipe"],
-      });
     } else {
       reject(new Error(`Unknown tool: ${tool}`));
       return;

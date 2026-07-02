@@ -116,25 +116,11 @@ The `TRANSITIONS` map in `routes/registry.js` is the portal's source of truth fo
 
 The test suite deliberately excludes:
 
-- **LLM output parsing** — stubbing the five models produces brittle tests; instead, `npm run test:providers` smoke-tests live provider connections
+- **LLM output parsing** — stubbing the five models produces brittle tests; live provider connectivity is instead exercised by running the real pipeline (`node src/index.js <path>`)
 - **Database integration tests** — route handlers are tested via their schemas and state machines; full DB integration happens in deployed environments
 - **Frontend components** — React components have no automated tests. The frontend relies on `npm run build` catching type/import errors, WCAG is validated by the in-pipeline accessibility agent against the portal itself
 
-If you need a full integration test, use the CLI entry point (`node src/index.js <path>`) against a checked-in fixture codebase.
-
-## Provider Smoke Test
-
-```bash
-npm run test:providers
-```
-
-This runs `src/providers/test.js`, which:
-
-1. Reads `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, and `ANTHROPIC_API_KEY` from `.env`
-2. Sends a one-token prompt to every provider
-3. Prints a pass/fail table
-
-Use this after rotating keys, changing model IDs, or adding a new provider to `src/providers/config.js`.
+If you need a full integration test, use the CLI entry point (`node src/index.js <path>`) against a checked-in fixture codebase. There is no separate provider smoke-test script — a live pipeline run against a small fixture codebase is the way to verify `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, and `ANTHROPIC_API_KEY` all resolve correctly after rotating keys or changing model IDs, since it exercises the actual `agents/shared/direct-api.js` and `agents/shared/cli.js` code paths rather than a disconnected roster.
 
 ## Adding a New Test File
 
