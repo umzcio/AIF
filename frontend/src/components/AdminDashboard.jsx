@@ -430,18 +430,20 @@ function AnalyticsTab() {
               <div style={{ fontSize: 13, color: C.textDim }}>No scored tools yet.</div>
             ) : (
               <>
-                {(() => {
-                  const maxCount = Math.max(...distribution.histogram.map(b => b.count), 1);
-                  return distribution.histogram.map(b => (
-                    <div key={b.bucket} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <div className="mono" style={{ width: 55, fontSize: 11, color: C.textDim, textAlign: "right" }}>{b.lo}-{b.hi}%</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ width: `${(b.count / maxCount) * 100}%`, background: C.accent, height: 8, borderRadius: 2 }} />
+                <div role="img" aria-label={`Score distribution histogram: ${distribution.histogram.map(b => `${b.lo}-${b.hi}%: ${b.count}`).join(", ")}`}>
+                  {(() => {
+                    const maxCount = Math.max(...distribution.histogram.map(b => b.count), 1);
+                    return distribution.histogram.map(b => (
+                      <div key={b.bucket} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <div className="mono" style={{ width: 55, fontSize: 11, color: C.textDim, textAlign: "right" }}>{b.lo}-{b.hi}%</div>
+                        <div style={{ flex: 1 }}>
+                          <div aria-hidden="true" style={{ width: `${(b.count / maxCount) * 100}%`, background: C.accent, height: 8, borderRadius: 2 }} />
+                        </div>
+                        <div className="mono" style={{ width: 20, fontSize: 11, color: C.textDim }}>{b.count}</div>
                       </div>
-                      <div className="mono" style={{ width: 20, fontSize: 11, color: C.textDim }}>{b.count}</div>
-                    </div>
-                  ));
-                })()}
+                    ));
+                  })()}
+                </div>
               </>
             )}
             <p style={{ marginTop: 12, marginBottom: 0, fontSize: 11, color: C.textDim }}>
