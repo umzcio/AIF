@@ -329,16 +329,16 @@ describe("pipeline agent structure", () => {
     }
   });
 
-  it("single-pass agents (3) have 1 pass each", () => {
-    // Agent at index 3 is single-pass
+  it("documentation agent (3) has 3 passes", () => {
+    // Agent at index 3 (documentation) runs 3 parallel passes (guides, HECVAT, compliance)
     for (const i of [3]) {
-      const passesTotal = i < 3 ? 5 : 1;
-      assert.equal(passesTotal, 1, `Agent ${AGENTS[i]} should have 1 pass`);
+      const passesTotal = i < 3 ? 5 : 3;
+      assert.equal(passesTotal, 3, `Agent ${AGENTS[i]} should have 3 passes`);
     }
   });
 
-  it("total passes across all agents is 16", () => {
-    const totalPasses = AGENTS.reduce((sum, _, i) => sum + (i < 3 ? 5 : 1), 0);
-    assert.equal(totalPasses, 16);
+  it("total passes across all agents is 18", () => {
+    const totalPasses = AGENTS.reduce((sum, _, i) => sum + (i < 3 ? 5 : 3), 0);
+    assert.equal(totalPasses, 18);
   });
 });
