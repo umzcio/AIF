@@ -534,13 +534,39 @@ describe("intake flow — end-to-end simulation", () => {
     assert.ok(computed.track >= 1 && computed.track <= 4);
   });
 
-  it("changing artifact type changes weighted percentage for same answers", () => {
+  it("declaring a different artifact type no longer changes the routed percentage when both profiles are already implied by the answers (FW-05)", () => {
+    // Pre-FW-05 this asserted notStrictEqual: declaring "ai-agent" instead of
+    // "internal-app" used to pick a different, single weight profile and thus
+    // a different pct. FW-05's anti-gaming guard changes that: applicableProfiles
+    // always adds "internal-app" when q5 is campus-vpn/public-auth, and always
+    // adds "ai-agent" when q12 indicates external AI processing (any of
+    // approved-dpa/unknown-dpa/no-dpa). midRiskAnswers has q5="campus-vpn" and
+    // q12="approved-dpa", so BOTH declarations ("internal-app" and "ai-agent")
+    // resolve to the identical applicable-profile set {internal-app, ai-agent},
+    // and computeEffectivePercentage takes the max over that set either way.
+    //
+    // Hand computation (scores from computeDimensionScores(midRiskAnswers())):
+    //   security=1, accessibility=2, dataSensitivity=2, blastRadius=2,
+    //   autonomy=0, comprehension=1, maintenance=1
+    //
+    //   internal-app weights {sec:3,a11y:3,data:4,blast:2,auto:1,comp:2,maint:3}
+    //     total = 1*3+2*3+2*4+2*2+0*1+1*2+1*3 = 3+6+8+4+0+2+3 = 26
+    //     max   = 3*(3+3+4+2+1+2+3) = 3*18 = 54
+    //     pct   = 26/54 = 0.481481...
+    //
+    //   ai-agent weights {sec:3,a11y:1,data:3,blast:4,auto:4,comp:4,maint:3}
+    //     total = 1*3+2*1+2*3+2*4+0*4+1*4+1*3 = 3+2+6+8+0+4+3 = 26
+    //     max   = 3*(3+1+3+4+4+4+3) = 3*22 = 66
+    //     pct   = 26/66 = 0.393939...
+    //
+    //   max(0.481481..., 0.393939...) = 0.481481... (internal-app wins) —
+    //   for BOTH declared types, since both profiles are in-scope either way.
     const answers = midRiskAnswers();
     const asInternalApp = computeFromAnswers(answers, "internal-app");
     const asAiAgent = computeFromAnswers(answers, "ai-agent");
-    // ai-agent has high autonomy/comprehension weights vs internal-app
-    assert.notStrictEqual(asInternalApp.pct, asAiAgent.pct,
-      "Different artifact types should produce different weighted percentages");
+    assert.strictEqual(asInternalApp.pct, asAiAgent.pct,
+      "Both declarations resolve to the same applicable-profile superset, so pct converges");
+    assert.ok(Math.abs(asInternalApp.pct - 26 / 54) < 1e-9);
   });
 
   it("escalation overrides score-based routing to force Track 4", () => {
@@ -564,11 +590,33 @@ describe("intake flow — end-to-end simulation", () => {
     }
   });
 
-  it("unknown artifact type falls back to 'other' weights", () => {
+  it("unknown artifact type falls back to answers.q1, not blindly to 'other' (FW-05)", () => {
+    // Pre-FW-05, computeWeightedPercentage() alone treated any invalid
+    // artifactType string as equivalent to "other". FW-05's
+    // applicableProfiles() changes the fallback: an invalid declaredType
+    // falls back to answers.q1 (if q1 is itself a valid type) rather than to
+    // "other" — because "other" is now a distinct, legitimate declaration in
+    // its own right (it IS a member of VALID_ARTIFACT_TYPES) and should not
+    // be silently substituted for a genuinely-unrecognized string when the
+    // answers already declare a valid type via q1.
+    //
+    // lowRiskAnswers() has q1="script-api" (valid), q5="campus-vpn" (adds
+    // "internal-app"), q12="approved-dpa" (adds "ai-agent"). So:
+    //   applicableProfiles(answers, "banana-stand") -> declared falls back to
+    //     q1="script-api" -> {script-api, ai-agent, internal-app}
+    //   applicableProfiles(answers, "script-api") -> declared="script-api"
+    //     (valid, used directly) -> {script-api, ai-agent, internal-app}
+    // Identical sets, so pct/track must match "script-api", NOT "other"
+    // (which would instead evaluate {other, ai-agent, internal-app} and
+    // yields a different result: other's own weights differ from
+    // script-api's, so max-over-set differs too).
     const answers = lowRiskAnswers();
     const unknown = computeFromAnswers(answers, "banana-stand");
-    const other = computeFromAnswers(answers, "other");
-    assert.strictEqual(unknown.pct, other.pct);
-    assert.strictEqual(unknown.track, other.track);
+    const asQ1 = computeFromAnswers(answers, "script-api");
+    const asOther = computeFromAnswers(answers, "other");
+    assert.strictEqual(unknown.pct, asQ1.pct);
+    assert.strictEqual(unknown.track, asQ1.track);
+    assert.notStrictEqual(unknown.pct, asOther.pct,
+      "Invalid type should NOT silently collapse to explicit 'other' when q1 is valid");
   });
 });

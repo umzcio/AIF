@@ -140,23 +140,45 @@ function checkFloors(a) {
   return f;
 }
 
+/**
+ * Anti-gaming guard: the weight profile is not purely self-declared.
+ * Profiles implied by the answers themselves (deployment surface, AI use)
+ * are always evaluated alongside the declared type, and routing uses the
+ * highest resulting percentage. Switching q1 alone can never lower the track.
+ * Mirrors backend/src/scoring.js applicableProfiles().
+ */
+function applicableProfiles(a, declaredType) {
+  const types = Object.keys(WEIGHT_MATRIX);
+  const declared = types.includes(declaredType) ? declaredType
+    : types.includes(a.q1) ? a.q1 : "other";
+  const set = new Set([declared]);
+  const aiClassified = a.q1 === "ai-agent" || ["approved-dpa", "unknown-dpa", "no-dpa"].includes(a.q12);
+  if (aiClassified) set.add("ai-agent");
+  if (a.q5 === "public-noauth") set.add("public-site");
+  if (a.q5 === "public-auth" || a.q5 === "campus-vpn") set.add("internal-app");
+  return [...set];
+}
+
 export function computeTrack(a) {
-  const key = a.q1 || "other";
-  const w = WEIGHT_MATRIX[key] || WEIGHT_MATRIX["other"];
   const d = computeDimensionScores(a);
   const esc = checkEscalations(a);
   const floors = checkFloors(a);
-  let total = 0, max = 0;
-  for (const k of Object.keys(d)) { total += d[k] * (w[k] || 0); max += 3 * (w[k] || 0); }
-  const pct = max > 0 ? total / max : 0;
+  let best = null;
+  for (const profile of applicableProfiles(a, a.q1 || "other")) {
+    const w = WEIGHT_MATRIX[profile] || WEIGHT_MATRIX["other"];
+    let total = 0, max = 0;
+    for (const k of Object.keys(d)) { total += d[k] * (w[k] || 0); max += 3 * (w[k] || 0); }
+    const pct = max > 0 ? total / max : 0;
+    if (best === null || pct > best.pct) best = { pct, total, max, w, profile };
+  }
   const floorTrack = floors.reduce((m, f) => Math.max(m, f.track), 1);
   let track;
-  if (esc.length > 0 || pct >= 0.65) track = 4;
-  else if (pct >= 0.42) track = 3;
-  else if (pct >= 0.22) track = 2;
+  if (esc.length > 0 || best.pct >= 0.65) track = 4;
+  else if (best.pct >= 0.42) track = 3;
+  else if (best.pct >= 0.22) track = 2;
   else track = 1;
   if (esc.length === 0) track = Math.max(track, floorTrack);
-  return { track, total, max, pct, dims: d, weights: w, escalations: esc, floors };
+  return { track, total: best.total, max: best.max, pct: best.pct, dims: d, weights: best.w, escalations: esc, floors, profileUsed: best.profile };
 }
 
 export const STATUS_META = {

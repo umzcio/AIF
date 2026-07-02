@@ -11,10 +11,12 @@ import {
   checkFloors,
   computeTrack,
   VALID_ARTIFACT_TYPES,
+  applicableProfiles,
+  computeEffectivePercentage,
 } from "./scoring.js";
 
 // Import frontend weight matrix for cross-check
-import { WEIGHT_MATRIX } from "../../frontend/src/constants.js";
+import { WEIGHT_MATRIX, computeTrack as feComputeTrack } from "../../frontend/src/constants.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -578,5 +580,71 @@ describe("edge cases", () => {
 
   it("routeToTrack handles 1.0 exactly", () => {
     assert.strictEqual(routeToTrack(1.0, false), 4);
+  });
+});
+
+// ===========================================================================
+// Artifact-type gaming guard (FW-05)
+// ===========================================================================
+
+describe("artifact-type gaming guard (FW-05)", () => {
+  // Memo boundary flip 2: public-auth SSO app with an LLM feature.
+  const answers = {
+    q3: ["department"], q5: "public-auth", q6: "sso", q8: "<50",
+    q9: "yes", q10: ["internal"], q11: ["campus"], q12: "approved-dpa",
+    q15: "campus-repo", q16: "documented", q17: "active", q18: "team-runbooks",
+    q19: "x".repeat(250), q20: "short", q21: "yes",
+  };
+
+  it("declaring ai-agent no longer yields a lower track than internal-app", () => {
+    const asInternal = computeTrack({ ...answers, q1: "internal-app" });
+    const asAgent = computeTrack({ ...answers, q1: "ai-agent" });
+    assert.ok(asAgent.track >= asInternal.track,
+      `ai-agent track ${asAgent.track} < internal-app track ${asInternal.track}`);
+  });
+
+  it("applicable profiles derive from answers, not just q1", () => {
+    const profiles = applicableProfiles({ ...answers, q1: "ai-agent" }, "ai-agent");
+    assert.ok(profiles.includes("ai-agent"));
+    assert.ok(profiles.includes("internal-app")); // public-auth surface
+  });
+
+  it("public-noauth adds the public-site profile", () => {
+    const profiles = applicableProfiles({ q1: "script-api", q5: "public-noauth" }, "script-api");
+    assert.ok(profiles.includes("public-site"));
+  });
+
+  it("no extra profiles for an internal-server script", () => {
+    const profiles = applicableProfiles({ q1: "script-api", q5: "internal-server", q12: "no" }, "script-api");
+    assert.deepStrictEqual(profiles, ["script-api"]);
+  });
+
+  it("q1 alone can never lower the track (sweep)", () => {
+    const base = { ...answers };
+    for (const declared of VALID_ARTIFACT_TYPES) {
+      const withDeclared = computeTrack({ ...base, q1: declared });
+      // The internal-app surface profile is always applicable here, so every
+      // declaration must route at least as high as the surface demands.
+      const surfaceOnly = computeTrack({ ...base, q1: "internal-app" });
+      assert.ok(withDeclared.track >= surfaceOnly.track,
+        `declaring ${declared} routed Track ${withDeclared.track} < ${surfaceOnly.track}`);
+    }
+  });
+});
+
+// ===========================================================================
+// frontend/backend computeTrack parity
+// ===========================================================================
+
+describe("frontend/backend computeTrack parity", () => {
+  const cases = [
+    { q1: "internal-app", q3: ["department"], q5: "public-auth", q6: "sso", q9: "yes", q10: ["internal"], q11: ["campus"], q12: "approved-dpa", q15: "campus-repo", q16: "documented", q17: "active", q18: "team-runbooks", q19: "x".repeat(250), q20: "short", q21: "yes" },
+    { q1: "ai-agent", q3: ["students"], q5: "public-auth", q6: "sso", q9: "yes", q10: ["ferpa"], q11: ["campus"], q12: "approved-dpa", q15: "campus-repo", q16: "documented", q17: "active", q18: "team-runbooks", q19: "x".repeat(250), q20: "short", q21: "yes" },
+    { q1: "public-site", q3: ["public"], q5: "public-noauth", q9: "no", q15: "campus-repo", q16: "documented", q17: "occasional", q18: "team-runbooks" },
+  ];
+  it("routes identically for representative answer sets", () => {
+    for (const a of cases) {
+      assert.strictEqual(feComputeTrack(a).track, computeTrack(a).track, JSON.stringify(a.q1));
+    }
   });
 });

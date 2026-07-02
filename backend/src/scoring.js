@@ -110,13 +110,38 @@ export function routeToTrack(weightedPct, hasEscalation, floorTrack = 1) {
   return Math.max(track, floorTrack);
 }
 
+/**
+ * Anti-gaming guard: the weight profile is not purely self-declared.
+ * Profiles implied by the answers themselves (deployment surface, AI use)
+ * are always evaluated alongside the declared type, and routing uses the
+ * highest resulting percentage. Switching q1 alone can never lower the track.
+ */
+export function applicableProfiles(a, declaredType) {
+  const declared = VALID_ARTIFACT_TYPES.includes(declaredType) ? declaredType
+    : VALID_ARTIFACT_TYPES.includes(a.q1) ? a.q1 : "other";
+  const set = new Set([declared]);
+  const aiClassified = a.q1 === "ai-agent" || ["approved-dpa", "unknown-dpa", "no-dpa"].includes(a.q12);
+  if (aiClassified) set.add("ai-agent");
+  if (a.q5 === "public-noauth") set.add("public-site");
+  if (a.q5 === "public-auth" || a.q5 === "campus-vpn") set.add("internal-app");
+  return [...set];
+}
+
+export function computeEffectivePercentage(scores, answers, declaredType) {
+  let best = null;
+  for (const profile of applicableProfiles(answers, declaredType)) {
+    const pct = computeWeightedPercentage(scores, profile);
+    if (best === null || pct > best.pct) best = { pct, profile };
+  }
+  return best;
+}
+
 export function computeTrack(answers, artifactType) {
   const scores = computeDimensionScores(answers);
   const escalations = checkEscalations(answers);
   const floors = checkFloors(answers);
-  const key = artifactType || answers.q1 || "other";
-  const pct = computeWeightedPercentage(scores, key);
+  const { pct, profile } = computeEffectivePercentage(scores, answers, artifactType || answers.q1 || "other");
   const floorTrack = floors.reduce((m, f) => Math.max(m, f.track), 1);
   const track = routeToTrack(pct, escalations.length > 0, floorTrack);
-  return { track, scores, escalations, floors, weightedPct: pct };
+  return { track, scores, escalations, floors, weightedPct: pct, profileUsed: profile };
 }
