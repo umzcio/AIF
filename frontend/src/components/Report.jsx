@@ -122,6 +122,29 @@ export default function Report({ toolId, runId }) {
         {track ? <TrackBadge track={track} size="lg" /> : null}
       </PageHeader>
 
+      {(() => {
+        const agentsData = report?.agents || {};
+        // Note: report.agents.<key> IS the synthesis object (see reports.js
+        // readSynthesis()) \u2014 metadata lives at agentsData[k].metadata, not
+        // agentsData[k].synthesis.metadata.
+        const metas = ["codeAnalysis", "accessibility", "qaAnalysis"]
+          .map(k => agentsData[k]?.metadata).filter(Boolean);
+        const coverage = metas.find(m => m.coverage?.truncated)?.coverage;
+        const partial = metas.find(m => m.partial_analysis);
+        const synthFailed = metas.find(m => m.synthesis_failed);
+        if (!coverage && !partial && !synthFailed) return null;
+        return (
+          <div className="info-banner" role="status" style={{ marginBottom: 16, borderColor: C.warning }}>
+            <strong>Analysis coverage caveats</strong>
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 13 }}>
+              {coverage && <li>Codebase exceeded the bundle budget: {coverage.includedFiles} of {coverage.totalFiles} files ({coverage.coveragePct}%) were visible to API passes 2-5. Findings in excluded files can only come from pass 1 and cannot reach the confirmed tier.</li>}
+              {partial && <li>Not all model passes completed ({partial.models_completed}/{partial.models_total}); convergence confidence is reduced.</li>}
+              {synthFailed && <li>Synthesis model was unavailable; findings are a deterministic merge without dispute resolution.</li>}
+            </ul>
+          </div>
+        );
+      })()}
+
       <section className="report-highlight">
         <div className="report-highlight-top">
           <div className="report-highlight-main">

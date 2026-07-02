@@ -296,11 +296,14 @@ ${JSON.stringify(priorFindings, null, 2)}`;
       error: "Synthesis unavailable — deterministic merge used", errorCategory: "synthesis_fallback" });
   }
 
+  synthesized.metadata = synthesized.metadata || {};
   if (passCount < passKeys.length) {
-    synthesized.metadata = synthesized.metadata || {};
     synthesized.metadata.partial_analysis = true;
     synthesized.metadata.models_completed = passCount;
     synthesized.metadata.models_total = passKeys.length;
+  }
+  if (opts.bundleInfo?.truncated) {
+    synthesized.metadata.coverage = { ...opts.bundleInfo };
   }
   writeFileSync(join(outputDir, "synthesis.json"), JSON.stringify(synthesized, null, 2));
 
@@ -382,7 +385,6 @@ export async function runDirectApiPipeline({ codebasePath, track, toolName, outp
   const runDir = join(outputBase, `${toolName.replace(/\s+/g, "_")}_${timestamp}`);
   mkdirSync(runDir, { recursive: true });
 
-  const agentOpts = { runId, signal, previousFindings };
   const pipelineLog = log.child({ component: "direct-api-pipeline", runId, toolName, track });
   pipelineLog.info("Pipeline started (direct-api mode)", { codebasePath, outputDir: runDir });
 
@@ -398,6 +400,15 @@ export async function runDirectApiPipeline({ codebasePath, track, toolName, outp
     files: bundle.manifest, excluded: bundle.excluded,
     totalFiles: bundle.totalFiles, totalChars: bundle.totalChars, truncated: bundle.truncated,
   }, null, 2));
+
+  const bundleInfo = {
+    truncated: bundle.truncated,
+    totalFiles: bundle.totalFiles,
+    includedFiles: bundle.manifest.length,
+    excludedCount: bundle.excluded.length,
+    coveragePct: bundle.totalFiles > 0 ? Math.round((bundle.manifest.length / bundle.totalFiles) * 100) : 100,
+  };
+  const agentOpts = { runId, signal, previousFindings, bundleInfo };
 
   const codeBundle = bundle.bundle;
   const passes = ALL_PASSES;
@@ -585,6 +596,7 @@ export async function runDirectApiPipeline({ codebasePath, track, toolName, outp
     toolName, track, codebasePath, timestamp,
     outputDir: runDir,
     pipelineMode: "direct-api",
+    bundle: bundleInfo,
     agents: {
       codeAnalysis: {
         passes: Object.keys(codeAnalysis.passes).length, failures: codeAnalysis.failures,
