@@ -120,7 +120,7 @@ The frontend preview in `constants.js` uses the same constants. Changing these t
 
 ### Escalation conditions
 
-The seven conditions that force Track 4 regardless of weighted percentage are implemented in the `checkEscalations` function in `backend/src/scoring.js` (and mirrored in `frontend/src/constants.js`). Each condition is a small predicate over the raw intake answers. Institutions may add, remove, or alter conditions to reflect local policy — for example, adding an escalation when the responsible builder is a student contractor rather than a permanent employee.
+The nine conditions that force Track 4 regardless of weighted percentage are implemented in the `checkEscalations` function in `backend/src/scoring.js` (and mirrored in `frontend/src/constants.js`). Each condition is a small predicate over the raw intake answers. Institutions may add, remove, or alter conditions to reflect local policy — for example, adding an escalation when the responsible builder is a student contractor rather than a permanent employee.
 
 ### Status state machine
 
