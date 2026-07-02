@@ -11,6 +11,7 @@
 import { writeFileSync } from "fs";
 import { join } from "path";
 import log from "../../logger.js";
+import { validateAgainstSchema } from "./validate-output.js";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -252,25 +253,39 @@ export async function runDirectPass(model, prompt, codeBundle, outputDir, option
       }
 
       if (parsed && isAnalysisJSON(parsed)) {
-        passLog.info("Valid analysis JSON extracted", { attempt: attempt.label, keys: Object.keys(parsed).slice(0, 8) });
-        return {
-          output: rawText,
-          parsed,
-          model: model.model,
-          elapsed,
+        // Additionally validate against the agent's declared schema (if provided)
+        // before accepting. This is a conservative structural check — it only
+        // enforces required keys, declared types, and array item types (see
+        // validate-output.js) — so it should never reject genuinely valid
+        // model output, only catch shapes like {"findings":["a string",42]}.
+        const schemaCheck = schema ? validateAgainstSchema(parsed, schema) : { ok: true, errors: [] };
+        if (schemaCheck.ok) {
+          passLog.info("Valid analysis JSON extracted", { attempt: attempt.label, keys: Object.keys(parsed).slice(0, 8) });
+          return {
+            output: rawText,
+            parsed,
+            model: model.model,
+            elapsed,
+            attempt: attempt.label,
+            usage,
+            finishReason,
+          };
+        }
+
+        passLog.warn("JSON parsed but failed local schema validation", {
           attempt: attempt.label,
-          usage,
-          finishReason,
-        };
+          keys: Object.keys(parsed).slice(0, 8),
+          errors: schemaCheck.errors.slice(0, 10),
+        });
       }
 
       // Parsed JSON but missing expected keys — try next format
-      if (parsed) {
+      if (parsed && !isAnalysisJSON(parsed)) {
         passLog.warn("JSON parsed but missing analysis keys", {
           attempt: attempt.label,
           keys: Object.keys(parsed).slice(0, 8),
         });
-      } else {
+      } else if (!parsed) {
         passLog.warn("Failed to parse response as JSON", {
           attempt: attempt.label,
           preview: rawText.slice(0, 200),

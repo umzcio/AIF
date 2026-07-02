@@ -77,7 +77,8 @@ function deterministicMerge(reports, passKeys) {
 }
 
 function synthesisShapeOk(obj) {
-  return !!obj && typeof obj === "object" && Array.isArray(obj.findings);
+  return !!obj && typeof obj === "object" && Array.isArray(obj.findings)
+    && obj.findings.every((f) => f && typeof f === "object");
 }
 
 const ALL_PASSES = ["pass1", "pass2", "pass3", "pass4", "pass5"];
