@@ -162,8 +162,8 @@ export function uploadCodebase(toolId, file, onProgress) {
   });
 }
 
-export async function startPipelineRun(toolId, track, mode) {
-  const body = { track };
+export async function startPipelineRun(toolId, mode) {
+  const body = {};
   if (mode) body.mode = mode;
   const res = await request(`/pipeline/${toolId}/run`, {
     method: "POST",

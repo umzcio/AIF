@@ -319,10 +319,14 @@ async function processNext() {
       previousFindings,
     });
 
-    // Track-based auto-status on pipeline completion:
-    // Track 1: auto-activate (skip review)
-    // Track 2-4: set to under_review
-    const newStatus = next.track === 1 ? "active" : "under_review";
+    // Track-based auto-status on pipeline completion.
+    // The track is read fresh from the tool (never from the run row) so a
+    // mid-run track override is respected and run creation cannot influence it.
+    const { rows: [freshTool] } = await pool.query(
+      "SELECT track, owner_id, name, intake_answers FROM tools WHERE id = $1", [next.tool_id]
+    );
+    const effectiveTrack = freshTool?.track ?? next.track;
+    const newStatus = effectiveTrack === 1 ? "active" : "under_review";
 
     await withTransaction(async (client) => {
       await client.query(
@@ -340,21 +344,21 @@ async function processNext() {
     emitProgress(runId, { type: "status", status: "completed" });
 
     // Notify tool owner of pipeline completion
-    const { rows: [completedTool] } = await pool.query("SELECT owner_id, name FROM tools WHERE id = $1", [next.tool_id]);
+    const completedTool = freshTool;
     if (completedTool) {
-      const pipelineTitle = next.track === 1
+      const pipelineTitle = effectiveTrack === 1
         ? `"${completedTool.name}" pipeline complete — auto-activated`
         : `"${completedTool.name}" pipeline complete — awaiting review`;
       notify({
         userId: completedTool.owner_id, toolId: next.tool_id, type: "pipeline_complete",
         title: pipelineTitle,
-        body: `All 4 agents finished. Track ${next.track} tool.`,
+        body: `All 4 agents finished. Track ${effectiveTrack} tool.`,
         link: `#/tool/${next.tool_id}/report/${runId}`,
       }).catch(() => {});
 
       // Notify reviewers if tool needs review (Track 2-4), excluding the owner (already notified above)
       if (newStatus === "under_review") {
-        const reviewTitle = `"${completedTool.name}" needs review (Track ${next.track})`;
+        const reviewTitle = `"${completedTool.name}" needs review (Track ${effectiveTrack})`;
         const exclude = [completedTool.owner_id];
         notifyRole({
           role: "reviewer", toolId: next.tool_id, type: "review_needed",

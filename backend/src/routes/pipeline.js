@@ -49,11 +49,10 @@ router.post("/:toolId/upload", requireOwnerOrRole("admin"), upload.single("codeb
 
 router.post("/:toolId/run", requireOwnerOrRole("admin"), validate(pipelineRunSchema), async (req, res) => {
   const { toolId } = req.params;
-  const { track, mode } = req.validated;
-  const tool = req.tool;
+  const { mode } = req.validated;
 
   try {
-    const run = await enqueue(toolId, track, null, mode);
+    const run = await enqueue(toolId, null, null, mode);
     res.status(201).json({ run });
   } catch (err) {
     res.status(500).json({ error: err.message });

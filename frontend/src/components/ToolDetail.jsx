@@ -80,7 +80,7 @@ export default function ToolDetail({ toolId }) {
   async function handleRunPipeline() {
     setRunningPipeline(true);
     try {
-      const result = await startPipelineRun(toolId, tool.track);
+      const result = await startPipelineRun(toolId);
       toast.success("Pipeline started");
       navigate(`/tool/${toolId}/pipeline/${result.run.id}`);
     } catch (err) { toast.error(err.message); setRunningPipeline(false); }

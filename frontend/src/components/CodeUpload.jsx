@@ -316,7 +316,7 @@ export default function CodeUpload({ toolId, user }) {
     try {
       await uploadCodebase(toolId, file, setUploadProgress);
       setUploadProgress(null);
-      const result = await startPipelineRun(toolId, tool?.track, "direct-api");
+      const result = await startPipelineRun(toolId, "direct-api");
       setRunId(result.run.id);
       setPhase("running");
       toast.success("Pipeline started");

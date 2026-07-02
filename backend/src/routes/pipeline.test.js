@@ -36,59 +36,37 @@ function validateUrl(url) {
 // ===========================================================================
 
 describe("pipelineRunSchema", () => {
-  it("accepts empty object (track is optional)", () => {
+  it("accepts empty object (mode defaults)", () => {
     const result = pipelineRunSchema.safeParse({});
     assert.ok(result.success);
     assert.equal(result.data.track, undefined);
   });
 
-  it("accepts track 1", () => {
+  it("ignores a client-supplied track (stripped by schema)", () => {
     const result = pipelineRunSchema.safeParse({ track: 1 });
     assert.ok(result.success);
-    assert.equal(result.data.track, 1);
+    assert.equal(result.data.track, undefined);
   });
 
-  it("accepts track 2", () => {
-    const result = pipelineRunSchema.safeParse({ track: 2 });
-    assert.ok(result.success);
-    assert.equal(result.data.track, 2);
+  it("ignores track for all values 1-4", () => {
+    for (const t of [1, 2, 3, 4]) {
+      const result = pipelineRunSchema.safeParse({ track: t, mode: "direct-api" });
+      assert.ok(result.success);
+      assert.equal(result.data.track, undefined);
+      assert.equal(result.data.mode, "direct-api");
+    }
   });
 
-  it("accepts track 3", () => {
-    const result = pipelineRunSchema.safeParse({ track: 3 });
-    assert.ok(result.success);
-    assert.equal(result.data.track, 3);
-  });
-
-  it("accepts track 4", () => {
-    const result = pipelineRunSchema.safeParse({ track: 4 });
-    assert.ok(result.success);
-    assert.equal(result.data.track, 4);
-  });
-
-  it("rejects track 0 (below minimum)", () => {
-    const result = pipelineRunSchema.safeParse({ track: 0 });
-    assert.ok(!result.success);
-  });
-
-  it("rejects track 5 (above maximum)", () => {
-    const result = pipelineRunSchema.safeParse({ track: 5 });
-    assert.ok(!result.success);
-  });
-
-  it("rejects negative track", () => {
-    const result = pipelineRunSchema.safeParse({ track: -1 });
-    assert.ok(!result.success);
-  });
-
-  it("rejects fractional track", () => {
+  it("ignores a fractional track value (stripped, not validated)", () => {
     const result = pipelineRunSchema.safeParse({ track: 1.5 });
-    assert.ok(!result.success);
+    assert.ok(result.success);
+    assert.equal(result.data.track, undefined);
   });
 
-  it("rejects string track", () => {
+  it("ignores a string track value (stripped, not validated)", () => {
     const result = pipelineRunSchema.safeParse({ track: "3" });
-    assert.ok(!result.success);
+    assert.ok(result.success);
+    assert.equal(result.data.track, undefined);
   });
 
   it("accepts mode 'direct-api'", () => {
