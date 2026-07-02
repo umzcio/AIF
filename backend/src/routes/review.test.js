@@ -5,6 +5,7 @@ import {
   reviewDecisionSchema,
   trackOverrideSchema,
   reviewNoteSchema,
+  selfCertifySchema,
 } from "../validation.js";
 import { canOverrideTrack } from "../review-rules.js";
 
@@ -371,6 +372,31 @@ describe("review workflow — changes_requested cycle", () => {
     assert.ok(canTransition("under_review", "approved", "reviewer"));
     // Step 6: reviewer activates
     assert.ok(canTransition("approved", "active", "reviewer"));
+  });
+});
+
+// ===========================================================================
+// selfCertifySchema (FW-07)
+// ===========================================================================
+
+describe("selfCertifySchema (FW-07)", () => {
+  const valid = {
+    attestation: "I reviewed all pipeline findings and accept responsibility for operating this tool.",
+    confirmFindingsReviewed: true,
+    confirmEscalationsUnderstood: true,
+  };
+  it("accepts a complete attestation", () => {
+    assert.ok(selfCertifySchema.safeParse(valid).success);
+  });
+  it("rejects a short attestation", () => {
+    assert.equal(selfCertifySchema.safeParse({ ...valid, attestation: "ok" }).success, false);
+  });
+  it("rejects unchecked confirmations", () => {
+    assert.equal(selfCertifySchema.safeParse({ ...valid, confirmFindingsReviewed: false }).success, false);
+    assert.equal(selfCertifySchema.safeParse({ ...valid, confirmEscalationsUnderstood: false }).success, false);
+  });
+  it("rejects an empty body", () => {
+    assert.equal(selfCertifySchema.safeParse({}).success, false);
   });
 });
 

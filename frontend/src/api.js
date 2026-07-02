@@ -261,8 +261,11 @@ export async function overrideTrack(toolId, newTrack, reason) {
   return res.json();
 }
 
-export async function selfCertify(toolId) {
-  const res = await request(`/review/${toolId}/self-certify`, { method: "POST" });
+export async function selfCertify(toolId, payload) {
+  const res = await request(`/review/${toolId}/self-certify`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
   return res.json();
 }
 

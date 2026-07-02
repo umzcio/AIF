@@ -16,6 +16,8 @@ export default function ReviewPanel({ tool, onUpdate }) {
   const [submitting, setSubmitting] = useState(false);
   const [showOverride, setShowOverride] = useState(false);
   const [overrideError, setOverrideError] = useState(false);
+  const [attestation, setAttestation] = useState("");
+  const [certChecks, setCertChecks] = useState({ findings: false, escalations: false });
 
   const isReviewerOrAdmin = user && (user.role === "reviewer" || user.role === "admin");
   const isOwner = user && tool.owner_id === user.userId;
@@ -55,7 +57,11 @@ export default function ReviewPanel({ tool, onUpdate }) {
   async function handleSelfCertify() {
     setSubmitting(true);
     try {
-      const result = await selfCertify(tool.id);
+      const result = await selfCertify(tool.id, {
+        attestation: attestation.trim(),
+        confirmFindingsReviewed: certChecks.findings,
+        confirmEscalationsUnderstood: certChecks.escalations,
+      });
       toast.success("Self-certification complete — tool is now active");
       loadNotes();
       onUpdate?.(result.tool);
@@ -124,18 +130,33 @@ export default function ReviewPanel({ tool, onUpdate }) {
           </div>
         )}
 
-        {/* Self-certify (Track 2 builder) */}
+        {/* Self-certify (Track 2 owner) */}
         {canSelfCertify && (
           <div style={{ padding: "0 16px" }}>
             <div className="info-banner" style={{ marginBottom: 8 }}>
               <div>
                 <strong>Track 2 — Self-Certification</strong>
                 <div style={{ fontSize: 12, marginTop: 4, color: C.textMid }}>
-                  Review the pipeline findings, then self-certify to activate this tool.
+                  Review the pipeline findings, confirm the statements below, and describe what you reviewed. This attestation is stored on the audit record.
                 </div>
               </div>
             </div>
-            <Btn onClick={handleSelfCertify} disabled={submitting}>Self-Certify &amp; Activate</Btn>
+            <label style={{ display: "flex", gap: 8, fontSize: 12, marginBottom: 6, alignItems: "flex-start" }}>
+              <input type="checkbox" checked={certChecks.findings} onChange={e => setCertChecks(p => ({ ...p, findings: e.target.checked }))} style={{ marginTop: 2 }} />
+              I have read every finding in the pipeline report for this tool.
+            </label>
+            <label style={{ display: "flex", gap: 8, fontSize: 12, marginBottom: 8, alignItems: "flex-start" }}>
+              <input type="checkbox" checked={certChecks.escalations} onChange={e => setCertChecks(p => ({ ...p, escalations: e.target.checked }))} style={{ marginTop: 2 }} />
+              I understand the escalation conditions and confirm none apply beyond what is recorded.
+            </label>
+            <label htmlFor="self-cert-attestation" style={{ display: "block", fontSize: 11, fontWeight: 600, color: C.textMid, marginBottom: 3 }}>Attestation (what did you review, what will you monitor?)</label>
+            <textarea id="self-cert-attestation" value={attestation} onChange={e => setAttestation(e.target.value)}
+              placeholder="e.g. Reviewed all 12 findings; the two warnings about rate limiting are accepted risks because..."
+              style={{ width: "100%", minHeight: 60, padding: 8, borderRadius: 6, border: `1px solid ${C.border}`,
+                background: C.bg, color: C.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", resize: "vertical", boxSizing: "border-box", marginBottom: 8 }} />
+            <Btn onClick={handleSelfCertify} disabled={submitting || !certChecks.findings || !certChecks.escalations || attestation.trim().length < 20}>
+              Self-Certify &amp; Activate
+            </Btn>
           </div>
         )}
 

@@ -3,7 +3,7 @@ import pool, { withTransaction } from "../db/pool.js";
 import { requireRole, requireOwnerOrRole } from "../auth/middleware.js";
 import { logAudit } from "../audit.js";
 import { notify, notifyRole } from "../notifications.js";
-import { validate, reviewDecisionSchema, trackOverrideSchema, reviewNoteSchema } from "../validation.js";
+import { validate, reviewDecisionSchema, trackOverrideSchema, reviewNoteSchema, selfCertifySchema } from "../validation.js";
 import { canOverrideTrack } from "../review-rules.js";
 
 export { canOverrideTrack };
@@ -176,15 +176,16 @@ router.post("/:toolId/notes", validate(reviewNoteSchema), async (req, res) => {
   res.status(201).json({ note });
 });
 
-// Self-certify (Track 2 only, builder)
-router.post("/:toolId/self-certify", async (req, res) => {
+// Self-certify (Track 2 only, owner only)
+router.post("/:toolId/self-certify", validate(selfCertifySchema), async (req, res) => {
   const { toolId } = req.params;
+  const { attestation } = req.validated;
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
 
   const updated = await withTransaction(async (client) => {
     const { rows: [tool] } = await client.query("SELECT * FROM tools WHERE id = $1 FOR UPDATE", [toolId]);
     if (!tool) { res.status(404).json({ error: "Tool not found" }); return null; }
-    if (tool.owner_id !== req.user.userId && req.user.role === "builder") {
+    if (tool.owner_id !== req.user.userId) {
       res.status(403).json({ error: "Only the tool owner can self-certify" }); return null;
     }
     if (tool.track !== 2) { res.status(400).json({ error: "Self-certification is only for Track 2 tools" }); return null; }
@@ -198,12 +199,15 @@ router.post("/:toolId/self-certify", async (req, res) => {
     );
     await client.query(
       `INSERT INTO review_notes (tool_id, author_id, body, note_type, metadata)
-       VALUES ($1, $2, 'Builder self-certified findings', 'status_change', $3)`,
-      [toolId, req.user.userId, JSON.stringify({ from: "under_review", to: "active", method: "self_certify" })]
+       VALUES ($1, $2, $3, 'status_change', $4)`,
+      [toolId, req.user.userId, `Self-certification: ${attestation}`,
+       JSON.stringify({ from: "under_review", to: "active", method: "self_certify",
+         attestation, confirmFindingsReviewed: true, confirmEscalationsUnderstood: true })]
     );
     await logAudit({
       actorId: req.user.userId, actorNetid: req.user.netid,
       action: "self_certify", entityType: "tool", entityId: toolId,
+      details: { attestation: attestation.slice(0, 500) },
     }, client);
     return u;
   });

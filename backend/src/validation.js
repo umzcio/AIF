@@ -28,6 +28,12 @@ export const reviewNoteSchema = z.object({
   body: z.string().min(1, "body is required"),
 });
 
+export const selfCertifySchema = z.object({
+  attestation: z.string().min(20, "attestation must describe what was reviewed (min 20 chars)").max(4000),
+  confirmFindingsReviewed: z.literal(true),
+  confirmEscalationsUnderstood: z.literal(true),
+});
+
 export const toolStatusSchema = z.object({
   status: z.string().min(1, "status is required"),
 });
