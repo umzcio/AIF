@@ -6,6 +6,7 @@ import {
   checkEscalations,
   computeWeightedPercentage,
   routeToTrack,
+  computeTrack,
   SCORE_DIMENSIONS,
   VALID_ARTIFACT_TYPES,
 } from "../scoring.js";
@@ -13,7 +14,8 @@ import {
 // ---------------------------------------------------------------------------
 // Re-implement parseBody and computeFromAnswers identically to intake.js
 // since they are module-scoped and not exported. Same approach as
-// registry.test.js and pipeline.test.js.
+// registry.test.js and pipeline.test.js. computeFromAnswers delegates to
+// computeTrack (which includes floor-aware routing), matching intake.js.
 // ---------------------------------------------------------------------------
 
 function parseBody(body) {
@@ -33,12 +35,8 @@ function parseBody(body) {
 
 function computeFromAnswers(answers, artifactType) {
   if (!answers || typeof answers !== "object") return null;
-  const scores = computeDimensionScores(answers);
-  const escalations = checkEscalations(answers);
-  const key = artifactType || answers.q1 || "other";
-  const pct = computeWeightedPercentage(scores, key);
-  const track = routeToTrack(pct, escalations.length > 0);
-  return { scores, escalations, pct, track };
+  const r = computeTrack(answers, artifactType);
+  return { scores: r.scores, escalations: r.escalations, floors: r.floors, pct: r.weightedPct, track: r.track };
 }
 
 // ---------------------------------------------------------------------------
@@ -264,6 +262,18 @@ describe("computeFromAnswers", () => {
     const directScores = computeDimensionScores(answers);
     const directPct = computeWeightedPercentage(directScores, "internal-app");
     assert.strictEqual(result.pct, directPct);
+  });
+
+  it("floors flow through: FERPA on internet-reachable SSO deployment raises the floor without escalating", () => {
+    // Same as midRiskAnswers but with q5 overridden to "public-auth" (internet-reachable,
+    // SSO-protected) — this is a floor condition (Track 3 minimum), not an escalation
+    // (escalation requires public-auth WITHOUT sso, or public-noauth).
+    const answers = { ...midRiskAnswers(), q9: "yes", q10: ["ferpa"], q5: "public-auth", q6: "sso" };
+    const result = computeFromAnswers(answers, "internal-app");
+    assert.strictEqual(result.floors.length, 1, "FERPA + public-auth + sso should trigger exactly one floor");
+    assert.strictEqual(result.escalations.length, 0, "FERPA + public-auth + sso (SSO present) should not escalate");
+    assert.strictEqual(result.track, 3, "Floor should route to Track 3");
+    assert.ok(result.track >= 3, "Routed track should be at least the floor track");
   });
 });
 
