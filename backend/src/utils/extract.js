@@ -148,44 +148,61 @@ function sumDirSize(dir) {
  * @returns {string} resolved codebase path
  */
 export function extractArchive(file, destDir) {
+  // Start clean: if a prior attempt (e.g. a timed-out/failed extraction that
+  // was caught upstream and retried) left partial content in destDir, wipe
+  // it before extracting again. Without this, mkdirSync's recursive no-op
+  // would let stale partial output compound across retries (PRAC-05).
+  try { rmSync(destDir, { recursive: true, force: true }); } catch {}
   mkdirSync(destDir, { recursive: true });
   const filePath = file.path;
   const originalName = file.originalname || "";
 
   try {
-    // Primary guard (PRAC-06): reject unsafe members before writing anything.
-    validateArchiveMembersPreExtract(filePath, originalName);
+    try {
+      // Primary guard (PRAC-06): reject unsafe members before writing anything.
+      validateArchiveMembersPreExtract(filePath, originalName);
 
-    if (originalName.endsWith(".zip")) {
-      execFileSync("unzip", ["-o", "-q", filePath, "-d", destDir], { timeout: 60000 });
-    } else if (originalName.endsWith(".tar.gz") || originalName.endsWith(".tgz")) {
-      execFileSync("tar", ["xzf", filePath, "-C", destDir], { timeout: 60000 });
-    } else if (originalName.endsWith(".tar")) {
-      execFileSync("tar", ["xf", filePath, "-C", destDir], { timeout: 60000 });
-    } else {
-      try {
+      if (originalName.endsWith(".zip")) {
         execFileSync("unzip", ["-o", "-q", filePath, "-d", destDir], { timeout: 60000 });
-      } catch {
+      } else if (originalName.endsWith(".tar.gz") || originalName.endsWith(".tgz")) {
+        execFileSync("tar", ["xzf", filePath, "-C", destDir], { timeout: 60000 });
+      } else if (originalName.endsWith(".tar")) {
         execFileSync("tar", ["xf", filePath, "-C", destDir], { timeout: 60000 });
+      } else {
+        try {
+          execFileSync("unzip", ["-o", "-q", filePath, "-d", destDir], { timeout: 60000 });
+        } catch {
+          execFileSync("tar", ["xf", filePath, "-C", destDir], { timeout: 60000 });
+        }
       }
-    }
 
-    // Decompression cap (PRAC-05): abort if the archive expanded past the
-    // limit, regardless of its compressed upload size.
-    const extractedBytes = sumDirSize(destDir);
-    if (extractedBytes > MAX_EXTRACTED_BYTES) {
-      rmSync(destDir, { recursive: true, force: true });
-      throw new Error(`Extracted archive exceeds the ${MAX_EXTRACTED_BYTES}-byte decompression cap (was ${extractedBytes} bytes)`);
-    }
+      // Decompression cap (PRAC-05): abort if the archive expanded past the
+      // limit, regardless of its compressed upload size.
+      const extractedBytes = sumDirSize(destDir);
+      if (extractedBytes > MAX_EXTRACTED_BYTES) {
+        rmSync(destDir, { recursive: true, force: true });
+        throw new Error(`Extracted archive exceeds the ${MAX_EXTRACTED_BYTES}-byte decompression cap (was ${extractedBytes} bytes)`);
+      }
 
-    // Secondary guard, defense-in-depth only (see doc comment above).
-    validateExtractedPaths(destDir);
+      // Secondary guard, defense-in-depth only (see doc comment above).
+      validateExtractedPaths(destDir);
 
-    const entries = readdirSync(destDir);
-    if (entries.length === 0) {
-      throw new Error("Archive is empty — no files to analyze");
+      const entries = readdirSync(destDir);
+      if (entries.length === 0) {
+        throw new Error("Archive is empty — no files to analyze");
+      }
+      return entries.length === 1 ? join(destDir, entries[0]) : destDir;
+    } catch (err) {
+      // Reclaim any partial output on ANY failure — pre-validation rejection,
+      // an execFileSync timeout/crash mid-decompression (e.g. a real zip bomb
+      // killed at the 60s cap), the decompression cap throw above, or the
+      // post-extraction traversal/empty-archive checks. Without this, a
+      // killed extraction leaves destDir on disk, orphaned and unbounded
+      // (PRAC-05) — none of the callers' catch blocks or the retention job
+      // clean it up.
+      try { rmSync(destDir, { recursive: true, force: true }); } catch {}
+      throw err;
     }
-    return entries.length === 1 ? join(destDir, entries[0]) : destDir;
   } finally {
     try { rmSync(filePath, { force: true }); } catch {}
   }
