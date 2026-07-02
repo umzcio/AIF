@@ -598,6 +598,15 @@ export default function IntakeForm({ draftId }) {
                   ))}
                 </div>
               )}
+              {result.floors?.length > 0 && result.escalations.length === 0 && (
+                <div style={{ marginTop: 10 }}>
+                  {result.floors.map((f, i) => (
+                    <div key={i} style={{ fontSize: 10, color: TRACK_COLORS[3], marginBottom: 3, display: "flex", alignItems: "center", gap: 4 }}>
+                      <AlertTriangle size={10} /> Minimum Track {f.track}: {f.reason}
+                    </div>
+                  ))}
+                </div>
+              )}
               <div style={{ marginTop: 14, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
                 {Object.entries(DIMENSION_SHORT).map(([k, l]) => (
                   <div key={k} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>

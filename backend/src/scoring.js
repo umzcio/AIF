@@ -64,13 +64,27 @@ export function checkEscalations(a) {
   const e = [];
   const dt = a.q10 || [];
   if (dt.some(d => ["hipaa","irb","export","tribal"].includes(d))) e.push("Regulated data (HIPAA/IRB/Export/Tribal)");
-  if (dt.includes("ferpa") && (a.q5 === "public-noauth" || a.q5 === "public-auth")) e.push("FERPA + public-facing deployment");
+  if (dt.includes("ferpa") && (a.q5 === "public-noauth" || (a.q5 === "public-auth" && a.q6 !== "sso"))) e.push("FERPA + public-facing deployment");
   if ((a.q11 || []).includes("personal")) e.push("Institutional data in personal accounts");
   if (a.q12 === "no-dpa" || a.q12 === "unknown-dpa") e.push("AI model without approved DPA");
   if (a.q6 === "custom-auth") e.push("Auth outside campus SSO");
   if (a.q15 === "no-vc") e.push("No version control");
   if (a.q21 === "no" && (a.q3 || []).includes("students")) e.push("Students unaware of AI");
   return e;
+}
+
+/**
+ * Floor conditions: raise the minimum track without forcing Track 4.
+ * FERPA on an internet-reachable but SSO-protected deployment gets IT review
+ * (Track 3) rather than formal project governance — see escalation-conditions.md.
+ */
+export function checkFloors(a) {
+  const f = [];
+  const dt = a.q10 || [];
+  if (dt.includes("ferpa") && a.q5 === "public-auth" && a.q6 === "sso") {
+    f.push({ track: 3, reason: "FERPA data on internet-reachable SSO deployment" });
+  }
+  return f;
 }
 
 export const VALID_ARTIFACT_TYPES = Object.keys(WEIGHT_PROFILES);
@@ -86,19 +100,23 @@ export function computeWeightedPercentage(scores, artifactType) {
   return max > 0 ? total / max : 0;
 }
 
-export function routeToTrack(weightedPct, hasEscalation) {
+export function routeToTrack(weightedPct, hasEscalation, floorTrack = 1) {
   if (hasEscalation) return 4;
-  if (weightedPct >= 0.65) return 4;
-  if (weightedPct >= 0.42) return 3;
-  if (weightedPct >= 0.22) return 2;
-  return 1;
+  let track;
+  if (weightedPct >= 0.65) track = 4;
+  else if (weightedPct >= 0.42) track = 3;
+  else if (weightedPct >= 0.22) track = 2;
+  else track = 1;
+  return Math.max(track, floorTrack);
 }
 
 export function computeTrack(answers, artifactType) {
   const scores = computeDimensionScores(answers);
   const escalations = checkEscalations(answers);
+  const floors = checkFloors(answers);
   const key = artifactType || answers.q1 || "other";
   const pct = computeWeightedPercentage(scores, key);
-  const track = routeToTrack(pct, escalations.length > 0);
-  return { track, scores, escalations, weightedPct: pct };
+  const floorTrack = floors.reduce((m, f) => Math.max(m, f.track), 1);
+  const track = routeToTrack(pct, escalations.length > 0, floorTrack);
+  return { track, scores, escalations, floors, weightedPct: pct };
 }

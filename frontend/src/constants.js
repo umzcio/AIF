@@ -122,7 +122,7 @@ function checkEscalations(a) {
   const e = [];
   const dt = a.q10 || [];
   if (dt.some(d => ["hipaa","irb","export","tribal"].includes(d))) e.push("Regulated data (HIPAA/IRB/Export/Tribal)");
-  if (dt.includes("ferpa") && (a.q5 === "public-noauth" || a.q5 === "public-auth")) e.push("FERPA + public-facing deployment");
+  if (dt.includes("ferpa") && (a.q5 === "public-noauth" || (a.q5 === "public-auth" && a.q6 !== "sso"))) e.push("FERPA + public-facing deployment");
   if ((a.q11 || []).includes("personal")) e.push("Institutional data in personal accounts");
   if (a.q12 === "no-dpa" || a.q12 === "unknown-dpa") e.push("AI model without approved DPA");
   if (a.q6 === "custom-auth") e.push("Auth outside campus SSO");
@@ -131,19 +131,32 @@ function checkEscalations(a) {
   return e;
 }
 
+function checkFloors(a) {
+  const f = [];
+  const dt = a.q10 || [];
+  if (dt.includes("ferpa") && a.q5 === "public-auth" && a.q6 === "sso") {
+    f.push({ track: 3, reason: "FERPA data on internet-reachable SSO deployment" });
+  }
+  return f;
+}
+
 export function computeTrack(a) {
   const key = a.q1 || "other";
   const w = WEIGHT_MATRIX[key] || WEIGHT_MATRIX["other"];
   const d = computeDimensionScores(a);
   const esc = checkEscalations(a);
+  const floors = checkFloors(a);
   let total = 0, max = 0;
   for (const k of Object.keys(d)) { total += d[k] * (w[k] || 0); max += 3 * (w[k] || 0); }
   const pct = max > 0 ? total / max : 0;
-  if (esc.length > 0) return { track: 4, total, max, pct, dims: d, weights: w, escalations: esc };
-  if (pct >= 0.65) return { track: 4, total, max, pct, dims: d, weights: w, escalations: esc };
-  if (pct >= 0.42) return { track: 3, total, max, pct, dims: d, weights: w, escalations: esc };
-  if (pct >= 0.22) return { track: 2, total, max, pct, dims: d, weights: w, escalations: esc };
-  return { track: 1, total, max, pct, dims: d, weights: w, escalations: esc };
+  const floorTrack = floors.reduce((m, f) => Math.max(m, f.track), 1);
+  let track;
+  if (esc.length > 0 || pct >= 0.65) track = 4;
+  else if (pct >= 0.42) track = 3;
+  else if (pct >= 0.22) track = 2;
+  else track = 1;
+  if (esc.length === 0) track = Math.max(track, floorTrack);
+  return { track, total, max, pct, dims: d, weights: w, escalations: esc, floors };
 }
 
 export const STATUS_META = {

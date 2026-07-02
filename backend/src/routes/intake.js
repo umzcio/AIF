@@ -2,7 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import { join } from "path";
 import pool from "../db/pool.js";
-import { computeDimensionScores, checkEscalations, computeWeightedPercentage, routeToTrack } from "../scoring.js";
+import { computeTrack } from "../scoring.js";
 import { logAudit } from "../audit.js";
 import { extractArchive } from "../utils/extract.js";
 
@@ -12,12 +12,8 @@ const router = Router();
 
 function computeFromAnswers(answers, artifactType) {
   if (!answers || typeof answers !== "object") return null;
-  const scores = computeDimensionScores(answers);
-  const escalations = checkEscalations(answers);
-  const key = artifactType || answers.q1 || "other";
-  const pct = computeWeightedPercentage(scores, key);
-  const track = routeToTrack(pct, escalations.length > 0);
-  return { scores, escalations, pct, track };
+  const r = computeTrack(answers, artifactType);
+  return { scores: r.scores, escalations: r.escalations, floors: r.floors, pct: r.weightedPct, track: r.track };
 }
 
 function extractUpload(file, toolId) {
@@ -56,10 +52,10 @@ router.post("/draft", upload.single("codebase"), async (req, res) => {
   const { rows: [tool] } = await pool.query(
     `INSERT INTO tools (name, description, owner_id, submission_type, artifact_type, intake_answers, status,
        score_security, score_accessibility, score_data_sensitivity, score_blast_radius, score_autonomy, score_comprehension, score_maintenance,
-       weighted_percentage, escalation_conditions, track, codebase_url, sandbox)
+       weighted_percentage, escalation_conditions, floor_conditions, track, codebase_url, sandbox)
      VALUES ($1, $2, $3, $4, $5, $6, 'draft',
        $7, $8, $9, $10, $11, $12, $13,
-       $14, $15, $16, $17, $18)
+       $14, $15, $16, $17, $18, $19)
      RETURNING *`,
     [
       name, description, ownerId, submissionType, artifactType, intakeAnswers ? JSON.stringify(intakeAnswers) : null,
@@ -68,6 +64,7 @@ router.post("/draft", upload.single("codebase"), async (req, res) => {
       computed?.scores.autonomy ?? null, computed?.scores.comprehension ?? null, computed?.scores.maintenance ?? null,
       computed ? Math.round(computed.pct * 10000) / 100 : null,
       JSON.stringify(computed?.escalations || []),
+      JSON.stringify(computed?.floors || []),
       computed?.track ?? null, codebaseUrl, sandbox,
     ]
   );
@@ -107,9 +104,9 @@ router.put("/draft/:id", upload.single("codebase"), async (req, res) => {
        artifact_type = $4, intake_answers = $5,
        score_security = $6, score_accessibility = $7, score_data_sensitivity = $8, score_blast_radius = $9,
        score_autonomy = $10, score_comprehension = $11, score_maintenance = $12,
-       weighted_percentage = $13, escalation_conditions = $14, track = $15,
-       codebase_url = $16, sandbox = $17, updated_at = NOW()
-     WHERE id = $18 RETURNING *`,
+       weighted_percentage = $13, escalation_conditions = $14, floor_conditions = $15, track = $16,
+       codebase_url = $17, sandbox = $18, updated_at = NOW()
+     WHERE id = $19 RETURNING *`,
     [
       name || null, description, submissionType || null,
       artifactType, intakeAnswers ? JSON.stringify(intakeAnswers) : null,
@@ -118,6 +115,7 @@ router.put("/draft/:id", upload.single("codebase"), async (req, res) => {
       computed?.scores.autonomy ?? null, computed?.scores.comprehension ?? null, computed?.scores.maintenance ?? null,
       computed ? Math.round(computed.pct * 10000) / 100 : null,
       JSON.stringify(computed?.escalations || []),
+      JSON.stringify(computed?.floors || []),
       computed?.track ?? null, codebaseUrl || null, sandbox, req.params.id,
     ]
   );
@@ -157,9 +155,9 @@ router.post("/", upload.single("codebase"), async (req, res) => {
          artifact_type = $4, intake_answers = $5,
          score_security = $6, score_accessibility = $7, score_data_sensitivity = $8, score_blast_radius = $9,
          score_autonomy = $10, score_comprehension = $11, score_maintenance = $12,
-         weighted_percentage = $13, escalation_conditions = $14, track = $15,
-         codebase_url = $16, sandbox = $17, status = 'pending', updated_at = NOW()
-       WHERE id = $18 RETURNING *`,
+         weighted_percentage = $13, escalation_conditions = $14, floor_conditions = $15, track = $16,
+         codebase_url = $17, sandbox = $18, status = 'pending', updated_at = NOW()
+       WHERE id = $19 RETURNING *`,
       [
         name || null, description, submissionType || null,
         artType, answers ? JSON.stringify(answers) : null,
@@ -168,6 +166,7 @@ router.post("/", upload.single("codebase"), async (req, res) => {
         computed.scores.autonomy, computed.scores.comprehension, computed.scores.maintenance,
         Math.round(computed.pct * 10000) / 100,
         JSON.stringify(computed.escalations),
+        JSON.stringify(computed.floors),
         computed.track, codebaseUrl || null, sandboxVal, draftId,
       ]
     );
@@ -207,10 +206,10 @@ router.post("/", upload.single("codebase"), async (req, res) => {
   const { rows: [tool] } = await pool.query(
     `INSERT INTO tools (name, description, owner_id, submission_type, artifact_type, intake_answers, status,
        score_security, score_accessibility, score_data_sensitivity, score_blast_radius, score_autonomy, score_comprehension, score_maintenance,
-       weighted_percentage, escalation_conditions, track, codebase_url, sandbox)
+       weighted_percentage, escalation_conditions, floor_conditions, track, codebase_url, sandbox)
      VALUES ($1, $2, $3, $4, $5, $6, 'pending',
        $7, $8, $9, $10, $11, $12, $13,
-       $14, $15, $16, $17, $18)
+       $14, $15, $16, $17, $18, $19)
      RETURNING *`,
     [
       name, description, ownerId, submissionType, artifactType, intakeAnswers ? JSON.stringify(intakeAnswers) : null,
@@ -219,6 +218,7 @@ router.post("/", upload.single("codebase"), async (req, res) => {
       computed.scores.autonomy, computed.scores.comprehension, computed.scores.maintenance,
       Math.round(computed.pct * 10000) / 100,
       JSON.stringify(computed.escalations),
+      JSON.stringify(computed.floors),
       computed.track, codebaseUrl, sandbox,
     ]
   );

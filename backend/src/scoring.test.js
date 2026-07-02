@@ -8,6 +8,7 @@ import {
   computeWeightedPercentage,
   routeToTrack,
   checkEscalations,
+  checkFloors,
   computeTrack,
   VALID_ARTIFACT_TYPES,
 } from "./scoring.js";
@@ -412,6 +413,53 @@ describe("checkEscalations", () => {
     };
     const esc = checkEscalations(answers);
     assert.strictEqual(esc.length, 7, `Expected 7 escalations, got ${esc.length}: ${JSON.stringify(esc)}`);
+  });
+});
+
+// ===========================================================================
+// FERPA escalation split + track floors (FW-06)
+// ===========================================================================
+
+describe("FERPA escalation split (FW-06)", () => {
+  it("FERPA + public-noauth still escalates to Track 4", () => {
+    const e = checkEscalations({ q9: "yes", q10: ["ferpa"], q5: "public-noauth" });
+    assert.ok(e.includes("FERPA + public-facing deployment"));
+  });
+
+  it("FERPA + public-auth without SSO still escalates", () => {
+    const e = checkEscalations({ q9: "yes", q10: ["ferpa"], q5: "public-auth", q6: "not-implemented" });
+    assert.ok(e.includes("FERPA + public-facing deployment"));
+  });
+
+  it("FERPA + public-auth + SSO does NOT escalate", () => {
+    const e = checkEscalations({ q9: "yes", q10: ["ferpa"], q5: "public-auth", q6: "sso" });
+    assert.ok(!e.some(x => x.startsWith("FERPA")));
+  });
+
+  it("FERPA + public-auth + SSO floors at Track 3", () => {
+    const f = checkFloors({ q9: "yes", q10: ["ferpa"], q5: "public-auth", q6: "sso" });
+    assert.strictEqual(f.length, 1);
+    assert.strictEqual(f[0].track, 3);
+  });
+
+  it("no floor without FERPA or without public-auth", () => {
+    assert.strictEqual(checkFloors({ q9: "yes", q10: ["internal"], q5: "public-auth", q6: "sso" }).length, 0);
+    assert.strictEqual(checkFloors({ q9: "yes", q10: ["ferpa"], q5: "campus-vpn", q6: "sso" }).length, 0);
+  });
+});
+
+describe("routeToTrack floor", () => {
+  it("floor raises a lower percentage track", () => {
+    assert.strictEqual(routeToTrack(0.30, false, 3), 3);
+  });
+  it("floor never lowers a higher track", () => {
+    assert.strictEqual(routeToTrack(0.70, false, 3), 4);
+  });
+  it("escalation still wins over floor", () => {
+    assert.strictEqual(routeToTrack(0.10, true, 3), 4);
+  });
+  it("default floor is 1 (backward compatible)", () => {
+    assert.strictEqual(routeToTrack(0.10, false), 1);
   });
 });
 
