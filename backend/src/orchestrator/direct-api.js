@@ -37,6 +37,50 @@ function summarizeFindings(synthesis) {
   return { total: findings.length, ...bySev, topFindings: findings.slice(0, 5).map(f => ({ severity: f.severity, title: f.title || f.finding })) };
 }
 
+/**
+ * Fallback when the synthesis model is unavailable or returns unusable output:
+ * union pass findings, dedupe by normalized title, recompute convergence.
+ * No dispute resolution happens — the report says so explicitly.
+ */
+function deterministicMerge(reports, passKeys) {
+  const norm = t => (t || "").toLowerCase().replace(/[^a-z0-9 ]/g, "").slice(0, 60);
+  const byKey = new Map();
+  for (const r of Object.values(reports)) {
+    for (const f of r.parsed?.findings || []) {
+      const k = norm(f.title || f.finding || f.detail);
+      if (!k) continue;
+      if (!byKey.has(k)) byKey.set(k, { ...f, reportedBy: [r.name], convergenceCount: 1 });
+      else {
+        const e = byKey.get(k);
+        e.reportedBy.push(r.name);
+        e.convergenceCount++;
+      }
+    }
+  }
+  const findings = [...byKey.values()].map(f => ({
+    ...f, confidence: f.convergenceCount >= 3 ? "confirmed" : "potential",
+  }));
+  return {
+    findings,
+    summary: "Synthesis model unavailable — deterministic merge of pass findings. No dispute resolution or hallucination verification was performed; treat potential findings with extra caution.",
+    disputes: [],
+    convergenceStats: {
+      confirmed: findings.filter(f => f.confidence === "confirmed").length,
+      potential: findings.filter(f => f.confidence === "potential").length,
+      resolved: 0, needs_human_review: 0,
+    },
+    metadata: {
+      synthesis_failed: true,
+      models_completed: Object.keys(reports).length,
+      models_total: passKeys.length,
+    },
+  };
+}
+
+function synthesisShapeOk(obj) {
+  return !!obj && typeof obj === "object" && Array.isArray(obj.findings);
+}
+
 const ALL_PASSES = ["pass1", "pass2", "pass3", "pass4", "pass5"];
 
 const AGENTS = [
@@ -169,6 +213,16 @@ async function runAgentDirect(agentDef, codebasePath, codeBundle, passKeys, outp
         }
       }
       content = JSON.stringify(trimmed);
+      if (content.length > MAX_PASS_CHARS && Array.isArray(trimmed.findings)) {
+        // Drop whole findings from the tail rather than slicing mid-JSON,
+        // so the synthesizer never counts convergence over amputated objects.
+        while (trimmed.findings.length > 5 && JSON.stringify(trimmed).length > MAX_PASS_CHARS) {
+          trimmed.findings.pop();
+        }
+        trimmed.findingsTruncatedForSynthesis = true;
+        content = JSON.stringify(trimmed);
+        pLog.info("Trimmed findings for synthesis input", { pass: key, kept: trimmed.findings.length });
+      }
       if (content.length > MAX_PASS_CHARS) {
         pLog.info("Truncating verbose pass for synthesis", { pass: key, original: content.length, truncated: MAX_PASS_CHARS });
         content = content.slice(0, MAX_PASS_CHARS) + '…(truncated)';
@@ -208,86 +262,104 @@ ${JSON.stringify(priorFindings, null, 2)}`;
   const synthOnOutput = (lines) => {
     emit({ type: "pass_log", agent: agentDef.name, pass: "synthesis", model: "Claude Opus 4.6", lines });
   };
-  const synthesisResult = await runCLIWithRetry("claude", fullSynthesisPrompt, codebasePath, outputDir, {
-    runId, signal, maxRetries: 1, retryDelayMs: 10000, onOutput: synthOnOutput,
-  });
-
-  let synthesized = extractJSON(synthesisResult.output);
-  if (synthesized) {
-    if (passCount < passKeys.length && synthesized.metadata) {
-      synthesized.metadata.partial_analysis = true;
-      synthesized.metadata.models_completed = passCount;
-      synthesized.metadata.models_total = passKeys.length;
+  let synthesisResult = null;
+  let synthesized = null;
+  let synthesisFailed = false;
+  try {
+    synthesisResult = await runCLIWithRetry("claude", fullSynthesisPrompt, codebasePath, outputDir, {
+      runId, signal, maxRetries: 1, retryDelayMs: 10000, onOutput: synthOnOutput,
+    });
+    synthesized = extractJSON(synthesisResult.output);
+    if (!synthesisShapeOk(synthesized)) {
+      pLog.warn("Synthesis output failed shape check; using deterministic merge", { hasOutput: !!synthesisResult.output });
+      if (synthesisResult.output) writeFileSync(join(outputDir, "synthesis_raw.txt"), synthesisResult.output);
+      synthesized = null;
     }
-    writeFileSync(join(outputDir, "synthesis.json"), JSON.stringify(synthesized, null, 2));
+  } catch (err) {
+    if (signal?.aborted) throw err;
+    pLog.error("Synthesis CLI failed; falling back to deterministic merge", { error: err.message });
+    synthesisFailed = true;
+  }
+  if (!synthesized) {
+    synthesized = deterministicMerge(reports, passKeys);
+    synthesisFailed = true;
+    emit({ type: "pass_failed", agent: agentDef.name, pass: "synthesis", model: "Claude Opus 4.6",
+      error: "Synthesis unavailable — deterministic merge used", errorCategory: "synthesis_fallback" });
+  }
 
-    // Stack-specific deep dive (Agent 1 only)
-    if (agentDef.name === "code-analysis" && synthesized.inventory) {
-      const stackChecklists = buildStackChecklists(synthesized.inventory);
-      if (stackChecklists) {
-        pLog.info("Running stack-specific deep dive", {
-          checklists: stackChecklists.split("###").length - 1,
+  if (passCount < passKeys.length) {
+    synthesized.metadata = synthesized.metadata || {};
+    synthesized.metadata.partial_analysis = true;
+    synthesized.metadata.models_completed = passCount;
+    synthesized.metadata.models_total = passKeys.length;
+  }
+  writeFileSync(join(outputDir, "synthesis.json"), JSON.stringify(synthesized, null, 2));
+
+  // Stack-specific deep dive (Agent 1 only)
+  if (agentDef.name === "code-analysis" && synthesized.inventory && !synthesisFailed) {
+    const stackChecklists = buildStackChecklists(synthesized.inventory);
+    if (stackChecklists) {
+      pLog.info("Running stack-specific deep dive", {
+        checklists: stackChecklists.split("###").length - 1,
+      });
+      emit({ type: "pass_start", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6" });
+      const stackOnOutput = (lines) => {
+        emit({ type: "pass_log", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6", lines });
+      };
+
+      const existingTitles = (synthesized.findings || []).map(f => f.title || "").join("\n- ");
+      const stackPrompt = STACK_SYNTHESIS_PROMPT
+        .replace("{EXISTING_FINDINGS}", existingTitles ? `- ${existingTitles}` : "(none)")
+        .replace("{STACK_CHECKLISTS}", stackChecklists);
+
+      writeFileSync(join(outputDir, "_stack_synthesis_input.txt"), stackPrompt);
+
+      try {
+        const stackResult = await runCLIWithRetry("claude", stackPrompt, codebasePath, outputDir, {
+          runId, signal, maxRetries: 1, retryDelayMs: 10000, onOutput: stackOnOutput,
         });
-        emit({ type: "pass_start", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6" });
-        const stackOnOutput = (lines) => {
-          emit({ type: "pass_log", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6", lines });
-        };
 
-        const existingTitles = (synthesized.findings || []).map(f => f.title || "").join("\n- ");
-        const stackPrompt = STACK_SYNTHESIS_PROMPT
-          .replace("{EXISTING_FINDINGS}", existingTitles ? `- ${existingTitles}` : "(none)")
-          .replace("{STACK_CHECKLISTS}", stackChecklists);
-
-        writeFileSync(join(outputDir, "_stack_synthesis_input.txt"), stackPrompt);
-
-        try {
-          const stackResult = await runCLIWithRetry("claude", stackPrompt, codebasePath, outputDir, {
-            runId, signal, maxRetries: 1, retryDelayMs: 10000, onOutput: stackOnOutput,
-          });
-
-          const stackData = extractJSON(stackResult.output);
-          if (stackData?.stackFindings?.length) {
-            pLog.info("Stack deep dive found new findings", { count: stackData.stackFindings.length });
-            synthesized.findings = [...(synthesized.findings || []), ...stackData.stackFindings];
-            synthesized.stackDeepDive = {
-              checklistsEvaluated: stackData.checklistsEvaluated || [],
-              itemsChecked: stackData.itemsChecked || 0,
-              itemsFailed: stackData.itemsFailed || 0,
-              summary: stackData.summary || "",
-            };
-            writeFileSync(join(outputDir, "synthesis.json"), JSON.stringify(synthesized, null, 2));
-          } else {
-            pLog.info("Stack deep dive found no new findings");
-            synthesized.stackDeepDive = {
-              checklistsEvaluated: stackData?.checklistsEvaluated || [],
-              itemsChecked: stackData?.itemsChecked || 0,
-              itemsFailed: 0,
-              summary: stackData?.summary || "No additional stack-specific issues found",
-            };
-            writeFileSync(join(outputDir, "synthesis.json"), JSON.stringify(synthesized, null, 2));
-          }
-          writeFileSync(join(outputDir, "stack_deep_dive.json"), JSON.stringify(stackData, null, 2));
-          emit({ type: "pass_complete", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6",
-            elapsed: 0, jsonParsed: !!stackData, outputBytes: stackResult.output?.length || 0 });
-        } catch (err) {
-          pLog.warn("Stack deep dive failed (non-fatal)", { error: err.message });
-          emit({ type: "pass_failed", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6",
-            error: err.message, errorCategory: "stack_deep_dive" });
+        const stackData = extractJSON(stackResult.output);
+        if (stackData?.stackFindings?.length) {
+          pLog.info("Stack deep dive found new findings", { count: stackData.stackFindings.length });
+          synthesized.findings = [...(synthesized.findings || []), ...stackData.stackFindings];
+          synthesized.stackDeepDive = {
+            checklistsEvaluated: stackData.checklistsEvaluated || [],
+            itemsChecked: stackData.itemsChecked || 0,
+            itemsFailed: stackData.itemsFailed || 0,
+            summary: stackData.summary || "",
+          };
+          writeFileSync(join(outputDir, "synthesis.json"), JSON.stringify(synthesized, null, 2));
+        } else {
+          pLog.info("Stack deep dive found no new findings");
+          synthesized.stackDeepDive = {
+            checklistsEvaluated: stackData?.checklistsEvaluated || [],
+            itemsChecked: stackData?.itemsChecked || 0,
+            itemsFailed: 0,
+            summary: stackData?.summary || "No additional stack-specific issues found",
+          };
+          writeFileSync(join(outputDir, "synthesis.json"), JSON.stringify(synthesized, null, 2));
         }
-      } else {
-        pLog.info("No applicable stack checklists for this codebase");
+        writeFileSync(join(outputDir, "stack_deep_dive.json"), JSON.stringify(stackData, null, 2));
+        emit({ type: "pass_complete", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6",
+          elapsed: 0, jsonParsed: !!stackData, outputBytes: stackResult.output?.length || 0 });
+      } catch (err) {
+        pLog.warn("Stack deep dive failed (non-fatal)", { error: err.message });
+        emit({ type: "pass_failed", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6",
+          error: err.message, errorCategory: "stack_deep_dive" });
       }
+    } else {
+      pLog.info("No applicable stack checklists for this codebase");
     }
-  } else {
-    writeFileSync(join(outputDir, "synthesis_raw.txt"), synthesisResult.output);
   }
 
   return {
     passes: reports,
     failures,
     synthesis: synthesized,
-    raw: synthesisResult.output,
+    raw: synthesisResult?.output || null,
     partial: passCount < passKeys.length,
+    synthesisFailed,
   };
 }
 
