@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { C, STATUS_META, TRACK_COLORS, TRACK_LABELS } from "../constants.js";
 import { Btn, EmptyState, ErrorBanner, TrackBadge, Skeleton, relativeTime } from "./primitives.jsx";
-import { getTools, deleteDraft } from "../api.js";
+import { getTools, getReviewQueue, deleteDraft } from "../api.js";
 import { navigate } from "../hooks/useHashRouter.js";
 import { useToast } from "./Toast.jsx";
 import { useAuth } from "../hooks/useAuth.jsx";
@@ -14,24 +14,36 @@ export default function Registry() {
   const { toast, confirm } = useToast();
   const [filter, setFilter] = useState("all");
   const [tools, setTools] = useState([]);
+  const [queueTools, setQueueTools] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const isReviewerOrAdmin = user && (user.role === "reviewer" || user.role === "admin");
+
   useEffect(() => {
     setLoading(true);
     setError(null);
-    getTools({})
-      .then(data => { setTools(data.tools || []); })
+    const calls = [getTools({})];
+    if (isReviewerOrAdmin) calls.push(getReviewQueue());
+    Promise.all(calls)
+      .then(([toolsData, queueData]) => {
+        setTools(toolsData.tools || []);
+        setQueueTools(queueData ? (queueData.tools || []) : []);
+      })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
-  }, [refreshKey]);
+  }, [refreshKey, isReviewerOrAdmin]);
 
+  // Reviewer/admin "needs review" view is sourced from the server-side
+  // GET /review/queue route (DEAD-01) rather than client-filtered from the
+  // general registry list, so it gets the server's join/ordering for free.
   const filtered = useMemo(() => {
+    if (filter === "needs_review" && isReviewerOrAdmin) return queueTools;
     if (filter === "all") return tools;
     if (filter === "needs_review") return tools.filter(t => t.status === "under_review" || t.status === "changes_requested");
     return tools.filter(t => t.status === filter);
-  }, [filter, tools]);
+  }, [filter, tools, queueTools, isReviewerOrAdmin]);
 
   const trackCounts = useMemo(() => {
     const counts = { 1: 0, 2: 0, 3: 0, 4: 0 };
@@ -40,8 +52,7 @@ export default function Registry() {
   }, [tools]);
 
   const activeCount = tools.filter(t => t.status === "active").length;
-  const reviewCount = tools.filter(t => t.status === "under_review" || t.status === "changes_requested").length;
-  const isReviewerOrAdmin = user && (user.role === "reviewer" || user.role === "admin");
+  const reviewCount = isReviewerOrAdmin ? queueTools.length : 0;
 
   if (loading) return <div style={{ padding: 20 }}><Skeleton height={300} /></div>;
   if (error) return <div style={{ padding: 20 }}><ErrorBanner message={error} onRetry={() => setRefreshKey(v => v + 1)} /></div>;

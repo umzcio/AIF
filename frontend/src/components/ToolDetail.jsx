@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { parsePossiblyStringArray, ROUTE_META, DIMENSION_LABELS, C } from "../constants.js";
 import { Btn, Card, EmptyState, ErrorBanner, PageHeader, Skeleton, StatusBadge, TrackBadge, formatAbsoluteDate, formatDuration, relativeTime } from "./primitives.jsx";
-import { deleteTool, getTool, startPipelineRun, toggleSandbox, updateTool } from "../api.js";
+import { deleteTool, getTool, getToolVersions, startPipelineRun, toggleSandbox, updateTool } from "../api.js";
 import { FileText, Clock, ArrowRight, Pencil } from "lucide-react";
 /* M2: decorative icons get aria-hidden in render */
 import { navigate } from "../hooks/useHashRouter.js";
@@ -49,6 +49,7 @@ export default function ToolDetail({ toolId }) {
   const { toast, confirm } = useToast();
   const [tool, setTool] = useState(null);
   const [runs, setRuns] = useState([]);
+  const [versions, setVersions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -59,6 +60,13 @@ export default function ToolDetail({ toolId }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { load(); }, [toolId]);
+
+  useEffect(() => {
+    if (!toolId) return;
+    getToolVersions(toolId)
+      .then(data => setVersions(data.versions || []))
+      .catch(() => {}); // Version history is a nice-to-have — silently omit on 403/404/error
+  }, [toolId]);
 
   function load() {
     setLoading(true);
@@ -394,6 +402,26 @@ export default function ToolDetail({ toolId }) {
                         View {run.status === "running" || run.status === "queued" ? "progress" : "details"}
                       </button>
                     )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {versions.length > 0 && (
+            <Card style={{ marginTop: 16 }}>
+              <div className="card-header"><div><h2>Score history</h2></div></div>
+              <div className="data-list">
+                {versions.map(v => (
+                  <div key={v.version} className="data-row" style={{ padding: "10px 14px" }}>
+                    <div className="inline-meta">
+                      <span className="mono" style={{ fontSize: 12, fontWeight: 700 }}>v{v.version}</span>
+                      {v.track ? <TrackBadge track={v.track} /> : <span style={{ color: C.textDim }}>—</span>}
+                    </div>
+                    <div style={{ marginTop: 8, fontWeight: 700, fontSize: 13 }}>
+                      {v.weighted_percentage != null ? `${v.weighted_percentage}%` : "-"}
+                    </div>
+                    <div className="muted" style={{ marginTop: 4 }}>{formatAbsoluteDate(v.created_at)}</div>
                   </div>
                 ))}
               </div>

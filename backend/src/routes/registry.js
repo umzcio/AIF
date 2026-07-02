@@ -99,6 +99,27 @@ router.get("/:id", wrap(async (req, res) => {
   res.json({ tool, runs });
 }));
 
+// Version history — snapshots taken on each resubmission (migration 018)
+router.get("/:id/versions", wrap(async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Authentication required" });
+
+  const { rows: [tool] } = await pool.query("SELECT owner_id FROM tools WHERE id = $1", [req.params.id]);
+  if (!tool) return res.status(404).json({ error: "Tool not found" });
+
+  // Builders can only see version history for their own tools; reviewers/admins see all
+  if (req.user.role === "builder" && tool.owner_id !== req.user.userId) {
+    return res.status(403).json({ error: "Access denied" });
+  }
+
+  const { rows: versions } = await pool.query(
+    `SELECT version, weighted_percentage, track, escalation_conditions, floor_conditions, created_at, reason
+     FROM tool_versions WHERE tool_id = $1 ORDER BY version DESC`,
+    [req.params.id]
+  );
+
+  res.json({ versions });
+}));
+
 // Update tool status — enforces state machine + role checks
 router.patch("/:id/status", validate(toolStatusSchema), wrap(async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });

@@ -106,6 +106,11 @@ export async function getTool(id) {
   return res.json();
 }
 
+export async function getToolVersions(id) {
+  const res = await request(`/registry/${id}/versions`);
+  return res.json();
+}
+
 export async function deleteTool(id) {
   const res = await request(`/registry/${id}`, { method: "DELETE" });
   return res.json();
@@ -236,6 +241,11 @@ export async function refreshAuth() {
 }
 
 // Review
+export async function getReviewQueue() {
+  const res = await request(`/review/queue`);
+  return res.json();
+}
+
 export async function getReviewNotes(toolId) {
   const res = await request(`/review/${toolId}/notes`);
   return res.json();
