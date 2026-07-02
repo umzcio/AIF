@@ -692,6 +692,10 @@ describe("structured q20 autonomy (improvement 17)", () => {
     assert.strictEqual(computeDimensionScores({ q20: "a human reviews everything", q21: "yes" }).autonomy, 1);
     assert.strictEqual(computeDimensionScores({ q20: "short", q21: "yes" }).autonomy, 0);
   });
+  it("prototype keys in q20 do not poison autonomy (Object.hasOwn guard)", () => {
+    const s = computeDimensionScores({ q20: "constructor", q21: "yes" });
+    assert.strictEqual(s.autonomy, 1); // legacy free-text branch: length > 10
+  });
 });
 
 describe("new escalators (improvement 17)", () => {

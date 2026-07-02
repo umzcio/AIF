@@ -47,7 +47,7 @@ export function computeDimensionScores(a) {
   // Autonomy: decision scope (q20 enum) + disclosure penalty.
   // Legacy records hold free-text q20; keep the old length heuristic for them.
   let auto;
-  if (a.q20 in AUTONOMY_LEVELS) auto = AUTONOMY_LEVELS[a.q20];
+  if (Object.hasOwn(AUTONOMY_LEVELS, a.q20)) auto = AUTONOMY_LEVELS[a.q20];
   else auto = a.q20 && a.q20.length > 10 ? 1 : 0;
   if (a.q21 === "no") auto += 1;
   s.autonomy = Math.min(auto, 3);
