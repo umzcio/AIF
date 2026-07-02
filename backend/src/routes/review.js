@@ -4,6 +4,9 @@ import { requireRole, requireOwnerOrRole } from "../auth/middleware.js";
 import { logAudit } from "../audit.js";
 import { notify, notifyRole } from "../notifications.js";
 import { validate, reviewDecisionSchema, trackOverrideSchema, reviewNoteSchema } from "../validation.js";
+import { canOverrideTrack } from "../review-rules.js";
+
+export { canOverrideTrack };
 
 const router = Router();
 
@@ -78,6 +81,11 @@ router.post("/:toolId/track-override", requireRole("reviewer", "admin"), validat
   const result = await withTransaction(async (client) => {
     const { rows: [tool] } = await client.query("SELECT * FROM tools WHERE id = $1 FOR UPDATE", [toolId]);
     if (!tool) { res.status(404).json({ error: "Tool not found" }); return null; }
+
+    const escalations = Array.isArray(tool.escalation_conditions) ? tool.escalation_conditions
+      : JSON.parse(tool.escalation_conditions || "[]");
+    const check = canOverrideTrack({ oldTrack: tool.track, newTrack, escalations, role: req.user.role });
+    if (!check.allowed) { res.status(403).json({ error: check.reason }); return null; }
 
     const oldTrack = tool.track;
     const { rows: [u] } = await client.query(

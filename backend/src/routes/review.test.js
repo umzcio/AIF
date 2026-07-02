@@ -6,6 +6,7 @@ import {
   trackOverrideSchema,
   reviewNoteSchema,
 } from "../validation.js";
+import { canOverrideTrack } from "../review-rules.js";
 
 // ---------------------------------------------------------------------------
 // Re-define the TRANSITIONS map identically to registry.js so we can test
@@ -370,5 +371,27 @@ describe("review workflow — changes_requested cycle", () => {
     assert.ok(canTransition("under_review", "approved", "reviewer"));
     // Step 6: reviewer activates
     assert.ok(canTransition("approved", "active", "reviewer"));
+  });
+});
+
+// ===========================================================================
+// canOverrideTrack (FW-08)
+// ===========================================================================
+
+describe("canOverrideTrack (FW-08)", () => {
+  it("always allows escalation to Track 4", () => {
+    assert.equal(canOverrideTrack({ oldTrack: 2, newTrack: 4, escalations: [], role: "reviewer" }).allowed, true);
+    assert.equal(canOverrideTrack({ oldTrack: 1, newTrack: 4, escalations: ["x"], role: "reviewer" }).allowed, true);
+  });
+  it("blocks de-escalation below 4 while escalations apply, for any role", () => {
+    assert.equal(canOverrideTrack({ oldTrack: 4, newTrack: 3, escalations: ["Regulated data"], role: "admin" }).allowed, false);
+    assert.equal(canOverrideTrack({ oldTrack: 4, newTrack: 1, escalations: ["Regulated data"], role: "reviewer" }).allowed, false);
+  });
+  it("de-escalation from Track 4 without escalations requires admin", () => {
+    assert.equal(canOverrideTrack({ oldTrack: 4, newTrack: 3, escalations: [], role: "reviewer" }).allowed, false);
+    assert.equal(canOverrideTrack({ oldTrack: 4, newTrack: 3, escalations: [], role: "admin" }).allowed, true);
+  });
+  it("reviewers may adjust between Tracks 1-3 when no escalations apply", () => {
+    assert.equal(canOverrideTrack({ oldTrack: 3, newTrack: 2, escalations: [], role: "reviewer" }).allowed, true);
   });
 });
