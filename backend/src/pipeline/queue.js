@@ -3,6 +3,7 @@ import { runDirectApiPipeline } from "../orchestrator/direct-api.js";
 import log from "../logger.js";
 import { emitProgress, removeAllForRun } from "./events.js";
 import { notify, notifyRole } from "../notifications.js";
+import { evaluateActivationGate } from "./activation-gate.js";
 import { killRunProcesses } from "../agents/shared/cli.js";
 import { join, resolve } from "path";
 import { execFileSync } from "child_process";
@@ -323,15 +324,26 @@ async function processNext() {
     // The track is read fresh from the tool (never from the run row) so a
     // mid-run track override is respected and run creation cannot influence it.
     const { rows: [freshTool] } = await pool.query(
+      // intake_answers feeds the FW-02 activation gate below (intake-vs-code contradiction check)
       "SELECT track, owner_id, name, intake_answers FROM tools WHERE id = $1", [next.tool_id]
     );
     const effectiveTrack = freshTool?.track ?? next.track;
-    const newStatus = effectiveTrack === 1 ? "active" : "under_review";
+    const intakeAnswers = typeof freshTool?.intake_answers === "string"
+      ? JSON.parse(freshTool.intake_answers) : (freshTool?.intake_answers || null);
+    const anyPartial = ["codeAnalysis", "accessibility", "qaAnalysis"].some(k => result.agents[k]?.partial);
+    const gate = evaluateActivationGate({
+      track: effectiveTrack,
+      answers: intakeAnswers,
+      codeSynthesis: result.agents.codeAnalysis?.synthesis || null,
+      partial: anyPartial,
+      truncated: !!result.bundle?.truncated,
+    });
+    const newStatus = gate.activate ? "active" : "under_review";
 
     await withTransaction(async (client) => {
       await client.query(
-        `UPDATE pipeline_runs SET status = 'completed', output_dir = $1, summary = $2, completed_at = NOW() WHERE id = $3`,
-        [result.outputDir, JSON.stringify(result.agents), runId]
+        `UPDATE pipeline_runs SET status = 'completed', output_dir = $1, summary = $2, activation_gate = $3, completed_at = NOW() WHERE id = $4`,
+        [result.outputDir, JSON.stringify(result.agents), JSON.stringify(gate), runId]
       );
       await client.query(
         `UPDATE tools SET status = $1, updated_at = NOW() WHERE id = $2`,
@@ -346,9 +358,11 @@ async function processNext() {
     // Notify tool owner of pipeline completion
     const completedTool = freshTool;
     if (completedTool) {
-      const pipelineTitle = effectiveTrack === 1
+      const pipelineTitle = effectiveTrack === 1 && gate.activate
         ? `"${completedTool.name}" pipeline complete — auto-activated`
-        : `"${completedTool.name}" pipeline complete — awaiting review`;
+        : effectiveTrack === 1
+          ? `"${completedTool.name}" pipeline complete — auto-activation blocked, review required`
+          : `"${completedTool.name}" pipeline complete — awaiting review`;
       notify({
         userId: completedTool.owner_id, toolId: next.tool_id, type: "pipeline_complete",
         title: pipelineTitle,
@@ -358,7 +372,9 @@ async function processNext() {
 
       // Notify reviewers if tool needs review (Track 2-4), excluding the owner (already notified above)
       if (newStatus === "under_review") {
-        const reviewTitle = `"${completedTool.name}" needs review (Track ${effectiveTrack})`;
+        const reviewTitle = gate.blocked
+          ? `"${completedTool.name}" auto-activation blocked: ${gate.reasons.join("; ")}`
+          : `"${completedTool.name}" needs review (Track ${effectiveTrack})`;
         const exclude = [completedTool.owner_id];
         notifyRole({
           role: "reviewer", toolId: next.tool_id, type: "review_needed",
