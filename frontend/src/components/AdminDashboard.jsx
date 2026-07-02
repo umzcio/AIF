@@ -292,15 +292,15 @@ function AnalyticsTab() {
 
           {/* Model detail table */}
           <div className="table-scroll-wrapper" style={{ borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
+            <table className="registry-grid" role="table" style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead role="rowgroup">
                 <tr className="registry-table-header" style={{ gridTemplateColumns: "140px 60px 60px 60px 80px 80px 80px 80px 80px" }}>
                   <th scope="col">Model</th><th scope="col">Runs</th><th scope="col">OK</th><th scope="col">Fail</th>
                   <th scope="col">Avg Time</th><th scope="col">Min</th><th scope="col">Max</th>
                   <th scope="col">Timeouts</th><th scope="col">Parse Fail</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {models.map((m, i) => {
                   const meta = getModelMeta(m.name);
                   return (
@@ -388,13 +388,13 @@ function AnalyticsTab() {
               <div style={{ padding: 16, fontSize: 13, color: C.textDim }}>No decided reviews yet.</div>
             ) : (
               <div className="table-scroll-wrapper" style={{ borderRadius: 0, overflow: "hidden" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
+                <table className="registry-grid" role="table" style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead role="rowgroup">
                     <tr className="registry-table-header" style={{ gridTemplateColumns: "70px 80px 90px 90px" }}>
                       <th scope="col">Track</th><th scope="col">Decided</th><th scope="col">Median</th><th scope="col">P90</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody role="rowgroup">
                     {review.latency.map((r, i) => (
                       <tr key={r.track} className="registry-table-row"
                         style={{ background: i % 2 === 0 ? "transparent" : C.surface,
@@ -460,14 +460,14 @@ function AnalyticsTab() {
             <div><h2>Recent Pipeline Runs</h2></div>
           </div>
           <div className="table-scroll-wrapper" style={{ borderRadius: 0, overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
+            <table className="registry-grid" role="table" style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead role="rowgroup">
                 <tr className="registry-table-header" style={{ gridTemplateColumns: "1fr 60px 80px 90px 80px 80px 80px" }}>
                   <th scope="col">Tool</th><th scope="col">Track</th><th scope="col">Status</th><th scope="col">Duration</th>
                   <th scope="col">Models</th><th scope="col">Cost</th><th scope="col">When</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {recentRuns.slice(0, 20).map((r, i) => {
                   const statusMeta = STATUS_META[r.status] || {};
                   return (
@@ -639,13 +639,13 @@ function UsersTab() {
         <span style={{ fontSize: 13, color: C.textMid }}>{users.length} users</span>
       </div>
       <div className="table-scroll-wrapper" style={{ borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
+        <table className="registry-grid" role="table" style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead role="rowgroup">
             <tr className="registry-table-header" style={{ gridTemplateColumns: "1fr 1fr 120px 120px 80px 80px" }}>
               <th scope="col">Name</th><th scope="col">NetID</th><th scope="col">Role</th><th scope="col">Last Login</th><th scope="col">Tools</th><th scope="col">Active</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             {users.map((u, i) => {
               const isSelf = currentUser?.userId === u.id;
               return (
@@ -749,13 +749,13 @@ function AuditTab() {
       {loading ? <Skeleton height={300} /> : (
         <>
           <div className="table-scroll-wrapper" style={{ borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
+            <table className="registry-grid" role="table" style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead role="rowgroup">
                 <tr className="registry-table-header" style={{ gridTemplateColumns: "160px 100px 140px 100px 1fr" }}>
                   <th scope="col">Timestamp</th><th scope="col">Actor</th><th scope="col">Action</th><th scope="col">Entity</th><th scope="col">Details</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {entries.length === 0 ? (
                   <tr><td colSpan={5} style={{ padding: 20, textAlign: "center", fontSize: 13, color: C.textDim }}>No entries found.</td></tr>
                 ) : entries.map((entry, i) => (

@@ -35,7 +35,7 @@ export const C = {
   gold20: "var(--gold-20)",
 };
 
-export const TRACK_COLORS = { 1: "#14754A", 2: "#5C4706", 3: "#C05E1A", 4: "#B22B27" };
+export const TRACK_COLORS = { 1: "#14754A", 2: "#5C4706", 3: "#A34414", 4: "#B22B27" };
 export const TRACK_LABELS = { 1: "Register & Go", 2: "Self-Certify", 3: "IT Review", 4: "Formal Project" };
 
 export const WEIGHT_MATRIX = {

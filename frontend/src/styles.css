@@ -557,7 +557,7 @@ table { border-spacing: 0; }
 table.registry-grid { display: grid; }
 table.registry-grid > thead,
 table.registry-grid > tbody { display: contents; }
-table tr.registry-table-header, table tr.registry-table-row { display: grid; }
+table.registry-grid tr.registry-table-header, table.registry-grid tr.registry-table-row { display: grid; }
 
 /* Sidebar layout (AgentsPage, FrameworkDoc) */
 .agents-page-sidebar {

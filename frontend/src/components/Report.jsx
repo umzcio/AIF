@@ -134,13 +134,13 @@ export default function Report({ toolId, runId }) {
             </ul>
             {contradictions.length > 0 && (
               <div className="table-scroll-wrapper" style={{ marginTop: 10, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
+                <table className="registry-grid" role="table" style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead role="rowgroup">
                     <tr className="registry-table-header" style={{ gridTemplateColumns: "110px 1fr 1fr 1fr" }}>
                       <th scope="col">Question</th><th scope="col">Intake said</th><th scope="col">Code analysis found</th><th scope="col">Evidence</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody role="rowgroup">
                     {contradictions.map((c, i) => (
                       <tr key={i} className="registry-table-row" title={c?.detail || undefined}
                         style={{ background: i % 2 === 0 ? "transparent" : C.surface, gridTemplateColumns: "110px 1fr 1fr 1fr", cursor: "default" }}>
