@@ -52,15 +52,15 @@ function lowRiskAnswers() {
     q3: ["team"],
     q5: "campus-vpn",
     q6: "sso",
-    q8: "1-50",
+    q8: "<50",
     q9: "yes",
     q10: ["internal"],
-    q11: ["institutional"],
+    q11: ["campus"],
     q12: "approved-dpa",
-    q15: "github",
-    q16: "team",
-    q17: "no-dep",
-    q18: "team",
+    q15: "personal-repo",
+    q16: "documented",
+    q17: "occasional",
+    q18: "team-runbooks",
     q19: "I fully understand every line of code in this tool and can explain the AI-generated portions in detail to auditors.",
     q20: "",
     q21: "yes",
@@ -96,15 +96,15 @@ function midRiskAnswers() {
     q3: ["students", "department"],
     q5: "campus-vpn",
     q6: "sso",
-    q8: "51-200",
+    q8: "50-500",
     q9: "yes",
     q10: ["ferpa"],
-    q11: ["institutional"],
+    q11: ["campus"],
     q12: "approved-dpa",
-    q15: "github",
-    q16: "team",
+    q15: "personal-repo",
+    q16: "documented",
     q17: "third-party-dep",
-    q18: "team",
+    q18: "team-runbooks",
     q19: "I understand the core logic but some AI-generated utility functions need closer review.",
     q20: "",
     q21: "yes",
@@ -680,7 +680,7 @@ describe("resubmit route (shape)", () => {
     const beforeComputed = computeFromAnswers(beforeAnswers, "script-api");
     assert.strictEqual(beforeComputed.track, 4);
 
-    const fixedAnswers = { ...beforeAnswers, q15: "github" }; // escalation resolved
+    const fixedAnswers = { ...beforeAnswers, q15: "personal-repo" }; // escalation resolved
     const afterComputed = computeFromAnswers(fixedAnswers, "script-api");
     assert.ok(afterComputed.track < 4, "Fixing the escalation condition should lower the track on resubmit");
   });

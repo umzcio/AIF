@@ -168,7 +168,7 @@ The JSON output is a single object written to `hecvat_assessment.json` in the ru
   "assessmentType": "HECVAT 4 Lite (Critical Importance Questions)",
   "hecvatVersion": "4.15",
   "assessmentDate": "2026-04-16T00:00:00Z",
-  "assessor": "AIF Agent 3 (automated pre-population)",
+  "assessor": "AIF Agent 4 (automated pre-population)",
   "questions": [
     {
       "id": "AAAI-01",

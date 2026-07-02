@@ -210,6 +210,7 @@ Reviewers and admins can escalate or de-escalate a track with a documented reaso
 - `POST /review/:id/track-override` accepts `{ newTrack, reason }` (`trackOverrideSchema` in `backend/src/validation.js`) and validates that the reason is a non-empty string.
 - Track overrides are logged to the `audit_log` table with the original and new track values, actor user ID, and reason.
 - Escalations from a lower track to Track 4 are always permitted. De-escalation from Track 4 is permitted only when no escalation condition currently applies, and only by admins.
+- Floor conditions inform initial routing but do not constrain reviewer overrides in either direction — unlike escalation conditions, which block de-escalation below Track 4; this is deliberate, since floors are proportionality guidance while escalations are categorical.
 
 ## Pipeline Uniformity
 

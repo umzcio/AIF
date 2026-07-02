@@ -433,7 +433,7 @@ CRITICAL: Keep answers CONCISE (1-2 sentences max). Do NOT repeat the question t
   "assessmentType": "HECVAT 4 Lite (Critical Importance Questions)",
   "hecvatVersion": "4.15",
   "assessmentDate": "ISO date string",
-  "assessor": "AIF Agent 3 (automated pre-population)",
+  "assessor": "AIF Agent 4 (automated pre-population)",
   "questions": [{
     "id": "DOCU-01",
     "status": "yes|no|partial|not_applicable|requires_human_input",

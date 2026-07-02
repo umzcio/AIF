@@ -29,15 +29,15 @@ function lowRiskAnswers() {
     q3: ["team"],
     q5: "campus-vpn",
     q6: "sso",
-    q8: "1-50",
+    q8: "<50",
     q9: "yes",
     q10: ["internal"],
-    q11: ["institutional"],
+    q11: ["campus"],
     q12: "approved-dpa",
-    q15: "github",
-    q16: "team",
-    q17: "no-dep",
-    q18: "team",
+    q15: "personal-repo",
+    q16: "documented",
+    q17: "occasional",
+    q18: "team-runbooks",
     q19: "I fully understand every line of code in this tool and can explain the AI-generated portions in detail to auditors.",
     q20: "",
     q21: "yes",
@@ -206,15 +206,15 @@ describe("computeDimensionScores", () => {
     });
     assert.strictEqual(worst.maintenance, 3);
 
-    // github + team + no-dep + team = 0
+    // personal-repo + documented + occasional + team-runbooks = 0
     const best = computeDimensionScores({
-      q15: "github", q16: "team", q17: "no-dep", q18: "team",
+      q15: "personal-repo", q16: "documented", q17: "occasional", q18: "team-runbooks",
     });
     assert.strictEqual(best.maintenance, 0);
 
     // no-vc (+1) + stop (+1) = 2
     const mid = computeDimensionScores({
-      q15: "no-vc", q16: "stop", q17: "no-dep", q18: "team",
+      q15: "no-vc", q16: "stop", q17: "occasional", q18: "team-runbooks",
     });
     assert.strictEqual(mid.maintenance, 2);
   });
@@ -411,7 +411,7 @@ describe("checkEscalations", () => {
     assert.ok(!esc.some(e => e.includes("Students unaware")));
   });
 
-  it("returns all 7 escalation conditions for maximum-risk answers", () => {
+  it("returns the 7 originally-defined escalation conditions for maximum-risk answers (fixture does not trigger the payment/autonomy additions)", () => {
     const answers = {
       q3: ["students"],
       q5: "public-noauth",
