@@ -67,6 +67,7 @@ export default function CodeUpload({ toolId, user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [file, setFile] = useState(null);
+  const [inputFocused, setInputFocused] = useState(false);
   const [runId, setRunId] = useState(null);
   const [hasCompletedRun, setHasCompletedRun] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -366,9 +367,11 @@ export default function CodeUpload({ toolId, user }) {
 
           <label htmlFor="zipInput" onDragOver={e => e.preventDefault()} onDrop={handleFile}
             style={{ display: "block", padding: 56, borderRadius: 12, border: `2px dashed ${file ? C.accent : C.border}`,
-              background: file ? C.accentSoft : C.surface, textAlign: "center", cursor: "pointer", transition: "all .2s", marginBottom: 24 }}>
+              background: file ? C.accentSoft : C.surface, textAlign: "center", cursor: "pointer", transition: "all .2s", marginBottom: 24,
+              outline: inputFocused ? `2px solid ${C.accent}` : "none", outlineOffset: 2 }}>
             <input id="zipInput" type="file" accept=".zip" aria-label="Upload ZIP archive"
               style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", border: 0 }}
+              onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
               onChange={handleFile} />
             <div style={{ marginBottom: 14, display: "flex", justifyContent: "center" }}>
               {file ? <Package size={40} color={C.accent} /> : <Upload size={40} color={C.textDim} />}

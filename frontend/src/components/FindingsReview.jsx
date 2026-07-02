@@ -254,7 +254,7 @@ export default function FindingsReview({ toolId, runId: runIdProp }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ display: "flex", gap: 4 }}>
           {[["summary","Summary"],["findings","Findings"],["files","File Tree"]].map(([v,l]) => (
-            <button key={v} onClick={() => setViewMode(v)}
+            <button key={v} onClick={() => setViewMode(v)} aria-pressed={viewMode === v}
               style={{ padding: "7px 16px", borderRadius: 6, border: `1px solid ${viewMode === v ? C.accent : C.border}`,
                 background: viewMode === v ? C.accentSoft : "transparent", color: viewMode === v ? C.accent : C.textMid,
                 fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>

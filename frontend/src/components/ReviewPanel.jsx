@@ -174,7 +174,7 @@ export default function ReviewPanel({ tool, onUpdate }) {
                 <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Track Override</div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                   {[1,2,3,4].map(t => (
-                    <button key={t} onClick={() => setOverrideTrackVal(t)}
+                    <button key={t} onClick={() => setOverrideTrackVal(t)} aria-pressed={overrideTrackVal === t}
                       style={{ padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
                         fontFamily: "'DM Sans', sans-serif",
                         border: `1.5px solid ${overrideTrackVal === t ? TRACK_COLORS[t] : C.border}`,

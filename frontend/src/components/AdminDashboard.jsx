@@ -217,7 +217,7 @@ function AnalyticsTab() {
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
         <span style={{ fontSize: 12, color: C.textMid, fontWeight: 600 }}>Period:</span>
         {[30, 90, 180, 365].map(d => (
-          <button key={d} type="button" onClick={() => setDays(d)}
+          <button key={d} type="button" onClick={() => setDays(d)} aria-pressed={days === d}
             style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${days === d ? C.accent : C.border}`,
               background: days === d ? C.accentSoft : "transparent", color: days === d ? C.accent : C.textMid,
               fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
@@ -520,7 +520,7 @@ function TrendChart({ data }) {
       <div style={{ fontSize: 11, color: C.textDim, marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
         Runs (green = completed, red = failed)
       </div>
-      <div role="img" aria-label="Runs trend chart: green bars for completed, red for failed" style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 80, marginBottom: 12 }}>
+      <div role="img" aria-label={`Runs trend: ${data.map(d => `${new Date(d.period).toLocaleDateString()}: ${d.runs} runs (${d.completed} completed, ${d.failed} failed)`).join("; ")}`} style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 80, marginBottom: 12 }}>
         {data.map((d, i) => {
           const h = (d.runs / maxRuns) * 72;
           const failH = (d.failed / maxRuns) * 72;
@@ -541,7 +541,7 @@ function TrendChart({ data }) {
       <div style={{ fontSize: 11, color: C.textDim, marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
         Avg Duration
       </div>
-      <div role="img" aria-label="Average duration trend chart" style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 50, marginBottom: 12 }}>
+      <div role="img" aria-label={`Average duration trend: ${data.map(d => `${new Date(d.period).toLocaleDateString()}: ${fmtDuration(d.avgDuration)}`).join("; ")}`} style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 50, marginBottom: 12 }}>
         {data.map((d, i) => (
           <div key={i} aria-hidden="true" style={{ width: barW, borderRadius: 3,
             height: d.avgDuration ? `${(d.avgDuration / maxDur) * 44}px` : 0,
@@ -554,7 +554,7 @@ function TrendChart({ data }) {
       <div style={{ fontSize: 11, color: C.textDim, marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
         Cost per Period
       </div>
-      <div role="img" aria-label="Cost per period trend chart" style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 50 }}>
+      <div role="img" aria-label={`Cost per period trend: ${data.map(d => `${new Date(d.period).toLocaleDateString()}: ${fmtCost(d.totalCost)}`).join("; ")}`} style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 50 }}>
         {data.map((d, i) => (
           <div key={i} aria-hidden="true" style={{ width: barW, borderRadius: 3,
             height: d.totalCost ? `${(d.totalCost / maxCost) * 44}px` : 0,

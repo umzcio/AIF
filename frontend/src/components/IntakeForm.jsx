@@ -673,17 +673,20 @@ export default function IntakeForm({ draftId, resubmitId }) {
               )}
               <div style={{ marginTop: 14, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
                 {Object.entries(DIMENSION_SHORT).map(([k, l]) => (
-                  <div key={k} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-                    <span className="mono" title={`${DIMENSION_LABELS[k]} — NIST AI RMF: ${DIMENSION_NIST[k]}`} style={{ width: 36, fontSize: 9, color: C.textDim, fontWeight: 600 }}>{l}</span>
-                    <div style={{ flex: 1, height: 3, borderRadius: 2, background: C.border, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${(result.dims[k]/3)*100}%`, borderRadius: 2,
-                        background: result.weights[k] >= 4 ? TRACK_COLORS[4] : result.weights[k] >= 3 ? TRACK_COLORS[3] : C.accent,
-                        transition: "width .3s" }} />
+                  <div key={k} style={{ marginBottom: 7 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span className="mono" title={`${DIMENSION_LABELS[k]} — NIST AI RMF: ${DIMENSION_NIST[k]}`} style={{ width: 36, fontSize: 9, color: C.textDim, fontWeight: 600 }}>{l}</span>
+                      <div style={{ flex: 1, height: 3, borderRadius: 2, background: C.border, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${(result.dims[k]/3)*100}%`, borderRadius: 2,
+                          background: result.weights[k] >= 4 ? TRACK_COLORS[4] : result.weights[k] >= 3 ? TRACK_COLORS[3] : C.accent,
+                          transition: "width .3s" }} />
+                      </div>
+                      <span className="mono" style={{ fontSize: 9, color: C.textDim, width: 22, textAlign: "right" }}>{result.dims[k]}x{result.weights[k]}</span>
                     </div>
-                    <span className="mono" style={{ fontSize: 9, color: C.textDim, width: 22, textAlign: "right" }}>{result.dims[k]}x{result.weights[k]}</span>
+                    <div style={{ fontSize: 9, color: C.textDim, marginLeft: 42, marginTop: 1 }}>NIST AI RMF: {DIMENSION_NIST[k]}</div>
                   </div>
                 ))}
-                <div style={{ fontSize: 9, color: C.textDim, marginTop: 6 }}>Dimensions map to NIST AI RMF subcategories — hover a label.</div>
+                <div style={{ fontSize: 9, color: C.textDim, marginTop: 6 }}>Dimensions mapped to NIST AI RMF subcategories.</div>
               </div>
 
               {/* Save indicator */}

@@ -63,7 +63,7 @@ export default function FrameworkDoc() {
           <nav aria-label="Table of contents">
             <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 12, fontFamily: "'JetBrains Mono', monospace" }}>On This Page</div>
             {sections.map(s => (
-              <a key={s.id} href={`#fw-${s.id}`} aria-current={activeSection === s.id ? "true" : undefined} onClick={(e) => { e.preventDefault(); setActiveSection(s.id); scrollingTo.current = s.id; document.getElementById(`fw-${s.id}`)?.scrollIntoView({ behavior: "smooth" }); setTimeout(() => { scrollingTo.current = null; }, 800); }}
+              <a key={s.id} href={`#fw-${s.id}`} aria-current={activeSection === s.id ? "true" : undefined} onClick={(e) => { e.preventDefault(); setActiveSection(s.id); scrollingTo.current = s.id; const target = document.getElementById(`fw-${s.id}`); target?.scrollIntoView({ behavior: "smooth" }); target?.focus({ preventScroll: true }); setTimeout(() => { scrollingTo.current = null; }, 800); }}
                 style={{ display: "block", padding: "6px 12px", marginBottom: 2, borderRadius: 6, fontSize: 12, fontWeight: 500,
                   color: activeSection === s.id ? C.accent : C.textMid, background: activeSection === s.id ? C.accentSoft : "transparent",
                   textDecoration: "none", cursor: "pointer", borderLeft: `2px solid ${activeSection === s.id ? C.accent : "transparent"}`, transition: "all .15s" }}>
@@ -88,13 +88,13 @@ export default function FrameworkDoc() {
           <p style={{ fontSize: 12, color: C.textDim, margin: 0 }}>Zachary Rossmiller, CIO, {config.institutionName} · v2.0 · 2026</p>
         </div>
 
-        <div id="fw-purpose" style={sectionStyle}>
+        <div id="fw-purpose" style={sectionStyle} tabIndex={-1}>
           <h2 style={h2Style}>Purpose and Framing</h2>
           <p style={pStyle}>This document is the governance framework and operational specification for the AI-Built Tool Code Intake process. It covers the rationale behind the process, the intake form question by question, the routing logic that determines what review a submission receives, and the tier requirements that govern what happens before a tool goes to production.</p>
           <p style={pStyle}>The purpose of this process is to ensure that custom AI-assisted code meets campus security standards, follows best practice coding principles, and satisfies WCAG 2.2 AA accessibility requirements before reaching production. It is similar in intent to a software requisition process — but for custom-built code rather than purchased software.</p>
         </div>
 
-        <div id="fw-quickstart" style={sectionStyle}>
+        <div id="fw-quickstart" style={sectionStyle} tabIndex={-1}>
           <h2 style={h2Style}>Quick Start</h2>
           <p style={pStyle}>If you built a tool with AI assistance and want to share it beyond yourself:</p>
           <div style={{ paddingLeft: 16, borderLeft: `2px solid ${C.accent30}`, marginBottom: 16 }}>
@@ -118,7 +118,7 @@ export default function FrameworkDoc() {
           </div>
         </div>
 
-        <div id="fw-lineage" style={sectionStyle}>
+        <div id="fw-lineage" style={sectionStyle} tabIndex={-1}>
           <h2 style={h2Style}>Framework Lineage and Basis</h2>
           <p style={pStyle}>This framework synthesizes established patterns from multiple recognized sources, adapted for AI-assisted development in higher education:</p>
           {[
@@ -141,7 +141,7 @@ export default function FrameworkDoc() {
           </div>
         </div>
 
-        <div id="fw-ethics" style={sectionStyle}>
+        <div id="fw-ethics" style={sectionStyle} tabIndex={-1}>
           <h2 style={h2Style}>Guiding Ethical Principles</h2>
           <p style={pStyle}>This framework adopts the EDUCAUSE AI Ethical Guidelines (2025) as its normative foundation.</p>
           <div style={tableWrap}>
@@ -157,7 +157,7 @@ export default function FrameworkDoc() {
           </div>
         </div>
 
-        <div id="fw-existing" style={sectionStyle}>
+        <div id="fw-existing" style={sectionStyle} tabIndex={-1}>
           <h2 style={h2Style}>Existing Tools and the Onboarding Path</h2>
           <p style={pStyle}>Institutions should establish a 90-day onboarding window for existing tools to self-register via retrospective triage.</p>
           <div style={{ paddingLeft: 16, borderLeft: `2px solid ${C.accent30}` }}>
@@ -171,7 +171,7 @@ export default function FrameworkDoc() {
           </div>
         </div>
 
-        <div id="fw-multi-tool" style={sectionStyle}>
+        <div id="fw-multi-tool" style={sectionStyle} tabIndex={-1}>
           <h2 style={h2Style}>Multi-Tool and Agentic Pipeline Composition</h2>
           <p style={pStyle}>The intake assesses individual tools. Three tools that each score Track 2 may collectively warrant Track 3 or 4 when assessed as a system. This is the defining risk of agentic AI architectures.</p>
           <div style={calloutStyle}>
@@ -179,7 +179,7 @@ export default function FrameworkDoc() {
           </div>
         </div>
 
-        <div id="fw-weights" style={sectionStyle}>
+        <div id="fw-weights" style={sectionStyle} tabIndex={-1}>
           <h2 style={h2Style}>Dimension Weight Matrix</h2>
           <p style={pStyle}>Each dimension is scored 0-3. The score is multiplied by the weight for the artifact type. Weighted scores sum to determine routing tier.</p>
           <div style={tableWrap}>
@@ -214,7 +214,7 @@ export default function FrameworkDoc() {
           </div>
         </div>
 
-        <div id="fw-escalations" style={sectionStyle}>
+        <div id="fw-escalations" style={sectionStyle} tabIndex={-1}>
           <h2 style={h2Style}>Escalation Conditions</h2>
           <p style={pStyle}>These conditions route to Track 4 regardless of weighted score — categorical risks that scoring alone cannot capture.</p>
           <h3 style={h3Style}>IT Escalation Conditions</h3>
@@ -245,7 +245,7 @@ export default function FrameworkDoc() {
           ))}
         </div>
 
-        <div id="fw-tiers" style={sectionStyle}>
+        <div id="fw-tiers" style={sectionStyle} tabIndex={-1}>
           <h2 style={h2Style}>Routing Tiers</h2>
           {[
             { t: 1, title: "Automated review. Register and go.", when: ["Low band score", "No institutional data", "Builder or immediate team only", "No escalations"],
@@ -280,7 +280,7 @@ export default function FrameworkDoc() {
           ))}
         </div>
 
-        <div id="fw-post-prod" style={sectionStyle}>
+        <div id="fw-post-prod" style={sectionStyle} tabIndex={-1}>
           <h2 style={h2Style}>Post-Production Monitoring</h2>
           <p style={pStyle}>Approval is a moment in time. Ongoing monitoring is required for all production tools.</p>
           {["All tools registered with designated owner and approved version.",
@@ -300,7 +300,7 @@ export default function FrameworkDoc() {
           ))}
         </div>
 
-        <div id="fw-not" style={sectionStyle}>
+        <div id="fw-not" style={sectionStyle} tabIndex={-1}>
           <h2 style={h2Style}>What This Framework Is Not</h2>
           <p style={pStyle}>This framework enables AI-assisted development, not restricts it.</p>
           {["Not a substitute for faculty governance. Tools affecting curriculum require faculty senate review in addition to IT sign-off.",
@@ -315,7 +315,7 @@ export default function FrameworkDoc() {
           ))}
         </div>
 
-        <div id="fw-adopting" style={sectionStyle}>
+        <div id="fw-adopting" style={sectionStyle} tabIndex={-1}>
           <h2 style={h2Style}>Adopting This Framework</h2>
           <p style={pStyle}>Designed to be adapted, not just adopted. The structure is portable across higher education institutions. The source code and framework documents are available on{" "}
             <a href="https://github.com/umzcio/AIF" target="_blank" rel="noopener noreferrer"

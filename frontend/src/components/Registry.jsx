@@ -62,7 +62,7 @@ export default function Registry() {
             ["in_progress", "In Progress"],
             ["pending", "Pending"],
           ].map(([v, l]) => (
-            <button key={v} onClick={() => setFilter(v)}
+            <button key={v} onClick={() => setFilter(v)} aria-pressed={filter === v}
               style={{ padding: "6px 14px", borderRadius: 6,
                 border: `1px solid ${filter === v ? (v === "needs_review" ? C.warning : C.accent) : C.border}`,
                 background: filter === v ? (v === "needs_review" ? "rgba(192,141,26,0.08)" : C.accentSoft) : "transparent",
