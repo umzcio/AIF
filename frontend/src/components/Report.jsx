@@ -123,6 +123,45 @@ export default function Report({ toolId, runId }) {
       </PageHeader>
 
       {(() => {
+        const gate = report?.run?.activation_gate;
+        if (!gate?.blocked) return null;
+        const contradictions = Array.isArray(gate.contradictions) ? gate.contradictions : [];
+        return (
+          <div className="info-banner" role="status" style={{ marginBottom: 16, borderColor: C.warning }}>
+            <strong>Auto-activation blocked</strong>
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 13 }}>
+              {(gate.reasons || []).map((r, i) => <li key={i}>{r}</li>)}
+            </ul>
+            {contradictions.length > 0 && (
+              <div className="table-scroll-wrapper" style={{ marginTop: 10, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr className="registry-table-header" style={{ gridTemplateColumns: "110px 1fr 1fr 1fr" }}>
+                      <th scope="col">Question</th><th scope="col">Intake said</th><th scope="col">Code analysis found</th><th scope="col">Evidence</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {contradictions.map((c, i) => (
+                      <tr key={i} className="registry-table-row" title={c?.detail || undefined}
+                        style={{ background: i % 2 === 0 ? "transparent" : C.surface, gridTemplateColumns: "110px 1fr 1fr 1fr", cursor: "default" }}>
+                        <td className="mono" style={{ fontSize: 12, fontWeight: 600 }}>{c?.question}</td>
+                        <td style={{ fontSize: 12 }}>
+                          {c?.answered}
+                          {c?.detail && <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>{c.detail}</div>}
+                        </td>
+                        <td style={{ fontSize: 12 }}>{c?.observed}</td>
+                        <td className="mono" style={{ fontSize: 11, color: C.textDim, wordBreak: "break-word" }}>{c?.evidence || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {(() => {
         const agentsData = report?.agents || {};
         // Note: report.agents.<key> IS the synthesis object (see reports.js
         // readSynthesis()) \u2014 metadata lives at agentsData[k].metadata, not
@@ -137,7 +176,7 @@ export default function Report({ toolId, runId }) {
           <div className="info-banner" role="status" style={{ marginBottom: 16, borderColor: C.warning }}>
             <strong>Analysis coverage caveats</strong>
             <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 13 }}>
-              {coverage && <li>Codebase exceeded the bundle budget: {coverage.includedFiles} of {coverage.totalFiles} files ({coverage.coveragePct}%) were visible to API passes 2-5. Findings in excluded files can only come from pass 1 and cannot reach the confirmed tier.</li>}
+              {coverage && <li>Codebase exceeded the bundle budget: {coverage.includedFiles} of {coverage.totalFiles} files ({coverage.coveragePct}%) were visible to API passes 2-5. Findings in excluded files can only come from pass 1 and cannot reach the confirmed tier through model convergence; deterministic tools (Semgrep, npm audit, ESLint) still scan the full filesystem and can independently confirm findings there.</li>}
               {partial && <li>Not all model passes completed ({partial.models_completed}/{partial.models_total}); convergence confidence is reduced.</li>}
               {synthFailed && <li>Synthesis model was unavailable; findings are a deterministic merge without dispute resolution.</li>}
             </ul>
