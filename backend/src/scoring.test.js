@@ -648,3 +648,18 @@ describe("frontend/backend computeTrack parity", () => {
     }
   });
 });
+
+// ===========================================================================
+// comprehension is a universal dimension (FW-04)
+// ===========================================================================
+
+describe("comprehension is a universal dimension (FW-04)", () => {
+  it("a thorough q19 zeroes comprehension for a non-AI tool", () => {
+    const s = computeDimensionScores({ q1: "internal-app", q19: "x".repeat(250) });
+    assert.strictEqual(s.comprehension, 0);
+  });
+  it("an unanswered q19 scores 3 (the question is always asked)", () => {
+    const s = computeDimensionScores({ q1: "internal-app" });
+    assert.strictEqual(s.comprehension, 3);
+  });
+});

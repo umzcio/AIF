@@ -310,8 +310,8 @@ export default function IntakeForm({ draftId }) {
   const visibleQuestions = useMemo(() => {
     const qs = ["q1","q2","q3","q4","q5","q6","q7","q8","q9"];
     if (showData) qs.push("q10","q11","q12","q13");
-    qs.push("q14","q15","q16","q17","q18");
-    if (showAI) qs.push("q19","q20","q21");
+    qs.push("q14","q15","q16","q17","q18","q19");
+    if (showAI) qs.push("q20","q21");
     return qs;
   }, [showData, showAI]);
 
@@ -526,11 +526,13 @@ export default function IntakeForm({ draftId }) {
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q18===v} onClick={x=>s("q18",x)} />)}
           </Q>
 
+          <SectionDivider num="5" title="Comprehension" sub="Every tool answers this — AI-built or not." />
+          <Q n={19} label="Explain in plain language what the tool does and what happens when it fails." req routing="Builder Comprehension check. Answered for every tool; a thorough explanation lowers the Comprehension risk score." answered={isAnswered(a,"q19")} hint={FIELD_HINTS.q19} error={fieldErrors.q19}>
+            <textarea className="text-area" value={a.q19 || ""} onChange={e=>s("q19",e.target.value)} placeholder="Walk a non-technical reviewer through the tool..." style={{ minHeight: 100 }} aria-labelledby="q19-label" />
+          </Q>
+
           {showAI && <>
-            <SectionDivider num="5" title="AI-Specific Questions" sub="Your tool uses AI or sends data to an external AI model." />
-            <Q n={19} label="Explain in plain language what the tool does and what happens when it fails." req routing="Builder Comprehension check." answered={isAnswered(a,"q19")} hint={FIELD_HINTS.q19}>
-              <textarea className="text-area" value={a.q19 || ""} onChange={e=>s("q19",e.target.value)} placeholder="Walk a non-technical reviewer through the tool..." style={{ minHeight: 100 }} aria-labelledby="q19-label" />
-            </Q>
+            <SectionDivider num="6" title="AI-Specific Questions" sub="Your tool uses AI or sends data to an external AI model." />
             <Q n={20} label="What decisions does this tool make or influence? Human reviewer at decision point?" req answered={isAnswered(a,"q20")} hint={FIELD_HINTS.q20}>
               <textarea className="text-area" value={a.q20 || ""} onChange={e=>s("q20",e.target.value)} placeholder="Describe decisions and human oversight..." style={{ minHeight: 80 }} aria-labelledby="q20-label" />
             </Q>
