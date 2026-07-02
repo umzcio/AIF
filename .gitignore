@@ -45,3 +45,7 @@ codex_*
 
 # UM standards reference files
 um-standards/
+
+# Internal review artifacts — never commit
+reviews/
+docs/superpowers/
