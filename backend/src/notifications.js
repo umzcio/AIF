@@ -3,14 +3,15 @@ import pool from "./db/pool.js";
 import { SMTP_HOST, SMTP_PORT, SMTP_FROM, FRONTEND_URL, INSTITUTION_NAME } from "./config.js";
 import log from "./logger.js";
 
-const AUTH_BYPASS = process.env.AUTH_BYPASS === "true";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const SMTP_ALLOW_INSECURE_TLS = process.env.SMTP_ALLOW_INSECURE_TLS === "true" && !IS_PRODUCTION;
 
 const transporter = SMTP_HOST
   ? nodemailer.createTransport({
       host: SMTP_HOST,
       port: SMTP_PORT,
       secure: false,
-      tls: { rejectUnauthorized: !AUTH_BYPASS },
+      tls: { rejectUnauthorized: !SMTP_ALLOW_INSECURE_TLS },
     })
   : null;
 
