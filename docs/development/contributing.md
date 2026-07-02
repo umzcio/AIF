@@ -24,7 +24,7 @@ Contributions fit into one of four buckets. The first two are broadly welcome; t
 
 Before opening a PR, confirm:
 
-- [ ] `cd backend && npm test` passes (currently 271 tests)
+- [ ] `cd backend && npm test` passes (currently 324 tests)
 - [ ] `cd frontend && npm run build` succeeds
 - [ ] `npm run test:providers` passes if you touched provider config
 - [ ] No hardcoded institution values (use env vars + `src/config.js`)

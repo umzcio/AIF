@@ -334,7 +334,7 @@ AIF/
 │       │   ├── accessibility/           # Agent 2: prompts, schema, jsx-a11y linter
 │       │   ├── qa-analysis/             # Agent 3: prompts, schema, eslint-qa
 │       │   └── documentation/           # Agent 4: prompts, hecvat-prompt, xlsx-export
-│       ├── routes/                      # 9 route files + 4 test files (271 tests)
+│       ├── routes/                      # 9 route files + 4 test files (324 tests)
 │       ├── jobs/retention.js            # Data retention (pass_results, notifications, audit)
 │       ├── providers/                   # LLM provider config + smoke test
 │       └── utils/extract.js             # Archive extraction with path traversal protection
@@ -416,7 +416,7 @@ cd backend && npm install && npm run dev
 cd frontend && npm install && npm run dev
 
 # Run tests
-cd backend && npm test    # 271 tests
+cd backend && npm test    # 324 tests
 ```
 
 ### CLI (pipeline only, no portal)
@@ -503,13 +503,14 @@ SMTP_FROM=noreply-aif@example.edu
 cd backend && npm test
 ```
 
-271 tests across 5 test files, using Node's built-in test runner (no external framework):
+324 tests across 6 test files, using Node's built-in test runner (no external framework):
 
 - **scoring.test.js** — dimension scores, weighted percentages, track routing boundaries, escalation conditions, frontend/backend weight matrix parity
 - **registry.test.js** — status state machine (valid/invalid transitions, role restrictions, exhaustive TRANSITIONS map)
 - **review.test.js** — review validation schemas, review-specific state transitions, self-certify constraints
 - **pipeline.test.js** — pipeline run schema validation, URL validation (HTTPS, shell metacharacters), model cost sanity, retry constants
 - **intake.test.js** — intake validation, draft lifecycle, score computation edge cases
+- **activation-gate.test.js** — intake-to-synthesis consistency validation, contradiction detection, escalation signal validation
 
 ---
 

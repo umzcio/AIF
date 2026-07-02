@@ -17,7 +17,7 @@ node --test src/*.test.js src/**/*.test.js
 
 Tests auto-discover any file ending in `.test.js`. No config file, no glob patterns to maintain. The runner exits non-zero on any failure, so it integrates directly with CI.
 
-Current suite: **271 tests across 5 files**.
+Current suite: **324 tests across 6 files**.
 
 ### Run a Single File
 
@@ -73,7 +73,7 @@ The authoritative scoring module (`src/scoring.js`) is covered exhaustively beca
 - Dimension score computation from raw answers (all 21 questions)
 - Weighted percentage math per artifact type
 - Track routing at the boundary values (22%, 42%, 65%)
-- All seven escalation conditions trigger correctly
+- All nine escalation conditions trigger correctly
 - Frontend (`frontend/src/constants.js`) and backend (`src/scoring.js`) weight matrices match dimension-for-dimension
 - Edge cases: missing answers, unknown artifact types, multi-select arrays
 
