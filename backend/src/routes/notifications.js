@@ -1,11 +1,12 @@
 import { Router } from "express";
 import pool from "../db/pool.js";
 import { validate, notificationReadSchema, notificationPrefsSchema, emailUpdateSchema } from "../validation.js";
+import { wrap } from "../middleware/async-handler.js";
 
 const router = Router();
 
 // Get notifications for current user
-router.get("/", async (req, res) => {
+router.get("/", wrap(async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
 
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
@@ -32,10 +33,10 @@ router.get("/", async (req, res) => {
   );
 
   res.json({ notifications, unread_count: parseInt(count) });
-});
+}));
 
 // Mark notification(s) as read
-router.patch("/read", validate(notificationReadSchema), async (req, res) => {
+router.patch("/read", validate(notificationReadSchema), wrap(async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
 
   const { ids } = req.validated;
@@ -59,10 +60,10 @@ router.patch("/read", validate(notificationReadSchema), async (req, res) => {
   );
 
   res.json({ success: true, unread_count: parseInt(count) });
-});
+}));
 
 // Update notification preferences
-router.patch("/preferences", validate(notificationPrefsSchema), async (req, res) => {
+router.patch("/preferences", validate(notificationPrefsSchema), wrap(async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
 
   const { notify_email, notify_in_app } = req.validated;
@@ -87,10 +88,10 @@ router.patch("/preferences", validate(notificationPrefsSchema), async (req, res)
   );
 
   res.json({ success: true });
-});
+}));
 
 // Get notification preferences
-router.get("/preferences", async (req, res) => {
+router.get("/preferences", wrap(async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
 
   const { rows: [user] } = await pool.query(
@@ -103,10 +104,10 @@ router.get("/preferences", async (req, res) => {
     notify_email: user?.notify_email ?? false,
     notify_in_app: user?.notify_in_app ?? true,
   });
-});
+}));
 
 // Update email address
-router.patch("/email", validate(emailUpdateSchema), async (req, res) => {
+router.patch("/email", validate(emailUpdateSchema), wrap(async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
 
   const { email } = req.validated;
@@ -117,6 +118,6 @@ router.patch("/email", validate(emailUpdateSchema), async (req, res) => {
   );
 
   res.json({ success: true });
-});
+}));
 
 export default router;

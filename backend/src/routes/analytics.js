@@ -1,6 +1,7 @@
 import { Router } from "express";
 import pool from "../db/pool.js";
 import { requireRole } from "../auth/middleware.js";
+import { wrap } from "../middleware/async-handler.js";
 
 const router = Router();
 
@@ -11,7 +12,7 @@ router.use(requireRole("admin"));
  * GET /analytics/overview
  * High-level pipeline performance stats.
  */
-router.get("/overview", async (req, res) => {
+router.get("/overview", wrap(async (req, res) => {
   const days = Math.min(Math.max(1, parseInt(req.query.days) || 90), 365);
 
   const [
@@ -134,13 +135,13 @@ router.get("/overview", async (req, res) => {
     })),
     recentRuns,
   });
-});
+}));
 
 /**
  * GET /analytics/model/:modelName
  * Detailed per-model history (pass-level detail).
  */
-router.get("/model/:modelName", async (req, res) => {
+router.get("/model/:modelName", wrap(async (req, res) => {
   const modelName = req.params.modelName;
   const limit = Math.min(Math.max(1, parseInt(req.query.limit) || 50), 200);
   const offset = Math.max(0, parseInt(req.query.offset) || 0);
@@ -170,13 +171,13 @@ router.get("/model/:modelName", async (req, res) => {
   );
 
   res.json({ passes, total: parseInt(count), limit, offset, errorBreakdown });
-});
+}));
 
 /**
  * GET /analytics/run/:runId
  * Per-run timing breakdown (Gantt-style data).
  */
-router.get("/run/:runId", async (req, res) => {
+router.get("/run/:runId", wrap(async (req, res) => {
   const runId = req.params.runId;
 
   const [
@@ -206,13 +207,13 @@ router.get("/run/:runId", async (req, res) => {
   if (!run) return res.status(404).json({ error: "Run not found" });
 
   res.json({ run, agents, passes, metrics: metrics || null });
-});
+}));
 
 /**
  * GET /analytics/trends
  * Time-series data for pipeline performance over time.
  */
-router.get("/trends", async (req, res) => {
+router.get("/trends", wrap(async (req, res) => {
   const days = Math.min(Math.max(7, parseInt(req.query.days) || 30), 365);
   const bucket = days <= 30 ? "day" : "week";
 
@@ -266,14 +267,14 @@ router.get("/trends", async (req, res) => {
       avgSeconds: parseFloat(r.avg_seconds) || null,
     })),
   });
-});
+}));
 
 /**
  * GET /analytics/review
  * Review latency per track (pipeline completion -> review decision) and
  * current pending-review backlog per track (FW-14).
  */
-router.get("/review", async (req, res) => {
+router.get("/review", wrap(async (req, res) => {
   const [{ rows: latency }, { rows: pending }] = await Promise.all([
     pool.query(
       `SELECT t.track,
@@ -297,13 +298,13 @@ router.get("/review", async (req, res) => {
     ),
   ]);
   res.json({ latency, pending });
-});
+}));
 
 /**
  * GET /analytics/distribution
  * Weighted-percentage distribution for track-threshold calibration (FW-13).
  */
-router.get("/distribution", async (req, res) => {
+router.get("/distribution", wrap(async (req, res) => {
   const [{ rows: tracks }, { rows: histogram }] = await Promise.all([
     pool.query(
       `SELECT track, COUNT(*)::int AS count FROM tools
@@ -324,6 +325,6 @@ router.get("/distribution", async (req, res) => {
     ),
   ]);
   res.json({ tracks, histogram, thresholds: { track2: 22, track3: 42, track4: 65 } });
-});
+}));
 
 export default router;

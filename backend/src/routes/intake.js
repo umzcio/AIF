@@ -6,6 +6,7 @@ import { computeTrack } from "../scoring.js";
 import { logAudit } from "../audit.js";
 import { extractArchive } from "../utils/extract.js";
 import { validateIntakeAnswers } from "../validation.js";
+import { wrap } from "../middleware/async-handler.js";
 
 const CODEBASES_DIR = process.env.CODEBASES_DIR || "/data/codebases";
 const upload = multer({ dest: "/tmp/aif-uploads", limits: { fileSize: 500 * 1024 * 1024 } });
@@ -39,7 +40,7 @@ function parseBody(body) {
 }
 
 // Save draft
-router.post("/draft", upload.single("codebase"), async (req, res) => {
+router.post("/draft", upload.single("codebase"), wrap(async (req, res) => {
   const { name, description, submissionType, artifactType, intakeAnswers, codebaseUrl, sandbox } = parseBody(req.body);
   if (!name) return res.status(400).json({ error: "name is required" });
 
@@ -85,10 +86,10 @@ router.post("/draft", upload.single("codebase"), async (req, res) => {
   }
 
   res.status(201).json({ tool, track: computed?.track ?? null });
-});
+}));
 
 // Update draft (owner only)
-router.put("/draft/:id", upload.single("codebase"), async (req, res) => {
+router.put("/draft/:id", upload.single("codebase"), wrap(async (req, res) => {
   const { rows: [existing] } = await pool.query("SELECT * FROM tools WHERE id = $1", [req.params.id]);
   if (!existing) return res.status(404).json({ error: "Tool not found" });
   if (existing.status !== "draft") return res.status(400).json({ error: "Only drafts can be edited" });
@@ -132,10 +133,10 @@ router.put("/draft/:id", upload.single("codebase"), async (req, res) => {
   }
 
   res.json({ tool, track: computed?.track ?? null });
-});
+}));
 
 // Submit (finalize)
-router.post("/", upload.single("codebase"), async (req, res) => {
+router.post("/", upload.single("codebase"), wrap(async (req, res) => {
   const { draftId } = req.body;
   const { name, description, submissionType, artifactType, intakeAnswers, codebaseUrl, sandbox } = parseBody(req.body);
 
@@ -247,10 +248,10 @@ router.post("/", upload.single("codebase"), async (req, res) => {
   }
 
   res.status(201).json({ tool, track: computed.track });
-});
+}));
 
 // Resubmit after changes_requested: snapshot old state, recompute, back to review
-router.post("/:id/resubmit", upload.single("codebase"), async (req, res) => {
+router.post("/:id/resubmit", upload.single("codebase"), wrap(async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
   const { rows: [existing] } = await pool.query("SELECT * FROM tools WHERE id = $1", [req.params.id]);
   if (!existing) return res.status(404).json({ error: "Tool not found" });
@@ -323,10 +324,10 @@ router.post("/:id/resubmit", upload.single("codebase"), async (req, res) => {
   }
 
   res.json({ tool, track: computed.track, previousTrack: existing.track });
-});
+}));
 
 // Delete draft (owner only)
-router.delete("/draft/:id", async (req, res) => {
+router.delete("/draft/:id", wrap(async (req, res) => {
   const { rows: [existing] } = await pool.query("SELECT * FROM tools WHERE id = $1", [req.params.id]);
   if (!existing) return res.status(404).json({ error: "Tool not found" });
   if (existing.status !== "draft") return res.status(400).json({ error: "Only drafts can be deleted" });
@@ -336,6 +337,6 @@ router.delete("/draft/:id", async (req, res) => {
 
   await pool.query("DELETE FROM tools WHERE id = $1", [req.params.id]);
   res.json({ ok: true });
-});
+}));
 
 export default router;

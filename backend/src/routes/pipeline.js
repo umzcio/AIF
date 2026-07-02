@@ -8,6 +8,7 @@ import { requireOwnerOrRole, requireRole } from "../auth/middleware.js";
 import { logAudit } from "../audit.js";
 import { validate, pipelineRunSchema } from "../validation.js";
 import { extractArchive } from "../utils/extract.js";
+import { wrap } from "../middleware/async-handler.js";
 
 const CODEBASES_DIR = process.env.CODEBASES_DIR || "/data/codebases";
 const upload = multer({ dest: "/tmp/aif-uploads", limits: { fileSize: 500 * 1024 * 1024 } });
@@ -31,7 +32,7 @@ async function requireRunAccess(req, res) {
 }
 
 // Upload codebase for a tool (owner or admin)
-router.post("/:toolId/upload", requireOwnerOrRole("admin"), upload.single("codebase"), async (req, res) => {
+router.post("/:toolId/upload", requireOwnerOrRole("admin"), upload.single("codebase"), wrap(async (req, res) => {
   const tool = req.tool;
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
   const toolId = req.params.toolId;
@@ -45,9 +46,9 @@ router.post("/:toolId/upload", requireOwnerOrRole("admin"), upload.single("codeb
   } catch (err) {
     res.status(400).json({ error: `Failed to extract codebase: ${err.message}` });
   }
-});
+}));
 
-router.post("/:toolId/run", requireOwnerOrRole("admin"), validate(pipelineRunSchema), async (req, res) => {
+router.post("/:toolId/run", requireOwnerOrRole("admin"), validate(pipelineRunSchema), wrap(async (req, res) => {
   const { toolId } = req.params;
   const { mode } = req.validated;
 
@@ -57,10 +58,10 @@ router.post("/:toolId/run", requireOwnerOrRole("admin"), validate(pipelineRunSch
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // Cancel a running pipeline
-router.post("/:runId/cancel", async (req, res) => {
+router.post("/:runId/cancel", wrap(async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
 
   const { rows: [run] } = await pool.query(
@@ -91,10 +92,10 @@ router.post("/:runId/cancel", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // Retry a failed/cancelled pipeline run
-router.post("/:runId/retry", async (req, res) => {
+router.post("/:runId/retry", wrap(async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
 
   const { rows: [run] } = await pool.query(
@@ -121,9 +122,9 @@ router.post("/:runId/retry", async (req, res) => {
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
-});
+}));
 
-router.get("/:runId", async (req, res) => {
+router.get("/:runId", wrap(async (req, res) => {
   const run = await requireRunAccess(req, res);
   if (!run) return;
 
@@ -142,9 +143,9 @@ router.get("/:runId", async (req, res) => {
   }
 
   res.json({ run, agents, queuePosition });
-});
+}));
 
-router.get("/:runId/stream", async (req, res) => {
+router.get("/:runId/stream", wrap(async (req, res) => {
   const run = await requireRunAccess(req, res);
   if (!run) return;
 
@@ -218,6 +219,6 @@ router.get("/:runId/stream", async (req, res) => {
     unsub();
     clearInterval(heartbeat);
   });
-});
+}));
 
 export default router;

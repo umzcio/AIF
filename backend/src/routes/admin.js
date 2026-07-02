@@ -3,6 +3,7 @@ import pool from "../db/pool.js";
 import { requireRole } from "../auth/middleware.js";
 import { logAudit } from "../audit.js";
 import { validate, userRoleSchema, userActiveSchema } from "../validation.js";
+import { wrap } from "../middleware/async-handler.js";
 
 const router = Router();
 
@@ -10,7 +11,7 @@ const router = Router();
 router.use(requireRole("admin"));
 
 // Dashboard stats
-router.get("/dashboard", async (req, res) => {
+router.get("/dashboard", wrap(async (req, res) => {
   const [
     { rows: [toolStats] },
     { rows: trackCounts },
@@ -41,19 +42,19 @@ router.get("/dashboard", async (req, res) => {
     byTrack,
     byStatus,
   });
-});
+}));
 
 // List users
-router.get("/users", async (req, res) => {
+router.get("/users", wrap(async (req, res) => {
   const { rows: users } = await pool.query(
     `SELECT u.*, (SELECT COUNT(*) FROM tools WHERE owner_id = u.id) as tool_count
      FROM users u ORDER BY u.created_at DESC`
   );
   res.json({ users });
-});
+}));
 
 // Change user role
-router.patch("/users/:id/role", validate(userRoleSchema), async (req, res) => {
+router.patch("/users/:id/role", validate(userRoleSchema), wrap(async (req, res) => {
   const { role } = req.validated;
 
   const userId = parseInt(req.params.id);
@@ -74,10 +75,10 @@ router.patch("/users/:id/role", validate(userRoleSchema), async (req, res) => {
   });
 
   res.json({ user: updated });
-});
+}));
 
 // Toggle user active status
-router.patch("/users/:id/active", validate(userActiveSchema), async (req, res) => {
+router.patch("/users/:id/active", validate(userActiveSchema), wrap(async (req, res) => {
   const { active } = req.validated;
 
   const userId = parseInt(req.params.id);
@@ -102,10 +103,10 @@ router.patch("/users/:id/active", validate(userActiveSchema), async (req, res) =
   });
 
   res.json({ user: updated });
-});
+}));
 
 // Audit log with filters
-router.get("/audit", async (req, res) => {
+router.get("/audit", wrap(async (req, res) => {
   const actor = req.query.actor || null;
   const entityType = req.query.entityType?.replace(/[^a-z_]/g, "") || null;
   const action = req.query.action?.replace(/[^a-z_]/g, "") || null;
@@ -135,10 +136,10 @@ router.get("/audit", async (req, res) => {
   ]);
 
   res.json({ entries, total: parseInt(count), limit, offset });
-});
+}));
 
 // Data retention — admin-triggered cleanup
-router.post("/retention", async (req, res) => {
+router.post("/retention", wrap(async (req, res) => {
   const dryRun = req.query.dryRun === "true";
   try {
     const { runRetention } = await import("../jobs/retention.js");
@@ -152,6 +153,6 @@ router.post("/retention", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 export default router;

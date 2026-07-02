@@ -5,6 +5,7 @@ import pool from "../db/pool.js";
 import { extractJSON } from "../agents/shared/cli.js";
 import { validate, findingStatusSchema } from "../validation.js";
 import { requireOwnerOrRole } from "../auth/middleware.js";
+import { wrap } from "../middleware/async-handler.js";
 
 const router = Router();
 
@@ -176,7 +177,7 @@ function findingsToCsv(findings) {
   return rows.join("\r\n");
 }
 
-router.get("/:runId", async (req, res) => {
+router.get("/:runId", wrap(async (req, res) => {
   const run = await requireRunAccess(req, res);
   if (!run) return;
   if (run.status !== "completed") {
@@ -205,10 +206,10 @@ router.get("/:runId", async (req, res) => {
   if (existsSync(docsPath)) report.agents.documentation = readSynthesis(docsPath);
 
   res.json({ report });
-});
+}));
 
 // Export all findings as JSON
-router.get("/:runId/findings.json", async (req, res) => {
+router.get("/:runId/findings.json", wrap(async (req, res) => {
   const run = await requireRunAccess(req, res);
   if (!run) return;
   if (run.status !== "completed") return res.status(400).json({ error: "Run not completed yet" });
@@ -226,10 +227,10 @@ router.get("/:runId/findings.json", async (req, res) => {
     totalFindings: findings.length,
     findings,
   });
-});
+}));
 
 // Export all findings as CSV
-router.get("/:runId/findings.csv", async (req, res) => {
+router.get("/:runId/findings.csv", wrap(async (req, res) => {
   const run = await requireRunAccess(req, res);
   if (!run) return;
   if (run.status !== "completed") return res.status(400).json({ error: "Run not completed yet" });
@@ -241,9 +242,9 @@ router.get("/:runId/findings.csv", async (req, res) => {
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${(tool?.name || "findings").replace(/[^a-zA-Z0-9_-]/g, "_")}_findings.csv"`);
   res.send(csv);
-});
+}));
 
-router.get("/:runId/hecvat.xlsx", async (req, res) => {
+router.get("/:runId/hecvat.xlsx", wrap(async (req, res) => {
   const run = await requireRunAccess(req, res);
   if (!run) return;
 
@@ -253,9 +254,9 @@ router.get("/:runId/hecvat.xlsx", async (req, res) => {
   if (!existsSync(xlsxPath)) return res.status(404).json({ error: "HECVAT XLSX not found" });
 
   res.download(xlsxPath, "hecvat_assessment.xlsx");
-});
+}));
 
-router.get("/:runId/docs/:name", async (req, res) => {
+router.get("/:runId/docs/:name", wrap(async (req, res) => {
   const run = await requireRunAccess(req, res);
   if (!run) return;
   if (!run.output_dir) return res.status(404).json({ error: "Run output not found" });
@@ -275,12 +276,12 @@ router.get("/:runId/docs/:name", async (req, res) => {
   } else {
     res.status(404).json({ error: "Document not found" });
   }
-});
+}));
 
 // ─── Finding status persistence ────────────────────────────────────
 
 // GET /reports/tools/:toolId/finding-statuses
-router.get("/tools/:toolId/finding-statuses", requireOwnerOrRole("reviewer", "admin"), async (req, res) => {
+router.get("/tools/:toolId/finding-statuses", requireOwnerOrRole("reviewer", "admin"), wrap(async (req, res) => {
   const { rows } = await pool.query(
     "SELECT finding_id, status FROM finding_statuses WHERE tool_id = $1",
     [req.params.toolId]
@@ -288,10 +289,10 @@ router.get("/tools/:toolId/finding-statuses", requireOwnerOrRole("reviewer", "ad
   const statuses = {};
   for (const r of rows) statuses[r.finding_id] = r.status;
   res.json({ statuses });
-});
+}));
 
 // PUT /reports/tools/:toolId/finding-statuses
-router.put("/tools/:toolId/finding-statuses", requireOwnerOrRole("reviewer", "admin"), validate(findingStatusSchema), async (req, res) => {
+router.put("/tools/:toolId/finding-statuses", requireOwnerOrRole("reviewer", "admin"), validate(findingStatusSchema), wrap(async (req, res) => {
   const toolId = req.params.toolId;
   const { statuses } = req.validated;
   const entries = Object.entries(statuses);
@@ -313,6 +314,6 @@ router.put("/tools/:toolId/finding-statuses", requireOwnerOrRole("reviewer", "ad
   `, values);
 
   res.json({ saved: entries.length });
-});
+}));
 
 export default router;

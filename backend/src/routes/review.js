@@ -5,11 +5,12 @@ import { logAudit } from "../audit.js";
 import { notify, notifyRole } from "../notifications.js";
 import { validate, reviewDecisionSchema, trackOverrideSchema, reviewNoteSchema, selfCertifySchema } from "../validation.js";
 import { canOverrideTrack } from "../review-rules.js";
+import { wrap } from "../middleware/async-handler.js";
 
 const router = Router();
 
 // Review queue — reviewers and admins see all tools needing review
-router.get("/queue", requireRole("reviewer", "admin"), async (req, res) => {
+router.get("/queue", requireRole("reviewer", "admin"), wrap(async (req, res) => {
   const { rows: tools } = await pool.query(
     `SELECT t.*, u.netid as owner_netid, u.display_name as owner_name,
        pr.last_run_at, lr.status as latest_run_status
@@ -20,10 +21,10 @@ router.get("/queue", requireRole("reviewer", "admin"), async (req, res) => {
      ORDER BY t.updated_at ASC`
   );
   res.json({ tools });
-});
+}));
 
 // Review decision — approve or request changes
-router.post("/:toolId/decision", requireRole("reviewer", "admin"), validate(reviewDecisionSchema), async (req, res) => {
+router.post("/:toolId/decision", requireRole("reviewer", "admin"), validate(reviewDecisionSchema), wrap(async (req, res) => {
   const { toolId } = req.params;
   const { decision, notes } = req.validated;
 
@@ -69,10 +70,10 @@ router.post("/:toolId/decision", requireRole("reviewer", "admin"), validate(revi
   }).catch(() => {});
 
   res.json({ tool: updated });
-});
+}));
 
 // Track override
-router.post("/:toolId/track-override", requireRole("reviewer", "admin"), validate(trackOverrideSchema), async (req, res) => {
+router.post("/:toolId/track-override", requireRole("reviewer", "admin"), validate(trackOverrideSchema), wrap(async (req, res) => {
   const { toolId } = req.params;
   const { newTrack, reason } = req.validated;
 
@@ -114,10 +115,10 @@ router.post("/:toolId/track-override", requireRole("reviewer", "admin"), validat
   }).catch(() => {});
 
   res.json({ tool: result.updated });
-});
+}));
 
 // Get review notes for a tool
-router.get("/:toolId/notes", async (req, res) => {
+router.get("/:toolId/notes", wrap(async (req, res) => {
   const { toolId } = req.params;
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
 
@@ -135,10 +136,10 @@ router.get("/:toolId/notes", async (req, res) => {
     [toolId]
   );
   res.json({ notes });
-});
+}));
 
 // Add comment
-router.post("/:toolId/notes", validate(reviewNoteSchema), async (req, res) => {
+router.post("/:toolId/notes", validate(reviewNoteSchema), wrap(async (req, res) => {
   const { toolId } = req.params;
   const { body } = req.validated;
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
@@ -172,10 +173,10 @@ router.post("/:toolId/notes", validate(reviewNoteSchema), async (req, res) => {
   }
 
   res.status(201).json({ note });
-});
+}));
 
 // Self-certify (Track 2 only, owner only)
-router.post("/:toolId/self-certify", validate(selfCertifySchema), async (req, res) => {
+router.post("/:toolId/self-certify", validate(selfCertifySchema), wrap(async (req, res) => {
   const { toolId } = req.params;
   const { attestation } = req.validated;
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
@@ -227,10 +228,10 @@ router.post("/:toolId/self-certify", validate(selfCertifySchema), async (req, re
   }).catch(() => {});
 
   res.json({ tool: updated });
-});
+}));
 
 // Activate approved tool
-router.post("/:toolId/activate", requireRole("reviewer", "admin"), async (req, res) => {
+router.post("/:toolId/activate", requireRole("reviewer", "admin"), wrap(async (req, res) => {
   const { toolId } = req.params;
 
   const updated = await withTransaction(async (client) => {
@@ -266,6 +267,6 @@ router.post("/:toolId/activate", requireRole("reviewer", "admin"), async (req, r
   }).catch(() => {});
 
   res.json({ tool: updated });
-});
+}));
 
 export default router;

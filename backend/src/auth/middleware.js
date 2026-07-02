@@ -1,6 +1,7 @@
 import { verifyToken } from "./jwt.js";
 import pool from "../db/pool.js";
 import log from "../logger.js";
+import { wrap } from "../middleware/async-handler.js";
 
 const AUTH_PROVIDER = process.env.AUTH_PROVIDER || (process.env.AUTH_BYPASS === "true" ? "bypass" : "");
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
@@ -39,7 +40,7 @@ export function requireRole(...roles) {
 }
 
 export function requireOwnerOrRole(...roles) {
-  return async (req, res, next) => {
+  return wrap(async (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: "Authentication required" });
     const toolId = req.params.id || req.params.toolId;
     if (!toolId) return res.status(400).json({ error: "Missing tool ID" });
@@ -52,7 +53,7 @@ export function requireOwnerOrRole(...roles) {
       return next();
     }
     return res.status(403).json({ error: "Insufficient permissions" });
-  };
+  });
 }
 
 export default async function authMiddleware(req, res, next) {

@@ -4,6 +4,7 @@ import { generateToken, verifyToken } from "../auth/jwt.js";
 import pool from "../db/pool.js";
 import { FRONTEND_URL, ADMIN_NETIDS, JWT_COOKIE_NAME, BASE_PATH, INSTITUTION_DOMAIN } from "../config.js";
 import log from "../logger.js";
+import { wrap } from "../middleware/async-handler.js";
 
 const router = Router();
 
@@ -43,7 +44,7 @@ async function loginAndRedirect(identity, res) {
 
 // --- Routes ---
 
-router.get("/login", async (req, res) => {
+router.get("/login", wrap(async (req, res) => {
   try {
     const loginUrl = provider.getLoginUrl();
 
@@ -62,9 +63,9 @@ router.get("/login", async (req, res) => {
     log.error("Login error", { error: err.message, provider: provider.name });
     res.redirect(`${FRONTEND_URL || BASE_PATH}?error=auth_error`);
   }
-});
+}));
 
-router.get("/callback", async (req, res) => {
+router.get("/callback", wrap(async (req, res) => {
   try {
     const identity = await provider.authenticate(req);
     if (!identity) {
@@ -75,7 +76,7 @@ router.get("/callback", async (req, res) => {
     log.error("Auth callback error", { error: err.message, provider: provider.name });
     res.redirect(`${FRONTEND_URL || BASE_PATH}?error=auth_error`);
   }
-});
+}));
 
 router.post("/logout", (req, res) => {
   res.clearCookie(COOKIE_NAME, { path: BASE_PATH });
@@ -83,7 +84,7 @@ router.post("/logout", (req, res) => {
   res.json({ success: true, ...(logoutUrl ? { casLogoutUrl: logoutUrl } : {}) });
 });
 
-router.get("/status", async (req, res) => {
+router.get("/status", wrap(async (req, res) => {
   const token = req.cookies?.[COOKIE_NAME];
   if (!token) return res.status(401).json({ authenticated: false });
 
@@ -93,10 +94,10 @@ router.get("/status", async (req, res) => {
   } catch {
     res.status(401).json({ authenticated: false });
   }
-});
+}));
 
 // Refresh — re-reads user from DB and issues fresh JWT so role changes take effect
-router.get("/refresh", async (req, res) => {
+router.get("/refresh", wrap(async (req, res) => {
   const token = req.cookies?.[COOKIE_NAME];
   if (!token) return res.status(401).json({ authenticated: false });
 
@@ -117,6 +118,6 @@ router.get("/refresh", async (req, res) => {
   } catch {
     res.status(401).json({ authenticated: false });
   }
-});
+}));
 
 export default router;

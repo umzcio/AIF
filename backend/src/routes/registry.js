@@ -4,6 +4,7 @@ import { requireRole, requireOwnerOrRole } from "../auth/middleware.js";
 import { logAudit } from "../audit.js";
 import { validate, toolStatusSchema, toolEditSchema, sandboxToggleSchema } from "../validation.js";
 import log from "../logger.js";
+import { wrap } from "../middleware/async-handler.js";
 
 // Valid status values — used for whitelist validation on query params
 const VALID_STATUSES = ["draft","pending","in_progress","under_review","approved","changes_requested","active","suspended","retired"];
@@ -31,7 +32,7 @@ function canTransition(fromStatus, toStatus, role) {
 }
 
 // List tools — scoped by role
-router.get("/", async (req, res) => {
+router.get("/", wrap(async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(Math.max(1, parseInt(req.query.limit) || 50), 100);
   const offset = (page - 1) * limit;
@@ -78,9 +79,9 @@ router.get("/", async (req, res) => {
     log.error("Registry list query failed", { error: err.message });
     res.status(500).json({ error: "Failed to load registry" });
   }
-});
+}));
 
-router.get("/:id", async (req, res) => {
+router.get("/:id", wrap(async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
 
   const { rows: [tool] } = await pool.query(
@@ -109,10 +110,10 @@ router.get("/:id", async (req, res) => {
   );
 
   res.json({ tool, runs });
-});
+}));
 
 // Update tool status — enforces state machine + role checks
-router.patch("/:id/status", validate(toolStatusSchema), async (req, res) => {
+router.patch("/:id/status", validate(toolStatusSchema), wrap(async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
   const { status } = req.validated;
 
@@ -146,10 +147,10 @@ router.patch("/:id/status", validate(toolStatusSchema), async (req, res) => {
 
   if (!updated) return;
   res.json({ tool: updated });
-});
+}));
 
 // Edit tool details — owner or admin
-router.patch("/:id", requireOwnerOrRole("admin"), validate(toolEditSchema), async (req, res) => {
+router.patch("/:id", requireOwnerOrRole("admin"), validate(toolEditSchema), wrap(async (req, res) => {
   const tool = req.tool; // set by requireOwnerOrRole
   const { name, description } = req.validated;
 
@@ -174,10 +175,10 @@ router.patch("/:id", requireOwnerOrRole("admin"), validate(toolEditSchema), asyn
   }).catch(() => {});
 
   res.json({ tool: updated });
-});
+}));
 
 // Toggle sandbox flag — owner or admin
-router.patch("/:id/sandbox", validate(sandboxToggleSchema), async (req, res) => {
+router.patch("/:id/sandbox", validate(sandboxToggleSchema), wrap(async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Authentication required" });
   const { sandbox } = req.validated;
 
@@ -202,10 +203,10 @@ router.patch("/:id/sandbox", validate(sandboxToggleSchema), async (req, res) => 
   }).catch(() => {});
 
   res.json({ tool: updated });
-});
+}));
 
 // Delete tool — owner or admin
-router.delete("/:id", requireOwnerOrRole("admin"), async (req, res) => {
+router.delete("/:id", requireOwnerOrRole("admin"), wrap(async (req, res) => {
   const tool = req.tool; // set by requireOwnerOrRole
 
   await withTransaction(async (client) => {
@@ -219,6 +220,6 @@ router.delete("/:id", requireOwnerOrRole("admin"), async (req, res) => {
   });
 
   res.json({ ok: true });
-});
+}));
 
 export default router;

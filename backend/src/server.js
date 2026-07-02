@@ -131,6 +131,25 @@ if (existsSync(frontendDist)) {
   });
 }
 
+// Catch-all error middleware — must be registered after all routes and the
+// static/SPA fallback. Routes rejections funneled here via wrap() (see
+// middleware/async-handler.js) instead of letting them crash the process.
+app.use((err, req, res, next) => {
+  // Postgres invalid text representation (e.g. malformed UUID path param)
+  if (err && err.code === "22P02") {
+    return res.status(400).json({ error: "Invalid identifier" });
+  }
+  log.error("Unhandled request error", { path: req.path, method: req.method, error: err?.message });
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: "Internal error" });
+});
+
+// Backstop: log-and-continue instead of letting an unhandled rejection
+// anywhere in the process (outside the Express request lifecycle) crash it.
+process.on("unhandledRejection", (reason) => {
+  log.error("Unhandled promise rejection (backstop)", { reason: reason?.message || String(reason) });
+});
+
 let server;
 
 /** Validate required env vars and external dependencies before accepting traffic. */
