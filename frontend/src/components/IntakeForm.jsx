@@ -11,7 +11,14 @@ const AUTOSAVE_LOCAL_MS = 5000;    // localStorage debounce: 5s
 const AUTOSAVE_SERVER_MS = 60000;  // Server auto-save: 60s
 
 // All 21 question keys (for progress counting)
-const REQUIRED_QUESTIONS = ["q1","q2","q3","q4","q5","q6","q7","q9","q14","q15","q16","q17","q18"];
+// Required questions are conditional: data questions when q9=yes, AI questions when AI-classified.
+function requiredQuestions(a) {
+  const req = ["q1","q2","q3","q4","q5","q6","q7","q9","q14","q15","q16","q17","q18","q19"];
+  if (a.q9 === "yes") req.push("q10","q11","q12");
+  const showAI = a.q1 === "ai-agent" || ["approved-dpa","unknown-dpa","no-dpa"].includes(a.q12);
+  if (showAI) req.push("q20","q21");
+  return req;
+}
 const ALL_QUESTIONS = ["q1","q2","q3","q4","q5","q6","q7","q8","q9","q10","q11","q12","q13","q14","q15","q16","q17","q18","q19","q20","q21"];
 
 // Field-level validation messages
@@ -343,7 +350,7 @@ export default function IntakeForm({ draftId }) {
     // Validate required fields
     const errors = {};
     if (!name.trim()) errors.name = "Tool name is required";
-    const unanswered = REQUIRED_QUESTIONS.filter(q => visibleQuestions.includes(q) && !isAnswered(a, q));
+    const unanswered = requiredQuestions(a).filter(q => visibleQuestions.includes(q) && !isAnswered(a, q));
     for (const q of unanswered) errors[q] = `Question ${q.replace("q", "")} is required`;
 
     if (Object.keys(errors).length > 0) {
@@ -485,17 +492,17 @@ export default function IntakeForm({ draftId }) {
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q9===v} onClick={x=>s("q9",x)} />)}
           </Q>
           {showData && <>
-            <Q n={10} label="What kind of data?" req multi esc={(a.q10||[]).some(d=>["hipaa","irb","export","tribal"].includes(d))?"Regulated data = Track 4":null} answered={isAnswered(a,"q10")} hint={FIELD_HINTS.q10}>
+            <Q n={10} label="What kind of data?" req multi esc={(a.q10||[]).some(d=>["hipaa","irb","export","tribal"].includes(d))?"Regulated data = Track 4":null} answered={isAnswered(a,"q10")} hint={FIELD_HINTS.q10} error={fieldErrors.q10}>
               {[["public","Public / non-sensitive"],["internal","Internal institutional"],["ferpa","FERPA student records"],["hr","Employee / HR"],["hipaa","HIPAA health data"],
                 ["irb","IRB research / human subjects"],["export","Export-controlled / CUI"],["tribal","Tribal / indigenous community"],["payment","Payment / financial"],
                 ["credentials","Auth credentials / identity"],["behavioral","Behavioral / performance data"]
               ].map(([v,l]) => <CheckOption key={v} value={v} label={l} checked={(a.q10||[]).includes(v)} onChange={x=>tm("q10",x)} />)}
             </Q>
-            <Q n={11} label="Where does the data live?" req multi esc={(a.q11||[]).includes("personal")?"Personal accounts = Track 4":null} answered={isAnswered(a,"q11")} hint={FIELD_HINTS.q11}>
+            <Q n={11} label="Where does the data live?" req multi esc={(a.q11||[]).includes("personal")?"Personal accounts = Track 4":null} answered={isAnswered(a,"q11")} hint={FIELD_HINTS.q11} error={fieldErrors.q11}>
               {[["campus","Campus IT infrastructure"],["approved-third","Third-party with DPA"],["unknown-third","Third-party — DPA unknown"],["personal","Personal accounts"],["ephemeral","Process and discard"]
               ].map(([v,l]) => <CheckOption key={v} value={v} label={l} checked={(a.q11||[]).includes(v)} onChange={x=>tm("q11",x)} />)}
             </Q>
-            <Q n={12} label="Does data leave campus for AI processing?" req esc={(a.q12==="no-dpa"||a.q12==="unknown-dpa")?"No DPA = Track 4":null} answered={isAnswered(a,"q12")} hint={FIELD_HINTS.q12}>
+            <Q n={12} label="Does data leave campus for AI processing?" req esc={(a.q12==="no-dpa"||a.q12==="unknown-dpa")?"No DPA = Track 4":null} answered={isAnswered(a,"q12")} hint={FIELD_HINTS.q12} error={fieldErrors.q12}>
               {[["no","No external AI"],["approved-dpa","Yes — approved DPA"],["unknown-dpa","Yes — DPA unknown"],["no-dpa","Yes — no DPA"]
               ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q12===v} onClick={x=>s("q12",x)} />)}
             </Q>
@@ -533,10 +540,10 @@ export default function IntakeForm({ draftId }) {
 
           {showAI && <>
             <SectionDivider num="6" title="AI-Specific Questions" sub="Your tool uses AI or sends data to an external AI model." />
-            <Q n={20} label="What decisions does this tool make or influence? Human reviewer at decision point?" req answered={isAnswered(a,"q20")} hint={FIELD_HINTS.q20}>
+            <Q n={20} label="What decisions does this tool make or influence? Human reviewer at decision point?" req answered={isAnswered(a,"q20")} hint={FIELD_HINTS.q20} error={fieldErrors.q20}>
               <textarea className="text-area" value={a.q20 || ""} onChange={e=>s("q20",e.target.value)} placeholder="Describe decisions and human oversight..." style={{ minHeight: 80 }} aria-labelledby="q20-label" />
             </Q>
-            <Q n={21} label="Will users know they're interacting with AI?" req esc={a.q21==="no"?"Users unaware of AI — pedagogy escalation":null} answered={isAnswered(a,"q21")} hint={FIELD_HINTS.q21}>
+            <Q n={21} label="Will users know they're interacting with AI?" req esc={a.q21==="no"?"Users unaware of AI — pedagogy escalation":null} answered={isAnswered(a,"q21")} hint={FIELD_HINTS.q21} error={fieldErrors.q21}>
               {[["yes","Yes — clearly disclosed"],["no","No — users won't know"],["partial","Partially"],["na","N/A — no direct interaction"]
               ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q21===v} onClick={x=>s("q21",x)} />)}
             </Q>

@@ -5,6 +5,7 @@ import pool from "../db/pool.js";
 import { computeTrack } from "../scoring.js";
 import { logAudit } from "../audit.js";
 import { extractArchive } from "../utils/extract.js";
+import { validateIntakeAnswers } from "../validation.js";
 
 const CODEBASES_DIR = process.env.CODEBASES_DIR || "/data/codebases";
 const upload = multer({ dest: "/tmp/aif-uploads", limits: { fileSize: 500 * 1024 * 1024 } });
@@ -144,6 +145,10 @@ router.post("/", upload.single("codebase"), async (req, res) => {
     if (existing.status !== "draft") return res.status(400).json({ error: "Tool already submitted" });
 
     const answers = intakeAnswers || (existing.intake_answers ? existing.intake_answers : null);
+    const validation = validateIntakeAnswers(answers);
+    if (!validation.ok) {
+      return res.status(400).json({ error: "Intake answers incomplete", details: validation.errors });
+    }
     const artType = artifactType || existing.artifact_type;
     const computed = computeFromAnswers(answers, artType);
     if (!computed) return res.status(400).json({ error: "Intake answers are required to submit" });
@@ -190,6 +195,10 @@ router.post("/", upload.single("codebase"), async (req, res) => {
 
   // Direct submit (no draft step)
   if (!name) return res.status(400).json({ error: "name is required" });
+  const validation = validateIntakeAnswers(intakeAnswers);
+  if (!validation.ok) {
+    return res.status(400).json({ error: "Intake answers incomplete", details: validation.errors });
+  }
   const computed = computeFromAnswers(intakeAnswers, artifactType);
   if (!computed) return res.status(400).json({ error: "Intake answers are required" });
 

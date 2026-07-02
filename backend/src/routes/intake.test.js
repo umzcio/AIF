@@ -11,6 +11,8 @@ import {
   VALID_ARTIFACT_TYPES,
 } from "../scoring.js";
 
+import { validateIntakeAnswers } from "../validation.js";
+
 // ---------------------------------------------------------------------------
 // Re-implement parseBody and computeFromAnswers identically to intake.js
 // since they are module-scoped and not exported. Same approach as
@@ -618,5 +620,60 @@ describe("intake flow — end-to-end simulation", () => {
     assert.strictEqual(unknown.track, asQ1.track);
     assert.notStrictEqual(unknown.pct, asOther.pct,
       "Invalid type should NOT silently collapse to explicit 'other' when q1 is valid");
+  });
+});
+
+// ===========================================================================
+// validateIntakeAnswers (FW-03) — enforces phantom-required questions
+// ===========================================================================
+
+describe("validateIntakeAnswers (FW-03)", () => {
+  const complete = {
+    q1: "internal-app", q2: "no", q3: ["department"], q4: "Does a thing for the department.",
+    q5: "campus-vpn", q6: "sso", q7: ["web-hosting"], q9: "no",
+    q14: "department", q15: "campus-repo", q16: "documented", q17: "active", q18: "team-runbooks",
+    q19: "It renders reports from a database. On failure it shows an error page and logs to the campus logger.",
+  };
+
+  it("accepts a complete non-data, non-AI submission", () => {
+    assert.equal(validateIntakeAnswers(complete).ok, true);
+  });
+
+  it("rejects q9=yes with missing q10/q11/q12", () => {
+    const r = validateIntakeAnswers({ ...complete, q9: "yes" });
+    assert.equal(r.ok, false);
+    assert.ok(r.errors.some(e => e.includes("q10")));
+    assert.ok(r.errors.some(e => e.includes("q11")));
+    assert.ok(r.errors.some(e => e.includes("q12")));
+  });
+
+  it("accepts q9=yes when q10-q12 are provided", () => {
+    const r = validateIntakeAnswers({ ...complete, q9: "yes", q10: ["internal"], q11: ["campus"], q12: "no" });
+    assert.equal(r.ok, true);
+  });
+
+  it("rejects AI-classified submission missing q20/q21", () => {
+    const r = validateIntakeAnswers({ ...complete, q1: "ai-agent" });
+    assert.equal(r.ok, false);
+    assert.ok(r.errors.some(e => e.includes("q20")));
+    assert.ok(r.errors.some(e => e.includes("q21")));
+  });
+
+  it("rejects missing q19", () => {
+    const { q19, ...rest } = complete;
+    const r = validateIntakeAnswers(rest);
+    assert.equal(r.ok, false);
+    assert.ok(r.errors.some(e => e.includes("q19")));
+  });
+
+  it("rejects invalid enum values on escalation-relevant questions", () => {
+    const r = validateIntakeAnswers({ ...complete, q9: "yes", q10: ["nonsense"], q11: ["campus"], q12: "whatever" });
+    assert.equal(r.ok, false);
+  });
+
+  it("external AI via q12 also requires q20/q21", () => {
+    const r = validateIntakeAnswers({ ...complete, q9: "yes", q10: ["internal"], q11: ["campus"], q12: "approved-dpa" });
+    assert.equal(r.ok, false);
+    assert.ok(r.errors.some(e => e.includes("q21")));
   });
 });
