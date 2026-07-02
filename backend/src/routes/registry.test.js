@@ -1,28 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
+import { TRANSITIONS, canTransition } from "./registry-transitions.js";
 
-// TRANSITIONS and canTransition are not exported from registry.js
-// (they are module-scoped), so we re-define them here identically
-// to test the state machine logic in isolation.
-
-const TRANSITIONS = {
-  draft:             { builder: ["pending"], admin: ["pending"] },
-  pending:           { system: ["in_progress"], admin: ["in_progress"] },
-  in_progress:       { system: ["under_review", "active"], admin: ["under_review", "active"] },
-  under_review:      { reviewer: ["approved", "changes_requested"], admin: ["approved", "changes_requested", "active"] },
-  approved:          { reviewer: ["active"], admin: ["active"] },
-  changes_requested: { builder: ["pending"], admin: ["pending"] },
-  active:            { reviewer: ["under_review", "suspended"], admin: ["under_review", "suspended", "retired"], builder: ["retired"] },
-  suspended:         { reviewer: ["under_review"], admin: ["under_review", "active"] },
-};
-
-function canTransition(fromStatus, toStatus, role) {
-  const allowed = TRANSITIONS[fromStatus];
-  if (!allowed) return false;
-  const roleAllowed = allowed[role] || [];
-  const systemAllowed = allowed.system || [];
-  return roleAllowed.includes(toStatus) || systemAllowed.includes(toStatus);
-}
+// TRANSITIONS/canTransition are re-exported from registry.js but sourced from
+// registry-transitions.js (a zero-import module) — importing registry.js
+// directly here would trigger auth/jwt.js's import-time process.exit(1) when
+// JWT_SECRET is unset. Importing from registry-transitions.js exercises the
+// exact same production code that registry.js re-exports.
 
 // All valid statuses
 const ALL_STATUSES = Object.keys(TRANSITIONS);

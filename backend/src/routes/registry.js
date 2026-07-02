@@ -7,6 +7,7 @@ import { logAudit } from "../audit.js";
 import { validate, toolStatusSchema, toolEditSchema, sandboxToggleSchema } from "../validation.js";
 import log from "../logger.js";
 import { wrap } from "../middleware/async-handler.js";
+import { TRANSITIONS, canTransition } from "./registry-transitions.js";
 
 // Valid status values — used for whitelist validation on query params
 const VALID_STATUSES = ["draft","pending","in_progress","under_review","approved","changes_requested","active","suspended","retired"];
@@ -15,25 +16,7 @@ const CODEBASES_DIR = process.env.CODEBASES_DIR || "/data/codebases";
 
 const router = Router();
 
-// Valid status transitions: { fromStatus: { role: [toStatuses] } }
-const TRANSITIONS = {
-  draft:             { builder: ["pending"], admin: ["pending"] },
-  pending:           { system: ["in_progress"], admin: ["in_progress"] },
-  in_progress:       { system: ["under_review", "active"], admin: ["under_review", "active"] },
-  under_review:      { reviewer: ["approved", "changes_requested"], admin: ["approved", "changes_requested", "active"] },
-  approved:          { reviewer: ["active"], admin: ["active"] },
-  changes_requested: { builder: ["pending"], admin: ["pending"] },
-  active:            { reviewer: ["under_review", "suspended"], admin: ["under_review", "suspended", "retired"], builder: ["retired"] },
-  suspended:         { reviewer: ["under_review"], admin: ["under_review", "active"] },
-};
-
-function canTransition(fromStatus, toStatus, role) {
-  const allowed = TRANSITIONS[fromStatus];
-  if (!allowed) return false;
-  const roleAllowed = allowed[role] || [];
-  const systemAllowed = allowed.system || [];
-  return roleAllowed.includes(toStatus) || systemAllowed.includes(toStatus);
-}
+export { TRANSITIONS, canTransition };
 
 // List tools — scoped by role
 router.get("/", wrap(async (req, res) => {

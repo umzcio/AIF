@@ -566,7 +566,7 @@ export default function IntakeForm({ draftId, resubmitId }) {
               {[["none","None — informational output only"],["recommends","Recommends — a human makes every decision"],["acts-with-override","Acts automatically — humans can review or override"],["autonomous","Fully autonomous — no human checkpoint"]
               ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q20===v} onClick={x=>s("q20",x)} />)}
             </Q>
-            <Q n={21} label="Will users know they're interacting with AI?" req esc={a.q21==="no"?"Users unaware of AI — pedagogy escalation":null} answered={isAnswered(a,"q21")} hint={FIELD_HINTS.q21} error={fieldErrors.q21}>
+            <Q n={21} label="Will users know they're interacting with AI?" req esc={a.q21==="no" && (a.q3||[]).includes("students") ? "Users unaware of AI — pedagogy escalation" : null} answered={isAnswered(a,"q21")} hint={FIELD_HINTS.q21} error={fieldErrors.q21}>
               {[["yes","Yes — clearly disclosed"],["no","No — users won't know"],["partial","Partially"],["na","N/A — no direct interaction"]
               ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q21===v} onClick={x=>s("q21",x)} />)}
             </Q>

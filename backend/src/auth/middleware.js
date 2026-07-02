@@ -56,7 +56,7 @@ export function requireOwnerOrRole(...roles) {
   });
 }
 
-export default async function authMiddleware(req, res, next) {
+export default wrap(async function authMiddleware(req, res, next) {
   // Auth routes always pass through
   if (req.path.startsWith("/auth/")) return next();
 
@@ -92,4 +92,4 @@ export default async function authMiddleware(req, res, next) {
   }
 
   next();
-}
+});
