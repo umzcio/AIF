@@ -455,7 +455,7 @@ async function computePipelineMetrics(runId) {
 
   // Aggregate pass results
   const { rows: passes } = await pool.query(
-    `SELECT agent_name, model_name, tool, status, json_parsed, elapsed_seconds, prompt_tokens, completion_tokens
+    `SELECT agent_name, pass_key, model_name, tool, status, json_parsed, elapsed_seconds, prompt_tokens, completion_tokens
      FROM pass_results WHERE run_id = $1
      ORDER BY created_at`,
     [runId]
