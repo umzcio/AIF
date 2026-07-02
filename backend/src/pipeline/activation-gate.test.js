@@ -88,4 +88,16 @@ describe("evaluateActivationGate", () => {
     assert.equal(g.activate, false);
     assert.equal(g.blocked, false);
   });
+
+  it("blocks when synthesis is a deterministic-merge fallback", () => {
+    const fallback = { findings: [], metadata: { synthesis_failed: true } };
+    const g = evaluateActivationGate({ track: 1, answers, codeSynthesis: fallback, partial: false, truncated: false });
+    assert.equal(g.blocked, true);
+    assert.ok(g.reasons.some(r => r.includes("synthesis unavailable")));
+  });
+
+  it("blocks when synthesis is missing entirely", () => {
+    const g = evaluateActivationGate({ track: 1, answers, codeSynthesis: null, partial: false, truncated: false });
+    assert.equal(g.blocked, true);
+  });
 });

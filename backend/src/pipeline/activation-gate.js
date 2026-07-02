@@ -82,6 +82,9 @@ export function evaluateActivationGate({ track, answers, codeSynthesis, partial,
   if (criticals.length) reasons.push(`${criticals.length} confirmed critical finding(s)`);
   if (partial) reasons.push("partial analysis (not all model passes completed)");
   if (truncated) reasons.push("codebase bundle truncated (incomplete coverage for passes 2-5)");
+  if (!codeSynthesis || codeSynthesis.metadata?.synthesis_failed) {
+    reasons.push("code-analysis synthesis unavailable — contradiction check could not run");
+  }
   const applies = track === 1;
   return {
     activate: applies && reasons.length === 0,
