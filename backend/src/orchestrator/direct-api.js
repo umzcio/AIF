@@ -170,7 +170,9 @@ async function runAgentDirect(agentDef, codebasePath, codeBundle, passKeys, outp
         }
 
         emit({ type: "pass_complete", agent: agentDef.name, pass: key, model: pass.name,
-          elapsed: parseFloat(elapsed), jsonParsed: !!directResult.parsed, outputBytes });
+          elapsed: parseFloat(elapsed), jsonParsed: !!directResult.parsed, outputBytes,
+          promptTokens: directResult.usage?.prompt_tokens ?? null,
+          completionTokens: directResult.usage?.completion_tokens ?? null });
 
         return { key, name: pass.name, parsed: directResult.parsed, raw: directResult.output };
       }

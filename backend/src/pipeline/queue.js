@@ -51,6 +51,19 @@ const MODEL_COST_USD = {
   "claude":    0.45,  // Claude Opus 4.6 (synthesis + Agent 4 compliance)
 };
 
+/**
+ * USD per 1M tokens (input, output) for direct-API models.
+ * Approximations from provider pricing pages; update alongside MODEL_COST_USD.
+ * Passes without recorded tokens (CLI: codex, claude, gemini) use the flat
+ * MODEL_COST_USD estimate instead.
+ */
+const MODEL_TOKEN_RATES = {
+  "minimax": { input: 0.30, output: 1.20 },
+  "mimo":    { input: 0.10, output: 0.30 },
+  "kimi":    { input: 0.60, output: 2.50 },
+  "glm":     { input: 0.40, output: 1.60 },
+};
+
 const OUTPUT_BASE = process.env.OUTPUT_DIR || "/data/output";
 const CODEBASES_DIR = process.env.CODEBASES_DIR || "/data/codebases";
 const MAX_RETRIES = 2; // Dead letter after this many total failures
@@ -278,9 +291,11 @@ async function processNext() {
         // Update pass_results with timing and success info
         pool.query(
           `UPDATE pass_results SET status = 'completed', elapsed_seconds = $1, completed_at = NOW(),
-             json_parsed = $2, output_bytes = $3
-           WHERE run_id = $4 AND agent_name = $5 AND pass_key = $6 AND status = 'running'`,
-          [event.elapsed || 0, event.jsonParsed !== false, event.outputBytes || 0, runId, event.agent, event.pass]
+             json_parsed = $2, output_bytes = $3, prompt_tokens = $4, completion_tokens = $5
+           WHERE run_id = $6 AND agent_name = $7 AND pass_key = $8 AND status = 'running'`,
+          [event.elapsed || 0, event.jsonParsed !== false, event.outputBytes || 0,
+           event.promptTokens ?? null, event.completionTokens ?? null,
+           runId, event.agent, event.pass]
         ).catch(err => log.error("pass_complete DB update failed", { runId, error: err.message }));
       } else if (event.type === "pass_failed") {
         // Record pass failure
@@ -440,7 +455,7 @@ async function computePipelineMetrics(runId) {
 
   // Aggregate pass results
   const { rows: passes } = await pool.query(
-    `SELECT agent_name, model_name, tool, status, json_parsed, elapsed_seconds
+    `SELECT agent_name, model_name, tool, status, json_parsed, elapsed_seconds, prompt_tokens, completion_tokens
      FROM pass_results WHERE run_id = $1
      ORDER BY created_at`,
     [runId]
@@ -457,12 +472,18 @@ async function computePipelineMetrics(runId) {
   const failed = latestPasses.filter(p => p.status === "failed").length;
   const jsonFailures = latestPasses.filter(p => p.status === "completed" && !p.json_parsed).length;
 
-  // Estimate cost from tools used
+  // Estimate cost from tools used — token-based when usage was captured,
+  // else fall back to the flat per-pass estimate.
   let estimatedCost = 0;
   for (const p of latestPasses) {
     // Match tool name to cost lookup
     const toolKey = Object.keys(MODEL_COST_USD).find(k => p.tool?.includes(k) || p.model_name?.toLowerCase().includes(k));
-    if (toolKey) estimatedCost += MODEL_COST_USD[toolKey];
+    const rates = toolKey && MODEL_TOKEN_RATES[toolKey];
+    if (rates && (p.prompt_tokens || p.completion_tokens)) {
+      estimatedCost += ((p.prompt_tokens || 0) * rates.input + (p.completion_tokens || 0) * rates.output) / 1_000_000;
+    } else if (toolKey) {
+      estimatedCost += MODEL_COST_USD[toolKey];
+    }
   }
   // Add synthesis costs (3 Claude synthesis for agents 1-3, plus HECVAT call in agent 4)
   estimatedCost += (MODEL_COST_USD.claude || 0) * 4;
