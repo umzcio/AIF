@@ -22,7 +22,6 @@ services:
     volumes:
       - aif_output:/data/output
       - aif_codebases:/data/codebases
-      - /projects:/projects:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/aif/api/health"]
       interval: 15s
