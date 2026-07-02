@@ -487,7 +487,7 @@ export async function runDirectApiPipeline({ codebasePath, track, toolName, outp
   checkCancel();
   emit({ type: "agent_start", agent: "documentation", label: "Documentation Generation", index: 3, passesTotal: 3 });
   const docsDir = join(runDir, "agent4_documentation");
-  const documentation = await runDocGenerationParallel(codebasePath, runDir, docsDir, agentOpts);
+  const documentation = await runDocGenerationParallel(codebasePath, runDir, docsDir, { ...agentOpts, codeBundle });
   const docSummary = documentation.documentation ? {
     docs: [
       documentation.documentation.userGuide ? "User Guide" : null,

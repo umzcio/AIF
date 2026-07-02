@@ -238,7 +238,7 @@ export async function runDocGenerationParallel(codebasePath, runDir, outputDir, 
     (async () => {
       const start = Date.now();
       console.log("[docs/hecvat] Starting GLM-5 via direct API...");
-      const result = await runDirectPass(DIRECT_MODELS.pass5, hecvatFullPrompt, "", outputDir, {
+      const result = await runDirectPass(DIRECT_MODELS.pass5, hecvatFullPrompt, opts.codeBundle || "", outputDir, {
         runId: opts.runId,
         signal: opts.signal,
         timeout: 25 * 60 * 1000, // 25 min for HECVAT
