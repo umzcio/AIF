@@ -476,6 +476,9 @@ async function computePipelineMetrics(runId) {
   // else fall back to the flat per-pass estimate.
   let estimatedCost = 0;
   for (const p of latestPasses) {
+    // Synthesis and stack-check passes are covered by the flat Claude synthesis
+    // estimate added below — counting them here too double-counts synthesis cost.
+    if (p.pass_key === "synthesis" || p.pass_key === "stack-check") continue;
     // Match tool name to cost lookup
     const toolKey = Object.keys(MODEL_COST_USD).find(k => p.tool?.includes(k) || p.model_name?.toLowerCase().includes(k));
     const rates = toolKey && MODEL_TOKEN_RATES[toolKey];

@@ -357,6 +357,7 @@ ${JSON.stringify(priorFindings, null, 2)}`;
         emit({ type: "pass_complete", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6",
           elapsed: 0, jsonParsed: !!stackData, outputBytes: stackResult.output?.length || 0 });
       } catch (err) {
+        if (signal?.aborted) throw err;
         pLog.warn("Stack deep dive failed (non-fatal)", { error: err.message });
         emit({ type: "pass_failed", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6",
           error: err.message, errorCategory: "stack_deep_dive" });

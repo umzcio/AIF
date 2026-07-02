@@ -261,7 +261,7 @@ router.post("/:id/resubmit", upload.single("codebase"), async (req, res) => {
     return res.status(403).json({ error: "Only the tool owner can resubmit" });
   }
 
-  const { name, description, artifactType, intakeAnswers } = parseBody(req.body);
+  const { name, description, artifactType, intakeAnswers, codebaseUrl } = parseBody(req.body);
   const answers = intakeAnswers || existing.intake_answers;
   const artType = artifactType || existing.artifact_type;
   const validation = validateIntakeAnswers(answers);
@@ -293,15 +293,16 @@ router.post("/:id/resubmit", upload.single("codebase"), async (req, res) => {
          score_security = $5, score_accessibility = $6, score_data_sensitivity = $7, score_blast_radius = $8,
          score_autonomy = $9, score_comprehension = $10, score_maintenance = $11,
          weighted_percentage = $12, escalation_conditions = $13, floor_conditions = $14, track = $15,
+         codebase_url = COALESCE($16, codebase_url),
          status = 'under_review', updated_at = NOW()
-       WHERE id = $16 RETURNING *`,
+       WHERE id = $17 RETURNING *`,
       [name || null, description || null, artType, JSON.stringify(answers),
        computed.scores.security, computed.scores.accessibility,
        computed.scores.dataSensitivity, computed.scores.blastRadius,
        computed.scores.autonomy, computed.scores.comprehension, computed.scores.maintenance,
        Math.round(computed.pct * 10000) / 100,
        JSON.stringify(computed.escalations), JSON.stringify(computed.floors),
-       computed.track, req.params.id]
+       computed.track, codebaseUrl || null, req.params.id]
     );
     await logAudit({
       actorId: req.user.userId, actorNetid: req.user.netid,

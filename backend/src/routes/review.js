@@ -6,8 +6,6 @@ import { notify, notifyRole } from "../notifications.js";
 import { validate, reviewDecisionSchema, trackOverrideSchema, reviewNoteSchema, selfCertifySchema } from "../validation.js";
 import { canOverrideTrack } from "../review-rules.js";
 
-export { canOverrideTrack };
-
 const router = Router();
 
 // Review queue — reviewers and admins see all tools needing review
