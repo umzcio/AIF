@@ -468,7 +468,10 @@ export default function IntakeForm({ draftId }) {
 
           <SectionDivider num="2" title="Deployment and Access" sub="How and where the tool will run." />
           <Q n={5} label="Where will this tool be accessible?" req answered={isAnswered(a,"q5")} hint={FIELD_HINTS.q5} error={fieldErrors.q5}
-            esc={a.q5==="public-noauth" && showData && (a.q10||[]).some(d=>d!=="public") ? "Public-facing + non-public data = Track 4" : null}>
+            esc={(a.q10||[]).includes("ferpa") && a.q5 === "public-noauth" ? "FERPA + public (no auth) = automatic Track 4"
+              : (a.q10||[]).includes("ferpa") && a.q5 === "public-auth" && a.q6 !== "sso" ? "FERPA + public without campus SSO = automatic Track 4"
+              : (a.q10||[]).includes("ferpa") && a.q5 === "public-auth" && a.q6 === "sso" ? "FERPA + internet-reachable = minimum Track 3"
+              : null}>
             {[["public-noauth","Public internet — no auth"],["public-auth","Public internet — requires auth"],["campus-vpn","Campus network / VPN only"],["internal-server","Internal server — no UI"],["undetermined","Not yet determined"]
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q5===v} onClick={x=>s("q5",x)} />)}
           </Q>
@@ -516,7 +519,7 @@ export default function IntakeForm({ draftId }) {
             {[["me","I built it and own it"],["department","Built for a department"],["vendor","Vendor / contractor built"],["unclear","Ownership unclear"]
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q14===v} onClick={x=>s("q14",x)} />)}
           </Q>
-          <Q n={15} label="Is the code in version control?" req esc={a.q15==="no-vc"?"No version control — blocks approval at Track 2+":null} answered={isAnswered(a,"q15")} hint={FIELD_HINTS.q15} error={fieldErrors.q15}>
+          <Q n={15} label="Is the code in version control?" req esc={a.q15==="no-vc"?"No version control = automatic Track 4":null} answered={isAnswered(a,"q15")} hint={FIELD_HINTS.q15} error={fieldErrors.q15}>
             {[["campus-repo","Campus code repository"],["personal-repo","Personal GitHub/GitLab"],["dept-repo","Department repo"],["no-vc","No version control"]
             ].map(([v,l]) => <SelectOption key={v} value={v} label={l} selected={a.q15===v} onClick={x=>s("q15",x)} />)}
           </Q>
