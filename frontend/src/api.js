@@ -82,6 +82,10 @@ export async function updateDraft(draftId, data, file) {
   return putForm(`/intake/draft/${draftId}`, buildIntakeForm(data, file));
 }
 
+export async function resubmitIntake(toolId, data, file) {
+  return postForm(`/intake/${toolId}/resubmit`, buildIntakeForm(data, file));
+}
+
 export async function deleteDraft(draftId) {
   const res = await request(`/intake/draft/${draftId}`, { method: "DELETE" });
   return res.json();

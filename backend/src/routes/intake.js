@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { join } from "path";
-import pool from "../db/pool.js";
+import pool, { withTransaction } from "../db/pool.js";
 import { computeTrack } from "../scoring.js";
 import { logAudit } from "../audit.js";
 import { extractArchive } from "../utils/extract.js";
@@ -247,6 +247,81 @@ router.post("/", upload.single("codebase"), async (req, res) => {
   }
 
   res.status(201).json({ tool, track: computed.track });
+});
+
+// Resubmit after changes_requested: snapshot old state, recompute, back to review
+router.post("/:id/resubmit", upload.single("codebase"), async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Authentication required" });
+  const { rows: [existing] } = await pool.query("SELECT * FROM tools WHERE id = $1", [req.params.id]);
+  if (!existing) return res.status(404).json({ error: "Tool not found" });
+  if (existing.status !== "changes_requested") {
+    return res.status(400).json({ error: "Only tools with changes requested can be resubmitted" });
+  }
+  if (existing.owner_id !== req.user.userId && req.user.role !== "admin") {
+    return res.status(403).json({ error: "Only the tool owner can resubmit" });
+  }
+
+  const { name, description, artifactType, intakeAnswers } = parseBody(req.body);
+  const answers = intakeAnswers || existing.intake_answers;
+  const artType = artifactType || existing.artifact_type;
+  const validation = validateIntakeAnswers(answers);
+  if (!validation.ok) {
+    return res.status(400).json({ error: "Intake answers incomplete", details: validation.errors });
+  }
+  const computed = computeFromAnswers(answers, artType);
+
+  const tool = await withTransaction(async (client) => {
+    await client.query(
+      `INSERT INTO tool_versions (tool_id, version, intake_answers, dimension_scores,
+         weighted_percentage, escalation_conditions, floor_conditions, track, reason)
+       SELECT id,
+         COALESCE((SELECT MAX(version) FROM tool_versions WHERE tool_id = $1), 0) + 1,
+         intake_answers,
+         jsonb_build_object(
+           'security', score_security, 'accessibility', score_accessibility,
+           'dataSensitivity', score_data_sensitivity, 'blastRadius', score_blast_radius,
+           'autonomy', score_autonomy, 'comprehension', score_comprehension,
+           'maintenance', score_maintenance),
+         weighted_percentage, escalation_conditions, floor_conditions, track, 'resubmission'
+       FROM tools WHERE id = $1`,
+      [req.params.id]
+    );
+    const { rows: [u] } = await client.query(
+      `UPDATE tools SET
+         name = COALESCE($1, name), description = COALESCE($2, description),
+         artifact_type = $3, intake_answers = $4,
+         score_security = $5, score_accessibility = $6, score_data_sensitivity = $7, score_blast_radius = $8,
+         score_autonomy = $9, score_comprehension = $10, score_maintenance = $11,
+         weighted_percentage = $12, escalation_conditions = $13, floor_conditions = $14, track = $15,
+         status = 'under_review', updated_at = NOW()
+       WHERE id = $16 RETURNING *`,
+      [name || null, description || null, artType, JSON.stringify(answers),
+       computed.scores.security, computed.scores.accessibility,
+       computed.scores.dataSensitivity, computed.scores.blastRadius,
+       computed.scores.autonomy, computed.scores.comprehension, computed.scores.maintenance,
+       Math.round(computed.pct * 10000) / 100,
+       JSON.stringify(computed.escalations), JSON.stringify(computed.floors),
+       computed.track, req.params.id]
+    );
+    await logAudit({
+      actorId: req.user.userId, actorNetid: req.user.netid,
+      action: "resubmit_tool", entityType: "tool", entityId: req.params.id,
+      details: { fromTrack: existing.track, toTrack: computed.track },
+    }, client);
+    return u;
+  });
+
+  if (req.file) {
+    try {
+      const codebasePath = await extractUpload(req.file, tool.id);
+      await pool.query("UPDATE tools SET codebase_path = $1 WHERE id = $2", [codebasePath, tool.id]);
+      tool.codebase_path = codebasePath;
+    } catch (err) {
+      return res.status(400).json({ error: `Failed to extract codebase: ${err.message}` });
+    }
+  }
+
+  res.json({ tool, track: computed.track, previousTrack: existing.track });
 });
 
 // Delete draft (owner only)

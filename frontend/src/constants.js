@@ -226,6 +226,11 @@ export const ROUTE_META = {
     title: "Resume Draft",
     description: "Return to an existing intake.",
   },
+  "intake-resubmit": {
+    label: "Edit & Resubmit",
+    title: "Edit & Resubmit",
+    description: "Update your answers and resubmit for review.",
+  },
   detail: {
     label: "Tool Detail",
     title: "Tool Detail",

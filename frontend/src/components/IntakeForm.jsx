@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Check, AlertTriangle, Save, Clock, CheckCircle, Loader } from "lucide-react";
 import { C, TRACK_COLORS, TRACK_LABELS, computeTrack, DIMENSION_SHORT } from "../constants.js";
 import { navigate } from "../hooks/useHashRouter.js";
-import { submitIntake, saveDraft, updateDraft, getTool } from "../api.js";
+import { submitIntake, saveDraft, updateDraft, getTool, resubmitIntake } from "../api.js";
 import { useToast } from "./Toast.jsx";
 import { Btn, TrackBadge } from "./primitives.jsx";
 
@@ -149,7 +149,7 @@ function formatTime(date) {
   return `${h % 12 || 12}:${m} ${ampm}`;
 }
 
-export default function IntakeForm({ draftId }) {
+export default function IntakeForm({ draftId, resubmitId }) {
   const { toast } = useToast();
   const [a, setA] = useState({});
   const [name, setName] = useState("");
@@ -161,7 +161,7 @@ export default function IntakeForm({ draftId }) {
   const [lastSaved, setLastSaved] = useState(null);
   const [showRecovery, setShowRecovery] = useState(false);
   const [recoveryData, setRecoveryData] = useState(null);
-  const [loadingDraft, setLoadingDraft] = useState(!!draftId);
+  const [loadingDraft, setLoadingDraft] = useState(!!draftId || !!resubmitId);
   const [fieldErrors, setFieldErrors] = useState({});
 
   const changeCountRef = useRef(0);
@@ -169,10 +169,11 @@ export default function IntakeForm({ draftId }) {
   const serverSaveTimerRef = useRef(null);
   const lastServerSaveRef = useRef(0);
 
-  // Load existing draft from server
+  // Load existing draft (or the tool being resubmitted) from server
   useEffect(() => {
-    if (!draftId) { setLoadingDraft(false); return; }
-    getTool(draftId).then(data => {
+    const loadId = draftId || resubmitId;
+    if (!loadId) { setLoadingDraft(false); return; }
+    getTool(loadId).then(data => {
       const tool = data.tool;
       setName(tool.name || "");
       setDescription(tool.description || "");
@@ -184,13 +185,13 @@ export default function IntakeForm({ draftId }) {
       setSaveStatus("saved");
       setLastSaved(new Date(tool.updated_at));
     }).catch(() => {
-      toast.error("Failed to load draft");
+      toast.error(resubmitId ? "Failed to load tool" : "Failed to load draft");
     }).finally(() => setLoadingDraft(false));
-  }, [draftId]);
+  }, [draftId, resubmitId]);
 
-  // Check for localStorage recovery on mount (only for new forms, not draft edits)
+  // Check for localStorage recovery on mount (only for new forms, not draft edits/resubmissions)
   useEffect(() => {
-    if (draftId) return;
+    if (draftId || resubmitId) return;
     try {
       const saved = localStorage.getItem(LS_KEY);
       if (saved) {
@@ -203,7 +204,7 @@ export default function IntakeForm({ draftId }) {
         }
       }
     } catch { localStorage.removeItem(LS_KEY); }
-  }, [draftId]);
+  }, [draftId, resubmitId]);
 
   function recoverFromLocal() {
     if (recoveryData) {
@@ -236,6 +237,7 @@ export default function IntakeForm({ draftId }) {
 
   // Save to server
   async function saveToServer() {
+    if (resubmitId) return; // Resubmission mode has no server draft auto-save
     if (!name.trim()) return; // Need at least a name
     setSaveStatus("saving");
     try {
@@ -366,6 +368,19 @@ export default function IntakeForm({ draftId }) {
 
     setSubmitting(true);
     try {
+      if (resubmitId) {
+        const res = await resubmitIntake(resubmitId, {
+          name,
+          description,
+          artifactType: a.q1 || "other",
+          intakeAnswers: a,
+          sandbox,
+        });
+        localStorage.removeItem(LS_KEY);
+        toast.success(`"${name}" resubmitted — Track ${res.track}`);
+        navigate(`/tool/${resubmitId}`);
+        return;
+      }
       const res = await submitIntake({
         draftId: serverDraftId,
         name,
@@ -425,9 +440,13 @@ export default function IntakeForm({ draftId }) {
       <header>
         <div className="eyebrow">AI Tool Intake</div>
         <h1 style={{ margin: "6px 0 0", fontSize: 22, letterSpacing: "-0.02em" }}>
-          {draftId ? "Edit draft" : "Submit a new tool for review"}
+          {resubmitId ? "Edit answers & resubmit" : draftId ? "Edit draft" : "Submit a new tool for review"}
         </h1>
-        <p className="body-copy">Answer the questions below. Your responses determine the review track.</p>
+        <p className="body-copy">
+          {resubmitId
+            ? "Update your answers to address the reviewer's feedback, then resubmit. Scores and track are recomputed."
+            : "Answer the questions below. Your responses determine the review track."}
+        </p>
       </header>
 
       <div style={{ display: "flex", gap: 24 }}>
@@ -566,11 +585,13 @@ export default function IntakeForm({ draftId }) {
 
           <div style={{ marginTop: 16, paddingTop: 20, borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, alignItems: "center" }}>
             <Btn onClick={handleSubmit} disabled={submitting || !name.trim()}>
-              {submitting ? "Submitting..." : "Submit Intake & Upload Code"}
+              {submitting ? (resubmitId ? "Resubmitting..." : "Submitting...") : (resubmitId ? "Resubmit for Review" : "Submit Intake & Upload Code")}
             </Btn>
-            <Btn variant="ghost" onClick={handleSaveDraft} disabled={!name.trim()}>
-              <Save size={13} style={{ marginRight: 4, verticalAlign: -1 }} /> Save Draft
-            </Btn>
+            {!resubmitId && (
+              <Btn variant="ghost" onClick={handleSaveDraft} disabled={!name.trim()}>
+                <Save size={13} style={{ marginRight: 4, verticalAlign: -1 }} /> Save Draft
+              </Btn>
+            )}
           </div>
         </div>
 

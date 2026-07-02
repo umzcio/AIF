@@ -334,6 +334,7 @@ export default function ToolDetail({ toolId }) {
                 <div className="info-banner" style={{ borderColor: C.warning }}>
                   <div><strong style={{ color: C.warning }}>Changes requested.</strong> Address the feedback, then re-submit.</div>
                 </div>
+                {canManage && <Btn onClick={() => navigate(`/intake/resubmit/${tool.id}`)}>Edit answers &amp; resubmit</Btn>}
                 {latestRun?.status === "completed" && <Btn onClick={() => navigate(`/tool/${toolId}/report/${latestRun.id}`)}>View report</Btn>}
                 <Btn variant="ghost" onClick={() => navigate(`/upload/${toolId}`)}>Re-run pipeline</Btn>
               </>}

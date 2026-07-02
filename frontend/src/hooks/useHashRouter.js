@@ -4,6 +4,7 @@ const routes = [
   { pattern: /^#\/tool\/([^/]+)\/report\/([^/]+)$/, name: "report", params: ["toolId", "runId"] },
   { pattern: /^#\/tool\/([^/]+)\/pipeline\/([^/]+)$/, name: "pipeline", params: ["toolId", "runId"] },
   { pattern: /^#\/tool\/([^/]+)$/, name: "detail", params: ["toolId"] },
+  { pattern: /^#\/intake\/resubmit\/([^/]+)$/, name: "intake-resubmit", params: ["toolId"] },
   { pattern: /^#\/intake\/([^/]+)$/, name: "intake-edit", params: ["draftId"] },
   { pattern: /^#\/intake$/, name: "intake", params: [] },
   { pattern: /^#\/welcome$/, name: "welcome", params: [] },

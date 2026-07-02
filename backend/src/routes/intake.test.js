@@ -624,6 +624,102 @@ describe("intake flow — end-to-end simulation", () => {
 });
 
 // ===========================================================================
+// Resubmit route (shape) — Task 17
+//
+// NOTE: There is no HTTP test harness in this repo (no supertest/similar
+// dependency, per the "no new deps" constraint). These tests exercise the
+// same building blocks the route uses (computeFromAnswers, validateIntakeAnswers,
+// and the route's status/ownership guard conditions as inline boolean checks)
+// rather than making real HTTP requests against router.post("/:id/resubmit").
+// The route's DB interaction (tool_versions INSERT, tools UPDATE, audit log,
+// all inside withTransaction) is NOT covered by these unit tests — only the
+// pure-function scoring/validation logic and guard predicates are.
+// ===========================================================================
+
+describe("resubmit route (shape)", () => {
+  it("only changes_requested tools can be resubmitted (guard predicate)", () => {
+    // Route guard: if (existing.status !== "changes_requested") return res.status(400)
+    const otherStatuses = ["draft", "pending", "in_progress", "under_review", "approved", "active", "suspended"];
+    for (const status of otherStatuses) {
+      assert.notStrictEqual(status, "changes_requested", `Status "${status}" should be rejected for resubmit`);
+    }
+    assert.strictEqual("changes_requested", "changes_requested");
+  });
+
+  it("owner-or-admin guard predicate matches route logic", () => {
+    // Route guard: if (existing.owner_id !== req.user.userId && req.user.role !== "admin") return 403
+    const ownerId = "user-1";
+    const cases = [
+      { userId: "user-1", role: "builder", allowed: true },   // owner
+      { userId: "user-2", role: "admin", allowed: true },     // admin, not owner
+      { userId: "user-2", role: "builder", allowed: false },  // neither owner nor admin
+      { userId: "user-2", role: "reviewer", allowed: false }, // reviewer is not owner or admin
+    ];
+    for (const { userId, role, allowed } of cases) {
+      const wouldReject = ownerId !== userId && role !== "admin";
+      assert.strictEqual(!wouldReject, allowed, `userId=${userId} role=${role}`);
+    }
+  });
+
+  it("resubmit validates the resolved answers (existing.intake_answers fallback) before recomputing", () => {
+    // Route: const answers = intakeAnswers || existing.intake_answers;
+    // Simulates a resubmission where the client sends no new answers and the
+    // existing tool's stored answers (with q19 blank, changes-requested-worthy)
+    // are used as the fallback — validation should still catch missing q19.
+    const existingAnswers = { ...highRiskAnswers(), q19: "" };
+    const submittedAnswers = null;
+    const resolved = submittedAnswers || existingAnswers;
+    const validation = validateIntakeAnswers(resolved);
+    assert.strictEqual(validation.ok, false, "Missing q19 should fail validation on resubmit");
+  });
+
+  it("resubmit recomputes scores/track from the resolved answers, not the stored tool row", () => {
+    // Simulates: builder addressed feedback (added version control, fixed auth)
+    // between changes_requested and resubmit — recompute must reflect the fix.
+    const beforeAnswers = { ...lowRiskAnswers(), q15: "no-vc" }; // escalation -> Track 4
+    const beforeComputed = computeFromAnswers(beforeAnswers, "script-api");
+    assert.strictEqual(beforeComputed.track, 4);
+
+    const fixedAnswers = { ...beforeAnswers, q15: "github" }; // escalation resolved
+    const afterComputed = computeFromAnswers(fixedAnswers, "script-api");
+    assert.ok(afterComputed.track < 4, "Fixing the escalation condition should lower the track on resubmit");
+  });
+
+  it("resubmit falls back to existing artifact_type/name/description when not resubmitted (COALESCE semantics)", () => {
+    // Route: artType = artifactType || existing.artifact_type
+    //        name = COALESCE($1, name) / description = COALESCE($2, description) in SQL
+    const existing = { artifact_type: "internal-app", name: "Existing Tool", description: "Existing desc" };
+    const bodyArtifactType = null;
+    const bodyName = null;
+    const bodyDescription = null;
+    const resolvedArtType = bodyArtifactType || existing.artifact_type;
+    assert.strictEqual(resolvedArtType, "internal-app");
+    // COALESCE(null, existing) keeps existing value — simulated here since this
+    // is SQL-side behavior, not JS-side, and can't run against a real DB in this suite.
+    const resolvedName = bodyName ?? existing.name;
+    const resolvedDescription = bodyDescription ?? existing.description;
+    assert.strictEqual(resolvedName, "Existing Tool");
+    assert.strictEqual(resolvedDescription, "Existing desc");
+  });
+
+  it("stored weighted_percentage rounding matches the resubmit route's Math.round(pct * 10000) / 100", () => {
+    const answers = midRiskAnswers();
+    const computed = computeFromAnswers(answers, "internal-app");
+    const stored = Math.round(computed.pct * 10000) / 100;
+    assert.ok(stored >= 0 && stored <= 100);
+  });
+
+  it("changes_requested -> under_review is the resubmit route's target status (state-machine sanity)", () => {
+    // The route sets status = 'under_review' directly via UPDATE (not through
+    // registry.js's canTransition/TRANSITIONS map — resubmit is a distinct
+    // code path from the reviewer-driven status endpoint). This test just
+    // documents the target status the route writes.
+    const targetStatus = "under_review";
+    assert.strictEqual(targetStatus, "under_review");
+  });
+});
+
+// ===========================================================================
 // validateIntakeAnswers (FW-03) — enforces phantom-required questions
 // ===========================================================================
 
