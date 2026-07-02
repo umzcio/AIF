@@ -214,14 +214,23 @@ async function runAgentDirect(agentDef, codebasePath, codeBundle, passKeys, outp
       }
       content = JSON.stringify(trimmed);
       if (content.length > MAX_PASS_CHARS && Array.isArray(trimmed.findings)) {
+        // Copy the findings array before popping — trimmed.findings otherwise
+        // aliases r.parsed.findings (and thus reports[key].parsed.findings),
+        // which deterministicMerge() unions in the fallback path. Popping the
+        // shared array would permanently drop findings before we know whether
+        // synthesis will fail.
+        trimmed.findings = [...trimmed.findings];
         // Drop whole findings from the tail rather than slicing mid-JSON,
         // so the synthesizer never counts convergence over amputated objects.
+        const originalCount = trimmed.findings.length;
         while (trimmed.findings.length > 5 && JSON.stringify(trimmed).length > MAX_PASS_CHARS) {
           trimmed.findings.pop();
         }
-        trimmed.findingsTruncatedForSynthesis = true;
+        if (trimmed.findings.length < originalCount) {
+          trimmed.findingsTruncatedForSynthesis = true;
+          pLog.info("Trimmed findings for synthesis input", { pass: key, kept: trimmed.findings.length, dropped: originalCount - trimmed.findings.length });
+        }
         content = JSON.stringify(trimmed);
-        pLog.info("Trimmed findings for synthesis input", { pass: key, kept: trimmed.findings.length });
       }
       if (content.length > MAX_PASS_CHARS) {
         pLog.info("Truncating verbose pass for synthesis", { pass: key, original: content.length, truncated: MAX_PASS_CHARS });
