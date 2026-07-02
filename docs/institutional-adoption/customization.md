@@ -184,8 +184,9 @@ These values are currently hardcoded in source and have not been externalized. T
 | Email subject prefix `[AIF]` | `backend/src/notifications.js` (`sendMail` subject field) | Change to match local mail taxonomy if required. |
 | Framework version string `"2026.1"` | `frontend/src/constants.js` (`APP_META.frameworkVersion`) | Advance when the institution's governance body ratifies a new framework version. |
 | Product names (`"AI Tool Intake"`, `"AIF"`, `"Higher Education Edition"`) | `frontend/src/constants.js` (`APP_META`) | User-facing strings; edit to match local naming conventions. |
+| Agent-prompt institution references | `backend/src/agents/code-analysis/lenses.js` | Driven by `INSTITUTION_NAME` with a neutral fallback ("the institution"); no longer hardcoded to UM. |
 
-Email branding colors are the most commonly requested customization during adoption and are tracked as a future configuration-surface improvement.
+Email branding colors are the most commonly requested customization during adoption and are tracked as a future configuration-surface improvement. The agent-prompt row above shows the target pattern for the remaining entries in this table: externalize via an environment-backed config export (`backend/src/config.js`) with a neutral fallback, rather than a source edit.
 
 ## Keeping customizations maintainable
 

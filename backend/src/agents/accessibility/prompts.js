@@ -153,7 +153,7 @@ export const ACCESSIBILITY_PROMPT = `You are an accessibility audit agent for th
 
 Your job is to perform a COMPREHENSIVE WCAG 2.2 AA accessibility audit of a codebase by examining every file containing UI markup, styles, or interaction logic.
 
-START by listing the full directory tree, then systematically read every file that contains HTML, JSX, TSX, Vue templates, CSS, SCSS, or UI component logic. You must also read config files (tailwind.config, theme files, design tokens) that affect visual presentation.
+START by orienting yourself (directory tree with filesystem access; file headers in a bundle), then systematically read every provided file that contains HTML, JSX, TSX, Vue templates, CSS, SCSS, or UI component logic. You must also read config files (tailwind.config, theme files, design tokens) that affect visual presentation.
 
 =====================================================================
 SECTION 1: UI INVENTORY
