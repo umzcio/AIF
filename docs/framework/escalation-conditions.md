@@ -1,10 +1,10 @@
 # Escalation Conditions
 
-Escalation conditions are categorical risk triggers that force a tool into Track 4 regardless of its weighted percentage score. They exist because certain institutional risks (regulated data, unauthorized vendor access, missing version control) cannot be safely averaged out through dimensional weighting. This document specifies all seven escalation conditions, their intake-question sources, the rationale for each, and the order of evaluation as implemented in `backend/src/scoring.js` (`checkEscalations`).
+Escalation conditions are categorical risk triggers that force a tool into Track 4 regardless of its weighted percentage score. They exist because certain institutional risks (regulated data, unauthorized vendor access, missing version control) cannot be safely averaged out through dimensional weighting. This document specifies all nine escalation conditions, their intake-question sources, the rationale for each, and the order of evaluation as implemented in `backend/src/scoring.js` (`checkEscalations`).
 
 ## Summary
 
-- Seven distinct escalation conditions
+- Nine distinct escalation conditions
 - Any single matching condition forces Track 4
 - Evaluated after dimension scoring, before track routing
 - Escalations are reported to the builder in the live sidebar and persisted on the submission record
@@ -19,12 +19,14 @@ The canonical implementation lives in `backend/src/scoring.js` in the `checkEsca
 | # | Label | Trigger (Intake Answers) | Escalation Text Returned |
 |--:|-------|--------------------------|---------------------------|
 | 1 | Regulated data | q10 includes any of `hipaa`, `irb`, `export`, `tribal` | "Regulated data (HIPAA/IRB/Export/Tribal)" |
-| 2 | FERPA + public-facing | q10 includes `ferpa` AND q5 is `public-noauth` or `public-auth` | "FERPA + public-facing deployment" |
+| 2 | FERPA + public-facing | q10 includes `ferpa` AND (q5 is `public-noauth` OR (q5 is `public-auth` AND q6 is not `sso`)) | "FERPA + public-facing deployment" |
 | 3 | Personal accounts | q11 includes `personal` | "Institutional data in personal accounts" |
 | 4 | Missing DPA | q12 is `no-dpa` or `unknown-dpa` | "AI model without approved DPA" |
 | 5 | Custom auth | q6 is `custom-auth` | "Auth outside campus SSO" |
 | 6 | No version control | q15 is `no-vc` | "No version control" |
 | 7 | Students unaware of AI | q21 is `no` AND q3 includes `students` | "Students unaware of AI" |
+| 8 | Payment card data | q10 includes `payment` | "Payment card data (PCI DSS)" |
+| 9 | Autonomous decisions | q20 is `autonomous` | "Autonomous decisions without human review" |
 
 The order above reflects the evaluation order in `checkEscalations()`. Order is not semantically meaningful — a tool may trigger multiple escalations, all of which are returned and stored.
 
@@ -47,13 +49,13 @@ Track 4 routing forces these tools into a formal IT project where legal, privacy
 
 ### 2. FERPA in Public-Facing Deployment
 
-**Trigger**: `q10` contains `ferpa` AND `q5` is `public-noauth` or `public-auth`.
+**Trigger**: `q10` contains `ferpa` AND (`q5` is `public-noauth` OR (`q5` is `public-auth` AND `q6` is not `sso`)).
 
-**Rationale**: The Family Educational Rights and Privacy Act (20 USC §1232g) restricts disclosure of student educational records. A public-facing deployment (either unauthenticated or authenticated but internet-reachable) materially increases the risk of inadvertent disclosure — cache leakage, indexing, misconfigured access controls, or social engineering — even when access controls are intended to prevent it.
+**Rationale**: The Family Educational Rights and Privacy Act (20 USC §1232g) restricts disclosure of student educational records. An unauthenticated public-facing deployment, or an authenticated one that does not sit behind campus SSO, materially increases the risk of inadvertent disclosure — cache leakage, indexing, misconfigured access controls, or social engineering.
 
-Note the specificity: FERPA in a campus-VPN-only tool does not trigger escalation on this condition alone (it may still score Track 3 by percentage), but FERPA plus public accessibility is categorically unacceptable without formal project governance.
+Note the specificity: FERPA in a campus-VPN-only tool does not trigger escalation on this condition alone (it may still score Track 3 by percentage), but FERPA plus unauthenticated or non-SSO public accessibility is categorically unacceptable without formal project governance.
 
-Public-auth (requires authentication but is internet-accessible) is included because FERPA access control failures disproportionately originate from internet-facing endpoints regardless of auth posture.
+FERPA on an internet-reachable deployment protected by campus SSO no longer forces Track 4; it applies a Track 3 floor instead (`tools.floor_conditions`), guaranteeing IT review without consuming formal-project capacity. Rationale: essentially every modern campus web app is internet-reachable behind SSO; forcing all of them into Track 4 collapsed the proportionality the framework is named for.
 
 ### 3. Institutional Data in Personal Accounts
 
@@ -128,20 +130,33 @@ The compound trigger (`q21=no` AND `q3` includes `students`) is deliberately nar
 
 Pedagogy-adjacent escalations that are NOT encoded as automated conditions but are documented in `FrameworkDoc` include: "Deployed in a course without faculty awareness", "Could compromise academic integrity without faculty oversight", and "Student behavioral/performance data beyond FERPA authorization". These are reviewer responsibilities during Track 3 and Track 4 review.
 
+### 8. Payment Card Data (PCI DSS)
+
+**Trigger**: `q10` contains `payment`.
+
+**Rationale**: Payment Card Industry Data Security Standard (PCI DSS) compliance is a contractual obligation imposed by card networks, not a discretionary institutional policy. A tool that touches cardholder data outside a validated, scoped PCI environment exposes the institution to fines, liability for fraud losses, and loss of card-processing privileges. Dimensional scoring cannot express this — a small, low-blast-radius tool that mishandles card data is still a PCI violation. Track 4 routes the builder to the institution's PCI compliance office before the tool goes anywhere near cardholder data.
+
+### 9. Autonomous Decisions Without Human Review
+
+**Trigger**: `q20` is `autonomous`.
+
+**Rationale**: `q20` captures the tool's decision-scope: whether it recommends, acts with override, or acts autonomously. A tool that acts on its own without a human in the loop removes the safeguard that catches AI errors before they reach a person, a system, or a record. This is independent of blast radius or data sensitivity — an autonomous tool acting on a single user's data is still making unsupervised decisions. Track 4 requires the institution to evaluate whether autonomous operation is appropriate and what compensating controls (logging, rollback, kill switch) are in place before the tool runs unsupervised.
+
 ## Evaluation and Reporting
 
 ### Order of Operations
 
 1. `computeDimensionScores(answers)` produces the seven scores.
 2. `checkEscalations(answers)` produces an array of triggered escalation labels (may be empty, may contain one or many).
-3. `computeWeightedPercentage(scores, artifactType)` produces the percentage.
-4. `routeToTrack(weightedPct, escalations.length > 0)` applies the override: any non-empty escalation array forces Track 4.
+3. `checkFloors(answers)` produces an array of floor conditions (currently: FERPA on an internet-reachable SSO deployment floors the track at 3).
+4. `computeEffectivePercentage(scores, answers, artifactType)` evaluates the applicable-profile guard (see `scoring-model.md`) and produces the weighted percentage.
+5. `routeToTrack(weightedPct, escalations.length > 0, floorTrack)` applies the override: any non-empty escalation array forces Track 4; otherwise the floor (if any) sets the minimum track, and percentage thresholds apply above it.
 
 All steps run for every submission. Escalations are recorded even when the weighted percentage alone would have routed to Track 4 — the provenance of the Track 4 decision is preserved in the record.
 
 ### Persistence
 
-On intake submission (`POST /intake`), the escalation array is persisted on the `tools.escalations` field as a JSON array of human-readable strings. The record is immutable after submission; if intake answers change on resubmission, a new version of the record is created.
+On intake submission (`POST /intake`), the escalation array is persisted on the `tools.escalation_conditions` field as a JSON array of human-readable strings, and floor conditions on `tools.floor_conditions`. The record is not immutable: when a tool's status is `changes_requested`, the builder resubmits through a dedicated route (`POST /intake/:id/resubmit`), not through the standard status-transition endpoint. That route snapshots the prior scoring state (answers, scores, escalations, floors, track) to the `tool_versions` table, then recomputes scores, escalations, floors, and track authoritatively from the new answers and returns the tool to `under_review`.
 
 ### Audit Trail
 

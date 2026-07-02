@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Check, AlertTriangle, Save, Clock, CheckCircle, Loader } from "lucide-react";
-import { C, TRACK_COLORS, TRACK_LABELS, computeTrack, DIMENSION_SHORT } from "../constants.js";
+import { C, TRACK_COLORS, TRACK_LABELS, computeTrack, DIMENSION_SHORT, DIMENSION_LABELS, DIMENSION_NIST } from "../constants.js";
 import { navigate } from "../hooks/useHashRouter.js";
 import { submitIntake, saveDraft, updateDraft, getTool, resubmitIntake } from "../api.js";
 import { useToast } from "./Toast.jsx";
@@ -644,7 +644,7 @@ export default function IntakeForm({ draftId, resubmitId }) {
               <div style={{ marginTop: 14, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
                 {Object.entries(DIMENSION_SHORT).map(([k, l]) => (
                   <div key={k} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-                    <span className="mono" style={{ width: 36, fontSize: 9, color: C.textDim, fontWeight: 600 }}>{l}</span>
+                    <span className="mono" title={`${DIMENSION_LABELS[k]} — NIST AI RMF: ${DIMENSION_NIST[k]}`} style={{ width: 36, fontSize: 9, color: C.textDim, fontWeight: 600 }}>{l}</span>
                     <div style={{ flex: 1, height: 3, borderRadius: 2, background: C.border, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${(result.dims[k]/3)*100}%`, borderRadius: 2,
                         background: result.weights[k] >= 4 ? TRACK_COLORS[4] : result.weights[k] >= 3 ? TRACK_COLORS[3] : C.accent,
@@ -653,6 +653,7 @@ export default function IntakeForm({ draftId, resubmitId }) {
                     <span className="mono" style={{ fontSize: 9, color: C.textDim, width: 22, textAlign: "right" }}>{result.dims[k]}x{result.weights[k]}</span>
                   </div>
                 ))}
+                <div style={{ fontSize: 9, color: C.textDim, marginTop: 6 }}>Dimensions map to NIST AI RMF subcategories — hover a label.</div>
               </div>
 
               {/* Save indicator */}

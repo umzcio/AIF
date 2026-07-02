@@ -83,6 +83,17 @@ export const DIMENSION_SHORT = {
   maintenance: "MAINT",
 };
 
+// NIST AI RMF subcategories per scoring dimension (docs/institutional-adoption/compliance-mapping.md)
+export const DIMENSION_NIST = {
+  security: "MEASURE 2.7",
+  accessibility: "MEASURE 2.9",
+  dataSensitivity: "MEASURE 2.10 · MAP 5.1",
+  blastRadius: "MAP 5.1",
+  autonomy: "GOVERN 1.2 · MANAGE 1.2",
+  comprehension: "MEASURE 2.9 · GOVERN 1.2",
+  maintenance: "GOVERN 6.1",
+};
+
 const AUTONOMY_LEVELS = { "none": 0, "recommends": 1, "acts-with-override": 2, "autonomous": 3 };
 
 /** Preview-only: backend recomputes authoritatively on submit via scoring.js. */

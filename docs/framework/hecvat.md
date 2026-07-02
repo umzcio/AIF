@@ -30,24 +30,25 @@ AIF uses HECVAT Lite. The 87 critical questions are defined in `backend/src/agen
 
 ## Pipeline Integration
 
-HECVAT is the second of two Claude calls in Agent 4 (Documentation). The first call generates the USER_GUIDE, ADMIN_GUIDE, and COMPLIANCE_SUMMARY documents; the second call completes the HECVAT self-assessment.
+Agent 4 (Documentation) runs three passes in parallel, not sequentially. Gemini generates the USER_GUIDE and ADMIN_GUIDE; Claude Code CLI generates the COMPLIANCE_SUMMARY; GLM-5 completes the HECVAT self-assessment via a direct OpenRouter API call. HECVAT is not a Claude call.
 
 ```
-Agent 4 (Documentation)
-  ├── Pass 1: Documentation Generation → .md → .docx via pandoc
-  └── Pass 2: HECVAT Self-Assessment → hecvat_assessment.json + hecvat_assessment.xlsx
+Agent 4 (Documentation) — 3 parallel passes
+  ├── Gemini            → USER_GUIDE.md, ADMIN_GUIDE.md (.docx via pandoc)
+  ├── Claude Code CLI    → COMPLIANCE_SUMMARY.md (.docx via pandoc)
+  └── GLM-5 (direct API) → HECVAT Self-Assessment → hecvat_assessment.json + hecvat_assessment.xlsx
 ```
 
 The HECVAT pass reads:
 
-- The full codebase (via Claude Code CLI with filesystem access).
+- The bundled codebase — the same deterministic bundle passes 2-5 receive, subject to the 400K-character budget (the HECVAT pass runs on GLM-5 via direct API, not Claude CLI).
 - Agent 1 (Code & Security) synthesis report.
 - Agent 2 (Accessibility) synthesis report.
 - Agent 3 (QA / Bug Detection) synthesis report.
 
 ## Question Categories
 
-The 87 critical questions are organized into 26 assessment areas. The table below lists each area, the count of critical questions, and the typical automation posture (Automatable = answerable from code or agent reports; Mixed = partially; Human = requires human input):
+The 87 critical questions are organized into 24 assessment areas. The table below lists each area, the count of critical questions, and the typical automation posture (Automatable = answerable from code or agent reports; Mixed = partially; Human = requires human input):
 
 | Area Code | Area | # Qs | Automation |
 |-----------|------|-----:|------------|

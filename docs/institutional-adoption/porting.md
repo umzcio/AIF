@@ -180,8 +180,8 @@ Before general availability, the institution's governance body should review and
 
 - The twenty-one intake questions and their response options
 - The seven-dimension scoring model and the per-artifact-type weight profiles
-- The four-track routing percentages (22 %, 42 %, 65 %)
-- The seven escalation conditions that force Track 4
+- The four-track routing percentages (22 %, 42 %, 65 %) — provisional values; calibrate against your own submission distribution via the admin analytics distribution view
+- The nine escalation conditions that force Track 4
 - The status state machine (draft → pending → in\_progress → under\_review → approved → active) and its role restrictions
 
 All of these are configurable, but all of them currently require a code or database-migration change rather than an environment variable. See [customization.md](customization.md) for the map of what can be changed where. Most institutions adopt the defaults verbatim for the first production cycle and revise after observing live data.

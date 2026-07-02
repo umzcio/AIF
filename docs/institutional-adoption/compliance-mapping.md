@@ -163,13 +163,12 @@ AIF generates a pre-populated HECVAT 4.15 Lite self-assessment workbook (`hecvat
 
 | Disposition | Approximate count | Source |
 |-------------|-------------------|--------|
-| Answerable from code analysis | ~35 | Agent 4 HECVAT Claude pass reads Agent 1 and Agent 2 findings plus filesystem. |
-| Not applicable (e.g., consulting-specific) | ~21 | Marked N/A with justification. |
-| Requires human input (contractual, organizational) | ~31 | Marked `REQUIRES_HUMAN_INPUT` so reviewers know what remains. |
+| Answerable from code analysis and agent reports | ~57 | Agent 4 HECVAT pass (GLM-5, direct API) reads the codebase bundle plus Agent 1-3 synthesis reports. |
+| Requires human input (contractual, organizational) | ~30 | Marked `REQUIRES_HUMAN_INPUT` so reviewers know what remains. |
 
 The XLSX export matches the official EDUCAUSE template column structure so the assessment can be submitted directly to the institution's HECVAT review workflow. Reviewers typically complete the remaining ~35 % in under an hour given the pre-filled context.
 
-Question categories covered: Documentation (DOCU), IT Accessibility (ITAC), Third-Party Assessment (THRD), Consulting (CONS), Application / Service Security (APPS), Authentication, Authorization, and Accounting (AAAI), Business Continuity (BCPL), Change Management (CHNG), Data (DATA), Database Security (DBAS), Disaster Recovery (DRPL), Firewall / IDS / IPS (FIPS), HECVAT Profile (HECV), Physical Security (PHYS), Policies and Procedures (PPRO), Privacy (PRIV), Qualifications (QUAL), Systems Management (SYST), and Vulnerability Scanning (VULN).
+Question categories covered: Documentation/BCP-DRP (DOCU), IT Accessibility (ITAC), Third-Party Assessment (THRD), Consulting (CONS), Application / Service Security (APPL), Authentication, Authorization, and Accounting (AAAI), Change Management (CHNG), Data (DATA), Datacenter (DCTR), Firewall / IDS / IPS / Networking (FIDP), Policies, Procedures, and Processes (PPPR), Vulnerability Scanning (VULN), HIPAA (HIPA), PCI DSS (PCID), Privacy Company (PCOM), Privacy Third Party (PTHP), Privacy Data (PDAT), Privacy Policies (PRPO), Data Protection AI (DPAI), AI Governance (AIGN), AI Policies (AIPL), AI Security (AISC), AI/ML (AIML), and AI LLM (AILM).
 
 ## OWASP Top 10
 

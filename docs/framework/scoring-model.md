@@ -26,7 +26,7 @@ Each dimension is an integer in the range `[0, 3]`. Scoring rules below use inta
 | accessibility | Accessibility | A11Y | q5 (access surface), q1 (artifact type) |
 | dataSensitivity | Data Sensitivity | DATA | q9 (handles data), q10 (data types) |
 | blastRadius | Blast Radius | BLAST | q3 (user groups), q8 (user volume) |
-| autonomy | Autonomy | AUTO | q21 (user awareness), q20 (decision scope) |
+| autonomy | Autonomy | AUTO | q20 (decision scope), q21 (user awareness) |
 | comprehension | Comprehension | COMP | q19 (plain-language explanation) |
 | maintenance | Maintenance | MAINT | q15, q16, q17, q18 |
 
@@ -95,17 +95,28 @@ Volume bonus (additive, clamped to 3):
 
 ### Autonomy (0–3)
 
-Driven by user awareness (q21) and presence of substantive autonomy description (q20).
+Driven by decision scope (q20) with a disclosure penalty (q21).
 
-| Condition | Modifier |
-|-----------|---------:|
-| q21 = `no` (users unaware of AI) | +2 |
-| q21 = `partial` | +1 |
-| q20 present and length > 10 chars | +1 |
+q20 is a fixed enum describing how much the tool acts on its own:
 
-Final score: `min(sum, 3)`.
+| q20 Value | Meaning | Base Score |
+|-----------|---------|-----------:|
+| `none` | Tool takes no independent action | 0 |
+| `recommends` | Tool suggests; a human decides | 1 |
+| `acts-with-override` | Tool acts, human can override | 2 |
+| `autonomous` | Tool acts without human review | 3 |
 
-Note: the q20 heuristic treats a meaningful description as evidence that the tool influences real decisions. Very short or empty q20 answers contribute nothing.
+Penalty (additive):
+
+| Condition (q21) | Modifier |
+|------------------|---------:|
+| q21 = `no` (users unaware of AI) | +1 |
+
+Final score: `min(base + penalty, 3)`.
+
+Legacy handling: records submitted before q20 became an enum hold free-text. For those, the base score falls back to `1` if the free-text answer is longer than 10 characters, `0` otherwise; the q21 penalty still applies on top.
+
+Note: `q20 = autonomous` also triggers the "Autonomous decisions without human review" escalation condition (see `escalation-conditions.md`), independent of the dimension score.
 
 ### Comprehension (0–3)
 
@@ -119,6 +130,8 @@ Inversely derived from the length of the builder's plain-language explanation (q
 | ≥ 200 | 0 |
 
 Rationale: a builder who cannot describe a tool's behavior and failure modes in two-plus sentences is unlikely to recognize or mitigate its risks in production.
+
+q19 is asked of every submission, AI-built or not — comprehension risk is universal. (Earlier versions only showed q19 for AI-classified tools, which silently assigned maximum comprehension risk to every non-AI tool.)
 
 ### Maintenance (0–3)
 
@@ -159,6 +172,12 @@ Each artifact type has a fixed weight profile. Weights are non-negative integers
 - **data-pipeline**: Mirrors script-api but Data Sensitivity is 4.
 - **other**: Balanced default profile.
 
+### Applicable-Profile Guard
+
+The weight profile is not purely self-declared. Profiles implied by the answers are always evaluated alongside the declared type, and routing uses the highest resulting percentage: an authenticated web surface (q5 = public-auth or campus-vpn) adds the internal-app profile; an unauthenticated public surface (q5 = public-noauth) adds public-site; AI classification (q1 = ai-agent or external AI per q12) adds ai-agent. Consequence: switching q1 alone can never lower a tool's track, which closes the gaming vector where declaring "ai-agent" (a profile that weights autonomy and comprehension heavily) diluted the percentage for tools scoring 0 on those dimensions.
+
+The implementation is `applicableProfiles()` and `computeEffectivePercentage()` in `backend/src/scoring.js` (mirrored in `frontend/src/constants.js`). `computeTrack()` calls `computeEffectivePercentage()` rather than `computeWeightedPercentage()` directly, so every route to a track already reflects the guard.
+
 ## Weighted Percentage
 
 Once scores and weights are known, the weighted percentage is:
@@ -193,9 +212,9 @@ Weighted sum: `2×3 + 3×3 + 2×4 + 2×2 + 0×1 + 0×2 + 0×3 = 6 + 9 + 8 + 4 = 
 
 Max: `3 × 18 = 54`.
 
-`weighted_pct = 27 / 54 = 0.500 → 50%` → Track 3.
+`weighted_pct = 27 / 54 = 0.500 → 50%`. The applicable-profile guard adds no other profile here (q5 = `public-auth` implies internal-app, which is already the declared type), so the effective percentage is 50% → Track 3 by percentage.
 
-Additionally: `q10` contains `ferpa` and `q5` is `public-auth`, which triggers the **FERPA + public-facing deployment** escalation, forcing Track 4 regardless of percentage.
+Additionally: `q10` contains `ferpa` and `q5` is `public-auth`, but `q6` is `sso` — this no longer triggers the FERPA escalation (see `escalation-conditions.md` condition 2). It instead triggers the FERPA floor condition, setting a minimum of Track 3. Since the percentage-based result is already Track 3, the floor changes nothing here. Final: **Track 3**.
 
 ### Worked Example 2: Simple Script
 
@@ -221,7 +240,7 @@ Weighted sum: `0`. Weighted percentage: `0%` → Track 1. No escalations.
 
 Tool: ai-agent that drafts advising emails for students, disclosed as AI.
 
-Answers: `q1=ai-agent`, `q3=[students]`, `q5=public-auth`, `q6=sso`, `q9=yes`, `q10=[ferpa, internal]`, `q12=approved-dpa`, `q15=campus-repo`, `q16=documented`, `q17=active`, `q18=team-runbooks`, `q19=long explanation`, `q20=long description`, `q21=yes`.
+Answers: `q1=ai-agent`, `q3=[students]`, `q5=public-auth`, `q6=sso`, `q9=yes`, `q10=[ferpa, internal]`, `q12=approved-dpa`, `q15=campus-repo`, `q16=documented`, `q17=active`, `q18=team-runbooks`, `q19=long explanation`, `q20=recommends`, `q21=yes`.
 
 Scores:
 
@@ -231,25 +250,29 @@ Scores:
 | accessibility | public-auth (3) | 3 |
 | dataSensitivity | ferpa (2) | 2 |
 | blastRadius | students (2) | 2 |
-| autonomy | q21=yes (+0), q20>10 chars (+1) | 1 |
+| autonomy | q20=recommends (base 1) + q21=yes (+0) | 1 |
 | comprehension | q19 ≥ 200 chars | 0 |
 | maintenance | clean | 0 |
 
 ai-agent weights: `[3, 1, 3, 4, 4, 4, 3]`, Σ = 22.
 
-Weighted sum: `2×3 + 3×1 + 2×3 + 2×4 + 1×4 + 0×4 + 0×3 = 6 + 3 + 6 + 8 + 4 = 27`.
+Weighted sum: `2×3 + 3×1 + 2×3 + 2×4 + 1×4 + 0×4 + 0×3 = 6 + 3 + 6 + 8 + 4 + 0 + 0 = 27`.
 
 Max: `3 × 22 = 66`.
 
-`weighted_pct = 27 / 66 = 0.409 → 40.9%` → Track 2.
+`weighted_pct = 27 / 66 = 0.409 → 40.9%` under the declared ai-agent profile.
 
-Escalation check: FERPA present but q5 is `public-auth`. The FERPA-public escalation fires. The tool is forced to Track 4.
+The applicable-profile guard also evaluates internal-app, because q5 = `public-auth` implies it: internal-app weights `[3, 3, 4, 2, 1, 2, 3]`, weighted sum `= 2×3 + 3×3 + 2×4 + 2×2 + 1×1 + 0×2 + 0×3 = 6 + 9 + 8 + 4 + 1 + 0 + 0 = 28`, max `= 3 × 18 = 54`, `weighted_pct = 28 / 54 = 0.519 → 51.9%`.
+
+The effective percentage is `max(40.9%, 51.9%) = 51.9%` → Track 3 by percentage.
+
+Escalation check: FERPA is present, `q5` is `public-auth`, and `q6` is `sso` — this no longer triggers the FERPA escalation (the split rule only fires for `public-noauth`, or `public-auth` without SSO). It instead triggers the FERPA floor condition, setting a minimum of Track 3. The percentage-based result and the floor agree. Final: **Track 3**.
 
 ## Composition and Data Flow
 
 1. The frontend renders the intake form and runs a live preview computation as the user types (`computeTrack` in `frontend/src/constants.js`).
 2. On submit, `POST /intake` sends the raw 21 answers plus `artifactType` to the backend.
-3. `backend/src/routes/intake.js` calls `computeTrack(answers, artifactType)` from `scoring.js` and persists the resulting `track`, `dimensionScores`, `weightedPct`, and `escalations`.
+3. `backend/src/routes/intake.js` calls `computeTrack(answers, artifactType)` from `scoring.js` and persists the resulting `track`, `dimensionScores`, `weightedPct`, `escalations`, and `floors`.
 4. The backend result is authoritative. The frontend preview may lag if constants.js drifts; a passing `scoring.test.js` run proves parity.
 
 ## Display Constants
@@ -264,7 +287,7 @@ Display metadata lives in `frontend/src/constants.js`:
 ## Cross-References
 
 - Track routing thresholds, percentage math, and escalation override semantics: `track-routing.md`
-- The seven escalation conditions, with question mappings: `escalation-conditions.md`
+- The nine escalation conditions, with question mappings: `escalation-conditions.md`
 - HECVAT 4.15 self-assessment integration: `hecvat.md`
 - Intake question catalog and field hints: `../user-guide/intake-form.md`
 - API request/response for score computation: `../api/` (intake endpoints)

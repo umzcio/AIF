@@ -50,7 +50,7 @@ Submit tool  -->  Score 7 dimensions  -->  Route to Track  -->  5-model pipeline
 
 1. **Intake**: Builder answers 21 questions about the tool — what it does, who uses it, what data it touches, how it authenticates, whether users know it's AI
 2. **Scoring**: Seven dimensions scored 0-3, weighted by artifact type (public site, internal app, AI agent, etc.), producing a risk percentage
-3. **Track routing**: Risk percentage maps to a governance track. Seven escalation conditions can force Track 4 regardless of score
+3. **Track routing**: Risk percentage maps to a governance track. Nine escalation conditions can force Track 4 regardless of score
 4. **Agent pipeline**: Five independent AI models analyze the codebase using the same prompt. Deterministic tools (Semgrep, ESLint, npm audit) run in parallel. Claude synthesizes everything with dispute resolution
 5. **Review**: Track 1 auto-activates. Track 2 lets builders self-certify. Tracks 3-4 require reviewer approval. All decisions are audit-logged
 
@@ -96,15 +96,19 @@ Each artifact type has a different weight profile. A public website weights acce
 
 ### Escalation Conditions
 
-Seven conditions force Track 4 regardless of weighted percentage:
+Nine conditions force Track 4 regardless of weighted percentage:
 
 1. Regulated data (HIPAA/IRB/export-controlled/tribal) present
-2. FERPA data in a public-facing tool
+2. FERPA data in a public-facing tool: unauthenticated, or authenticated without campus SSO
 3. Institutional data in personal accounts
 4. AI model without approved DPA
 5. Authentication outside campus SSO
 6. No version control
 7. Students unaware they're interacting with AI
+8. Payment card data (PCI DSS)
+9. Autonomous decisions without human review
+
+FERPA behind campus SSO on an internet-reachable deployment doesn't escalate to Track 4 — it applies a Track 3 floor instead, guaranteeing IT review without forcing formal-project governance on every SSO-protected campus web app.
 
 ---
 
@@ -178,7 +182,7 @@ All tracks run all agents. The pipeline is uniform — track determines governan
 - **Cancel button** with AbortController propagation to all child processes (SIGTERM + SIGKILL fallback)
 - **Retry** with dead letter queue (max 2 total attempts before permanent failure)
 - **Per-model timeouts** tuned to observed performance (Codex 15min, MiniMax 8min, etc.)
-- **Partial results synthesis** — if 4/5 passes succeed, pipeline continues with available data
+- **Partial results synthesis** — synthesis proceeds with whatever passes completed (minimum 1 of 5); such runs are flagged partial_analysis and Track 1 auto-activation is blocked for them
 - **Pass metrics** recorded per-pass: timing, JSON parse status, output size, error category
 
 ### Reports & Findings

@@ -50,24 +50,30 @@ Exact boundary values:
 | 41.99% | Track 2 |
 | 64.99% | Track 3 |
 
+These thresholds are provisional. They were set by expert judgment, not calibrated against a submission corpus; no calibration dataset yet exists. The admin analytics distribution view (`GET /analytics/distribution`) exists to collect exactly that evidence — revisit the boundaries after the first production cycle.
+
 ## Routing Algorithm
 
 The algorithm, transcribed from `routeToTrack()`:
 
 ```
-function routeToTrack(weightedPct, hasEscalation):
+function routeToTrack(weightedPct, hasEscalation, floorTrack = 1):
     if hasEscalation:
         return 4
     if weightedPct >= 0.65:
-        return 4
-    if weightedPct >= 0.42:
-        return 3
-    if weightedPct >= 0.22:
-        return 2
-    return 1
+        track = 4
+    elif weightedPct >= 0.42:
+        track = 3
+    elif weightedPct >= 0.22:
+        track = 2
+    else:
+        track = 1
+    return max(track, floorTrack)
 ```
 
-Escalation override is evaluated first. If any of the seven escalation conditions (see `escalation-conditions.md`) holds, the tool routes to Track 4 and the weighted percentage is not examined. This makes escalation a categorical gate: percentage-based scoring cannot outweigh certain institutional risks.
+Escalation override is evaluated first. If any of the nine escalation conditions (see `escalation-conditions.md`) holds, the tool routes to Track 4 and the weighted percentage is not examined. This makes escalation a categorical gate: percentage-based scoring cannot outweigh certain institutional risks.
+
+Floor conditions (see `checkFloors()` in `backend/src/scoring.js`) sit below the escalation gate but above percentage-based routing: they raise the minimum track without forcing Track 4. Currently the only floor condition is FERPA on an internet-reachable deployment protected by campus SSO, which floors the track at 3.
 
 ## Percentage Computation Recap
 
@@ -119,7 +125,7 @@ An internal-app serving a department, internal institutional data, SSO, well-mai
 
 ### Example C — Track 3
 
-A public-site handling FERPA data with SSO and partial documentation; no public exposure of FERPA (q5 = `public-auth`, so FERPA escalation is evaluated separately).
+A public-site handling FERPA data behind campus SSO, internet-reachable but authenticated (q5 = `public-auth`, q6 = `sso`), with partial documentation.
 
 | Dimension | Score | Weight | Contribution |
 |-----------|------:|-------:|-------------:|
@@ -131,7 +137,7 @@ A public-site handling FERPA data with SSO and partial documentation; no public 
 | comprehension | 1 | 2 | 2 |
 | maintenance | 0 | 3 | 0 |
 
-Σ contributions = 37. Denominator = 3 × 20 = 60. `weighted_pct = 61.7%`. By percentage alone, Track 3. However, FERPA + `public-auth` triggers the FERPA escalation, overriding to Track 4.
+Σ contributions = 37. Denominator = 3 × 20 = 60. `weighted_pct = 61.7%` under the declared public-site profile. The applicable-profile guard also evaluates internal-app (q5 = `public-auth` implies it): Σ contributions = 31, denominator = 3 × 18 = 54, `weighted_pct = 57.4%`. The effective percentage is the max of the two, 61.7% — Track 3 by percentage. FERPA behind `public-auth` + `sso` no longer triggers the FERPA escalation (see `escalation-conditions.md` condition 2); it applies a Track 3 floor instead, which agrees with the percentage-based result. Final: Track 3.
 
 ### Example D — Track 4 by Percentage
 
@@ -169,14 +175,14 @@ Each track maps to a specific handling path enforced in `backend/src/routes/regi
 - Automated pipeline runs.
 - Builder reviews findings and completes the self-certification step in `ReviewPanel`.
 - On self-certification, status transitions to `approved` then `active`.
-- Department head sign-off is documented.
+- The builder submits a written attestation (minimum 20 characters) plus explicit confirmations that findings were reviewed and escalation conditions understood; all of it is stored on the review note and audit log.
 
 ### Track 3 — IT Review
 
 - Automated pipeline runs.
 - A reviewer (role: reviewer or admin) must open the pipeline findings and either approve or request changes.
 - Approval transitions status to `approved`; the tool then moves to `active`.
-- Changes requested transitions to `changes_requested`; the builder resubmits which returns the tool to `under_review`.
+- Changes requested transitions to `changes_requested`; the builder resubmits via a dedicated route (`POST /intake/:id/resubmit`) which snapshots the prior state to `tool_versions`, recomputes scores/track authoritatively, and returns the tool to `under_review`.
 
 ### Track 4 — Formal Project
 
@@ -200,7 +206,7 @@ All four tracks run the identical five-model agent pipeline:
 - Agent 1 (Code & Security) — 5 passes, Claude synthesis
 - Agent 2 (Accessibility) — 5 passes, Claude synthesis
 - Agent 3 (QA / Bug Detection) — 5 passes, Claude synthesis
-- Agent 4 (Documentation) — 1 Claude pass for docs, 1 Claude pass for HECVAT
+- Agent 4 (Documentation) — 3 parallel passes: Gemini (User/Admin Guide), Claude Code CLI (Compliance Summary), GLM-5 direct API (HECVAT)
 
 The track does not determine analysis depth; it determines the human governance layer on top of the automated review. A Track 1 tool receives the same five-model code analysis as a Track 4 tool. This is a deliberate design decision: machine scrutiny is cheap enough to apply uniformly, so institutional attention can be spent where humans add value.
 
@@ -217,15 +223,16 @@ draft → pending → in_progress → under_review → approved → active
 - Track 1 skips `under_review` and auto-transitions from `in_progress` directly to `active` on pipeline completion.
 - Track 2 transitions from `under_review` to `approved` via builder self-certification.
 - Track 3 and Track 4 transitions from `under_review` to `approved` require reviewer or admin role.
+- The `changes_requested → under_review` edge is not in the registry TRANSITIONS map (which only allows `changes_requested → pending`); it is handled by the dedicated `POST /intake/:id/resubmit` route, which snapshots and recomputes scoring before setting status directly to `under_review`.
 
 ## Cross-References
 
 - Dimension scoring and weight profiles: `scoring-model.md`
-- The seven escalation conditions that force Track 4: `escalation-conditions.md`
+- The nine escalation conditions that force Track 4: `escalation-conditions.md`
 - HECVAT 4.15 self-assessment integration: `hecvat.md`
 - Review workflow API: `../api/` (review endpoints)
 - Registry status state machine: `../api/` (registry endpoints)
 
 ## Change Control
 
-Threshold changes (22%, 42%, 65%) are framework-level governance changes. Updates must be reflected in `backend/src/scoring.js` `routeToTrack`, covered by unit tests in `backend/src/scoring.test.js`, and approved by the CIO. Track boundary adjustments should be validated against the historical distribution of submitted tools before publication as policy.
+Threshold changes (22%, 42%, 65%) are framework-level governance changes. Updates must be reflected in `backend/src/scoring.js` `routeToTrack`, covered by unit tests in `backend/src/scoring.test.js`, and approved by the CIO. Track boundary adjustments should be validated against the historical distribution of submitted tools before publication as policy. The distribution endpoint (`GET /analytics/distribution`) provides the historical distribution this requires.

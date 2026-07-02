@@ -56,7 +56,7 @@ Retention thresholds are enforced by the scheduled job in `backend/src/jobs/rete
 
 ## Tier 2 — Governance model
 
-The values in this tier encode institutional policy decisions. Changing them is safe but requires touching source files under `backend/src/` and, for values mirrored between backend and frontend, keeping the two in sync. The test suite (`npm test`, 271 tests) enforces parity; `scoring.test.js` fails if the frontend and backend weight profiles diverge.
+The values in this tier encode institutional policy decisions. Changing them is safe but requires touching source files under `backend/src/` and, for values mirrored between backend and frontend, keeping the two in sync. The test suite (`npm test`, 324 tests) enforces parity; `scoring.test.js` fails if the frontend and backend weight profiles diverge.
 
 ### Authentication providers
 
@@ -194,7 +194,7 @@ When forking or patching AIF for local customization, the following practices mi
 
 - Commit environment-variable changes to an institution-specific `.env` file held outside the source tree; never fork simply to change configuration.
 - Preserve the original scoring-module exports; add institution-specific predicates as additions rather than edits so merging upstream changes remains straightforward.
-- Run `npm test` after every customization that touches scoring, registry, or pipeline code. The 271-test suite is fast and catches most regressions.
+- Run `npm test` after every customization that touches scoring, registry, or pipeline code. The 324-test suite is fast and catches most regressions.
 - Record institutional deviations from the default framework in your local governance documentation so reviewers understand why the portal behaves differently from the upstream reference.
 
 ## Where to go next
