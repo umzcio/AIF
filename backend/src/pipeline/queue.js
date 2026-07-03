@@ -297,6 +297,13 @@ async function processNext() {
           `UPDATE agent_results SET status = 'completed', passes_completed = $1, completed_at = NOW() WHERE run_id = $2 AND agent_name = $3`,
           [event.passes, runId, event.agent]
         ).catch(err => log.error("agent_complete DB update failed", { runId, error: err.message }));
+      } else if (event.type === "agent_failed") {
+        // Agent rejected entirely (all passes + synthesis exhausted) — record
+        // as failed, not completed. Mirrors agent_complete's shape/columns.
+        pool.query(
+          `UPDATE agent_results SET status = 'failed', error_message = $1, completed_at = NOW() WHERE run_id = $2 AND agent_name = $3`,
+          [(event.error || "").slice(0, 500), runId, event.agent]
+        ).catch(err => log.error("agent_failed DB update failed", { runId, error: err.message }));
       } else if (event.type === "pass_start") {
         // Insert pass_results row on start
         pool.query(

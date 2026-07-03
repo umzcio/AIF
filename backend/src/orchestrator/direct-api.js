@@ -469,7 +469,10 @@ export async function runDirectApiPipeline({ codebasePath, track, toolName, outp
     const message = reason?.message || String(reason);
     pipelineLog.error(`${name} agent failed entirely (all passes + synthesis exhausted)`, { error: message });
     emit({ type: "agent_failed", agent: name, error: message });
-    return { passes: {}, failures: [message], synthesis: null, raw: null, partial: true, synthesisFailed: true };
+    // rejected: true tells the agent_complete emit sites below to skip — this
+    // agent already got its terminal event (agent_failed) and must not also be
+    // marked 'completed' downstream (see queue.js onProgressCb).
+    return { passes: {}, failures: [message], synthesis: null, raw: null, partial: true, synthesisFailed: true, rejected: true };
   }
 
   const codeAnalysis = settled[0].status === "fulfilled" ? settled[0].value : agentRejectionFallback("code-analysis", settled[0].reason);
@@ -553,11 +556,19 @@ export async function runDirectApiPipeline({ codebasePath, track, toolName, outp
     }
   }
 
+  // A rejected agent (all passes + synthesis exhausted) already emitted its
+  // terminal agent_failed event in agentRejectionFallback above — emitting
+  // agent_complete here too would let queue.js's agent_complete handler
+  // overwrite the 'failed' row it just wrote with 'completed'.
   const codeSummary = summarizeFindings(codeAnalysis.synthesis);
-  emit({ type: "agent_complete", agent: "code-analysis", index: 0, passes: Object.keys(codeAnalysis.passes).length, failures: codeAnalysis.failures.length, summary: codeSummary, partial: codeAnalysis.partial });
+  if (!codeAnalysis.rejected) {
+    emit({ type: "agent_complete", agent: "code-analysis", index: 0, passes: Object.keys(codeAnalysis.passes).length, failures: codeAnalysis.failures.length, summary: codeSummary, partial: codeAnalysis.partial });
+  }
 
   const a11ySummary = summarizeFindings(accessibility.synthesis);
-  emit({ type: "agent_complete", agent: "accessibility", index: 1, passes: Object.keys(accessibility.passes).length, failures: accessibility.failures.length, summary: a11ySummary, partial: accessibility.partial });
+  if (!accessibility.rejected) {
+    emit({ type: "agent_complete", agent: "accessibility", index: 1, passes: Object.keys(accessibility.passes).length, failures: accessibility.failures.length, summary: a11ySummary, partial: accessibility.partial });
+  }
 
   // Agent 3: QA (model passes + ESLint QA in parallel)
   checkCancel();
