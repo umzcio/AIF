@@ -132,13 +132,26 @@ router.patch("/:id/status", validate(toolStatusSchema), wrap(async (req, res) =>
     const role = req.user.role;
     const isOwner = tool.owner_id === req.user.userId;
 
+    // canTransition() is role-scoped, not ownership-scoped: it only checks
+    // whether the role has a key for this transition in TRANSITIONS, and
+    // "system" transitions are never HTTP-reachable (see registry-transitions.js).
+    // For builders, TRANSITIONS grants self-service moves (draft->pending,
+    // changes_requested->pending, active->retired) intended for the tool's
+    // OWNER only — canTransition alone can't tell one builder's tool from
+    // another's, so ownership is enforced here as an explicit second gate.
+    // Reviewers/admins are role-wide by design (they act on any tool), so no
+    // ownership gate applies to them.
     if (!canTransition(tool.status, status, role)) {
-      if (!(isOwner && canTransition(tool.status, status, "builder"))) {
-        res.status(403).json({
-          error: `Cannot transition from '${tool.status}' to '${status}' with role '${role}'`
-        });
-        return null;
-      }
+      res.status(403).json({
+        error: `Cannot transition from '${tool.status}' to '${status}' with role '${role}'`
+      });
+      return null;
+    }
+    if (role === "builder" && !isOwner) {
+      res.status(403).json({
+        error: `Cannot transition from '${tool.status}' to '${status}': not the tool owner`
+      });
+      return null;
     }
 
     const { rows: [u] } = await client.query(

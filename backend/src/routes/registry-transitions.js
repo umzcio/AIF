@@ -10,6 +10,13 @@
  */
 
 // Valid status transitions: { fromStatus: { role: [toStatuses] } }
+//
+// The "system" key documents transitions the pipeline performs via direct SQL
+// (backend/src/pipeline/queue.js — pending->in_progress on run start,
+// in_progress->under_review/active on run completion). It is NOT HTTP-reachable:
+// canTransition() below only honors the caller's actual role, never "system".
+// Every transition a real HTTP caller needs already has an explicit role key
+// (admin duplicates the system entries where admins need equivalent access).
 export const TRANSITIONS = {
   draft:             { builder: ["pending"], admin: ["pending"] },
   pending:           { system: ["in_progress"], admin: ["in_progress"] },
@@ -25,6 +32,5 @@ export function canTransition(fromStatus, toStatus, role) {
   const allowed = TRANSITIONS[fromStatus];
   if (!allowed) return false;
   const roleAllowed = allowed[role] || [];
-  const systemAllowed = allowed.system || [];
-  return roleAllowed.includes(toStatus) || systemAllowed.includes(toStatus);
+  return roleAllowed.includes(toStatus);
 }

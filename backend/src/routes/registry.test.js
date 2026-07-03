@@ -169,11 +169,11 @@ describe("state machine — role restrictions", () => {
   });
 
   it("builder cannot start pipeline (pending → in_progress) directly via role", () => {
-    // System transitions (pending → in_progress) are allowed for all callers
-    // because canTransition falls through to system entries — this is by design.
-    // The route itself gates this by only allowing system/admin to trigger pipeline runs.
-    // So from canTransition's perspective, this returns true (system fallthrough).
-    assert.ok(canTransition("pending", "in_progress", "builder"));
+    // "system" transitions (pending → in_progress) are performed by the
+    // pipeline via direct SQL (queue.js), never through canTransition/the HTTP
+    // route. canTransition() only honors the caller's actual role — a builder
+    // has no "pending" entry in TRANSITIONS.pending, so this must be false.
+    assert.ok(!canTransition("pending", "in_progress", "builder"));
   });
 
   it("builder cannot transition under_review → active", () => {
@@ -247,22 +247,108 @@ describe("state machine — structural integrity", () => {
 });
 
 // ===========================================================================
-// System role fallthrough behavior
+// System transitions are NOT reachable via any HTTP-facing role
+//
+// Previously canTransition() fell through to TRANSITIONS[fromStatus].system
+// for ANY role, so any authenticated builder/reviewer could drive
+// pending→in_progress or in_progress→active (the latter bypassing review
+// entirely) via PATCH /registry/:id/status. "system" transitions are
+// performed by the pipeline via direct SQL (queue.js) and must never be
+// reachable through canTransition()/the HTTP route. See registry-transitions.js.
 // ===========================================================================
 
-describe("state machine — system role fallthrough", () => {
-  it("any role can use system transitions (pending → in_progress)", () => {
-    // canTransition checks both role-specific AND system transitions
-    // So even a builder gets system-level transitions
-    assert.ok(canTransition("pending", "in_progress", "builder"));
-    assert.ok(canTransition("pending", "in_progress", "reviewer"));
+describe("state machine — system transitions are not grantable to HTTP roles", () => {
+  it("builder cannot use system transitions (pending → in_progress)", () => {
+    assert.ok(!canTransition("pending", "in_progress", "builder"));
   });
 
-  it("system transitions for in_progress are available to all roles", () => {
-    assert.ok(canTransition("in_progress", "under_review", "builder"));
-    assert.ok(canTransition("in_progress", "active", "builder"));
-    assert.ok(canTransition("in_progress", "under_review", "reviewer"));
-    assert.ok(canTransition("in_progress", "active", "reviewer"));
+  it("reviewer cannot use system transitions (pending → in_progress)", () => {
+    assert.ok(!canTransition("pending", "in_progress", "reviewer"));
+  });
+
+  it("builder cannot reach in_progress → active (would bypass review)", () => {
+    assert.ok(!canTransition("in_progress", "active", "builder"));
+  });
+
+  it("builder cannot reach in_progress → under_review", () => {
+    assert.ok(!canTransition("in_progress", "under_review", "builder"));
+  });
+
+  it("reviewer cannot reach in_progress → active (would bypass review)", () => {
+    assert.ok(!canTransition("in_progress", "active", "reviewer"));
+  });
+
+  it("reviewer cannot reach in_progress → under_review", () => {
+    assert.ok(!canTransition("in_progress", "under_review", "reviewer"));
+  });
+
+  it("admin retains explicit (non-system) access to in_progress → active", () => {
+    // admin has its own explicit key in TRANSITIONS.in_progress, independent
+    // of the (now HTTP-unreachable) system key — so admin access is unaffected.
+    assert.ok(canTransition("in_progress", "active", "admin"));
+    assert.ok(canTransition("in_progress", "under_review", "admin"));
+  });
+
+  it("admin retains explicit (non-system) access to pending → in_progress", () => {
+    assert.ok(canTransition("pending", "in_progress", "admin"));
+  });
+});
+
+// ===========================================================================
+// PATCH /:id/status ownership gate (review-bypass fix)
+//
+// canTransition() is role-scoped only — it can't tell one builder's tool from
+// another's. The route (registry.js PATCH /:id/status) therefore applies a
+// second, explicit gate: builder-keyed transitions additionally require
+// isOwner. Reviewer/admin transitions are role-wide by design (no ownership
+// gate). This predicate models that in-handler check identically; there is
+// no HTTP test harness in this suite, so it plus manual code reading is the
+// coverage for the full route.
+// ===========================================================================
+
+function canPatchStatus(role, isOwner, fromStatus, toStatus) {
+  if (!canTransition(fromStatus, toStatus, role)) return false;
+  if (role === "builder" && !isOwner) return false;
+  return true;
+}
+
+describe("PATCH /:id/status — ownership gate on builder-keyed transitions", () => {
+  it("builder can move their OWN tool draft → pending", () => {
+    assert.ok(canPatchStatus("builder", true, "draft", "pending"));
+  });
+
+  it("builder CANNOT move ANOTHER builder's tool draft → pending", () => {
+    assert.ok(!canPatchStatus("builder", false, "draft", "pending"));
+  });
+
+  it("builder can move their OWN tool changes_requested → pending", () => {
+    assert.ok(canPatchStatus("builder", true, "changes_requested", "pending"));
+  });
+
+  it("builder CANNOT move ANOTHER builder's tool changes_requested → pending", () => {
+    assert.ok(!canPatchStatus("builder", false, "changes_requested", "pending"));
+  });
+
+  it("builder can retire their OWN active tool", () => {
+    assert.ok(canPatchStatus("builder", true, "active", "retired"));
+  });
+
+  it("builder CANNOT retire ANOTHER builder's active tool", () => {
+    assert.ok(!canPatchStatus("builder", false, "active", "retired"));
+  });
+
+  it("reviewer is not ownership-gated (role-wide by design)", () => {
+    assert.ok(canPatchStatus("reviewer", false, "under_review", "approved"));
+  });
+
+  it("admin is not ownership-gated (role-wide by design)", () => {
+    assert.ok(canPatchStatus("admin", false, "draft", "pending"));
+  });
+
+  it("no role/ownership combination reaches in_progress → active (system-only, HTTP-unreachable except admin's explicit key)", () => {
+    assert.ok(!canPatchStatus("builder", true, "in_progress", "active"));
+    assert.ok(!canPatchStatus("reviewer", false, "in_progress", "active"));
+    assert.ok(canPatchStatus("admin", false, "in_progress", "active")); // admin's explicit key, not system fallthrough
   });
 });
 
