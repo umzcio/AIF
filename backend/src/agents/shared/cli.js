@@ -149,7 +149,6 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
         "-m", process.env.CODEX_MODEL || "gpt-5.6-sol",
         "-C", codebasePath,
         "--sandbox", "read-only",
-        "--ask-for-approval", "never",
         "--skip-git-repo-check",
         "-o", outputFile,
         "--ephemeral",

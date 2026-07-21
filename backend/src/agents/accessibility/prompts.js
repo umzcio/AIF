@@ -373,7 +373,7 @@ ${OUTPUT_SCHEMA}`;
 export const PASSES = {
   pass1: { name: "Pass 1 (Codex/GPT-5.6-sol)", tool: "codex" },
   pass2: { name: "Pass 2 (MiniMax M3)", tool: "direct-api" },
-  pass3: { name: "Pass 3 (MiMo-V2-Flash)", tool: "direct-api" },
+  pass3: { name: "Pass 3 (MiMo-V2.5)", tool: "direct-api" },
   pass4: { name: "Pass 4 (Kimi K3)", tool: "direct-api" },
   pass5: { name: "Pass 5 (GLM-5.2)", tool: "direct-api" },
 };

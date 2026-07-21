@@ -44,7 +44,7 @@ function validateUrl(url) {
 const MODEL_COST_USD = {
   "codex":     0.30,  // GPT-5.6-sol via Codex CLI (pass 1)
   "minimax":   0.10,  // MiniMax M3 via OpenRouter (pass 2)
-  "mimo":      0.06,  // MiMo-V2-Flash via OpenRouter (pass 3)
+  "mimo":      0.06,  // MiMo-V2.5 via OpenRouter (pass 3)
   "kimi":      0.12,  // Kimi K3 via OpenRouter (pass 4)
   "glm":       0.08,  // GLM-5.2 via OpenRouter (pass 5 + Agent 4 HECVAT)
   "gemini":    0.15,  // Gemini (unused; Agent 4 guides moved to Claude Sonnet 5)

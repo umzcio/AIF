@@ -37,7 +37,7 @@ You MUST produce the JSON report above as your final output. Do NOT end your res
  */
 export const DIRECT_MODELS = {
   pass2: { name: "MiniMax M3", provider: "openrouter", model: "minimax/minimax-m3", maxTokens: 16384 },
-  pass3: { name: "MiMo-V2-Flash", provider: "openrouter", model: "xiaomi/mimo-v2-flash", maxTokens: 16384 },
+  pass3: { name: "MiMo-V2.5", provider: "openrouter", model: "xiaomi/mimo-v2.5", maxTokens: 16384 },
   pass4: { name: "Kimi K3", provider: "openrouter", model: "moonshotai/kimi-k3", maxTokens: 16384 },
   pass5: { name: "GLM-5.2", provider: "openrouter", model: "z-ai/glm-5.2", maxTokens: 16384 },
 };
