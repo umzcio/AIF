@@ -148,7 +148,14 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
         "exec", prompt,
         "-m", process.env.CODEX_MODEL || "gpt-5.6-sol",
         "-C", codebasePath,
-        "--sandbox", "read-only",
+        // Codex's own sandbox (--sandbox read-only) uses bubblewrap, which cannot
+        // initialize inside this Docker container (no unprivileged user namespaces:
+        // "failed to initialize in-process app-server client: Permission denied").
+        // So we bypass Codex's internal sandbox. Blast-radius mitigations that DO
+        // hold: filteredEnv("codex") gives this process only OPENAI_API_KEY (no
+        // other secrets), and docker-compose no longer mounts /projects. Proper
+        // isolation (a disposable, secret-free per-analysis container) is a follow-up.
+        "--dangerously-bypass-approvals-and-sandbox",
         "--skip-git-repo-check",
         "-o", outputFile,
         "--ephemeral",
