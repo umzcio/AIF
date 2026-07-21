@@ -166,7 +166,7 @@ async function preflight() {
 
   // Required for pipeline (warn, don't block server)
   const pipelineKeys = {
-    OPENAI_API_KEY: "Codex (GPT-5.4, pass 1)",
+    OPENAI_API_KEY: "Codex (GPT-5.6-sol, pass 1)",
     OPENROUTER_API_KEY: "MiniMax + MiMo + Kimi + GLM via OpenRouter (passes 2-5)",
     ANTHROPIC_API_KEY: "Claude Code CLI (synthesis)",
   };

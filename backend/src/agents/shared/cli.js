@@ -146,7 +146,7 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
       if (existsSync(outputFile)) rmSync(outputFile, { force: true });
       args = [
         "exec", prompt,
-        "-m", process.env.CODEX_MODEL || "gpt-5.4-2026-03-05",
+        "-m", process.env.CODEX_MODEL || "gpt-5.6-sol",
         "-C", codebasePath,
         "--sandbox", "read-only",
         "--ask-for-approval", "never",
@@ -174,7 +174,9 @@ export function runCLI(tool, prompt, codebasePath, outputDir, opts = {}) {
       });
     } else if (tool === "claude") {
       const claudeEnv = filteredEnv("claude");
-      const claudeModel = process.env.CLAUDE_MODEL || "claude-opus-4-6";
+      // Per-call override (opts.model) lets one pass run a different Claude model
+      // (e.g. Sonnet 5 for Agent 4 guides) while synthesis/compliance default to Fable 5.
+      const claudeModel = opts.model || process.env.CLAUDE_MODEL || "claude-fable-5";
       // For prompts under 120KB, pass directly via -p (spawn bypasses shell, safe for special chars).
       // For larger prompts, write to file and tell Claude to read it — avoids MAX_ARG_STRLEN (128KB).
       if (prompt.length <= 120000) {

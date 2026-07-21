@@ -1,7 +1,7 @@
 /**
  * Documentation Generation Prompts
  *
- * Parallel mode (current): GUIDES_PROMPT (Gemini CLI), HECVAT (GLM-5 via direct API),
+ * Parallel mode (current): GUIDES_PROMPT (Claude Sonnet 5 CLI), HECVAT (GLM-5.2 via direct API),
  *   COMPLIANCE_PROMPT (Claude Code CLI) — all 3 run in parallel.
  *
  * HECVAT was moved here from the former Agent 3 — it runs as a separate call.

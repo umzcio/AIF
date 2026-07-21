@@ -44,7 +44,7 @@ if (existsSync(a11yDir) && !existsSync(join(a11yDir, "synthesis.json"))) {
   // Also check codex.json (some runs write both)
   const codexPath = join(a11yDir, "codex.json");
   if (existsSync(codexPath) && !reports.pass1) {
-    reports.pass1 = { key: "pass1", name: "Pass 1 (Codex/GPT-5.4)", parsed: JSON.parse(readFileSync(codexPath, "utf-8")) };
+    reports.pass1 = { key: "pass1", name: "Pass 1 (Codex/GPT-5.6-sol)", parsed: JSON.parse(readFileSync(codexPath, "utf-8")) };
   }
 
   const passCount = Object.keys(reports).length;

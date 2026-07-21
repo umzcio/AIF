@@ -61,9 +61,9 @@ ${sections.join("\n\n---\n\n")}`;
 /**
  * Run documentation generation with 3 parallel passes.
  *
- * 1. Gemini 3.1 Pro Preview → User Guide + Admin Guide (CLI)
- * 2. GLM-5 → HECVAT assessment (direct OpenRouter API)
- * 3. Claude Opus 4.6 → Compliance Summary (CLI)
+ * 1. Claude Sonnet 5 → User Guide + Admin Guide (CLI)
+ * 2. GLM-5.2 → HECVAT assessment (direct OpenRouter API)
+ * 3. Claude Fable 5 → Compliance Summary (CLI)
  */
 export async function runDocGenerationParallel(codebasePath, runDir, outputDir, opts = {}) {
   mkdirSync(outputDir, { recursive: true });
@@ -86,41 +86,41 @@ export async function runDocGenerationParallel(codebasePath, runDir, outputDir, 
 
   const cliOpts = { runId: opts.runId, signal: opts.signal, maxRetries: 1, retryDelayMs: 10000 };
 
-  console.log("[docs] Starting 3 parallel passes: Gemini (guides), GLM-5 (HECVAT), Claude (compliance)");
+  console.log("[docs] Starting 3 parallel passes: Sonnet 5 (guides), GLM-5.2 (HECVAT), Fable 5 (compliance)");
 
   // Run all 3 in parallel
   const [guidesResult, hecvatResult, complianceResult] = await Promise.allSettled([
-    // Pass 1: Gemini 3.1 Pro Preview → User Guide + Admin Guide
+    // Pass 1: Claude Sonnet 5 → User Guide + Admin Guide
     (async () => {
       const start = Date.now();
-      console.log("[docs/guides] Starting Gemini 3.1 Pro Preview...");
-      const result = await runCLIWithRetry("gemini", guidesFullPrompt, resolvedPath, outputDir, cliOpts);
+      console.log("[docs/guides] Starting Claude Sonnet 5...");
+      const result = await runCLIWithRetry("claude", guidesFullPrompt, resolvedPath, outputDir, { ...cliOpts, model: "claude-sonnet-5" });
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-      console.log(`[docs/guides] Gemini completed in ${elapsed}s`);
+      console.log(`[docs/guides] Sonnet 5 completed in ${elapsed}s`);
       return result;
     })(),
 
-    // Pass 2: GLM-5 via direct OpenRouter API → HECVAT
+    // Pass 2: GLM-5.2 via direct OpenRouter API → HECVAT
     (async () => {
       const start = Date.now();
-      console.log("[docs/hecvat] Starting GLM-5 via direct API...");
+      console.log("[docs/hecvat] Starting GLM-5.2 via direct API...");
       const result = await runDirectPass(DIRECT_MODELS.pass5, hecvatFullPrompt, opts.codeBundle || "", outputDir, {
         runId: opts.runId,
         signal: opts.signal,
         timeout: 25 * 60 * 1000, // 25 min for HECVAT
       });
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-      console.log(`[docs/hecvat] GLM-5 completed in ${elapsed}s`);
+      console.log(`[docs/hecvat] GLM-5.2 completed in ${elapsed}s`);
       return result;
     })(),
 
-    // Pass 3: Claude Opus 4.6 → Compliance Summary
+    // Pass 3: Claude Fable 5 → Compliance Summary
     (async () => {
       const start = Date.now();
-      console.log("[docs/compliance] Starting Claude Opus 4.6...");
+      console.log("[docs/compliance] Starting Claude Fable 5...");
       const result = await runCLIWithRetry("claude", complianceFullPrompt, resolvedPath, outputDir, cliOpts);
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-      console.log(`[docs/compliance] Claude completed in ${elapsed}s`);
+      console.log(`[docs/compliance] Fable 5 completed in ${elapsed}s`);
       return result;
     })(),
   ]);
@@ -136,7 +136,7 @@ export async function runDocGenerationParallel(codebasePath, runDir, outputDir, 
       console.log("[docs/guides] Could not parse JSON output. Saved as guides_raw.txt");
     }
   } else {
-    console.log(`[docs/guides] Gemini failed: ${guidesResult.reason.message}`);
+    console.log(`[docs/guides] Sonnet 5 failed: ${guidesResult.reason.message}`);
   }
 
   // Process compliance result
@@ -150,7 +150,7 @@ export async function runDocGenerationParallel(codebasePath, runDir, outputDir, 
       console.log("[docs/compliance] Could not parse JSON output. Saved as compliance_raw.txt");
     }
   } else {
-    console.log(`[docs/compliance] Claude failed: ${complianceResult.reason.message}`);
+    console.log(`[docs/compliance] Fable 5 failed: ${complianceResult.reason.message}`);
   }
 
   // Merge into the unified documentation return shape
@@ -242,7 +242,7 @@ export async function runDocGenerationParallel(codebasePath, runDir, outputDir, 
       console.log("[docs/hecvat] Could not parse JSON output. Saved as hecvat_raw.txt");
     }
   } else {
-    console.log(`[docs/hecvat] GLM-5 failed (non-fatal): ${hecvatResult.reason.message}`);
+    console.log(`[docs/hecvat] GLM-5.2 failed (non-fatal): ${hecvatResult.reason.message}`);
   }
 
   return {

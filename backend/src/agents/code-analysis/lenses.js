@@ -281,11 +281,11 @@ ${OUTPUT_SCHEMA}`;
 
 // All 5 passes use the same prompt — each model runs its own independent analysis
 export const PASSES = {
-  pass1: { name: "Pass 1 (Codex/GPT-5.4)", tool: "codex" },
-  pass2: { name: "Pass 2 (MiniMax M2.5)", tool: "direct-api" },
+  pass1: { name: "Pass 1 (Codex/GPT-5.6-sol)", tool: "codex" },
+  pass2: { name: "Pass 2 (MiniMax M3)", tool: "direct-api" },
   pass3: { name: "Pass 3 (MiMo-V2-Flash)", tool: "direct-api" },
-  pass4: { name: "Pass 4 (Kimi K2)", tool: "direct-api" },
-  pass5: { name: "Pass 5 (GLM-5)", tool: "direct-api" },
+  pass4: { name: "Pass 4 (Kimi K3)", tool: "direct-api" },
+  pass5: { name: "Pass 5 (GLM-5.2)", tool: "direct-api" },
 };
 
 export const SYNTHESIS_PROMPT = `You are the synthesis agent for the AI Production Readiness Framework (AIF). You received independent code analysis reports from multiple AI models. Each model was given the SAME rubric and independently analyzed the SAME codebase.

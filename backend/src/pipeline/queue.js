@@ -42,13 +42,13 @@ function validateUrl(url) {
  * Updated periodically as pricing changes.
  */
 const MODEL_COST_USD = {
-  "codex":     0.30,  // GPT-5.4 via Codex CLI (pass 1)
-  "minimax":   0.10,  // MiniMax M2.5 via OpenRouter (pass 2)
+  "codex":     0.30,  // GPT-5.6-sol via Codex CLI (pass 1)
+  "minimax":   0.10,  // MiniMax M3 via OpenRouter (pass 2)
   "mimo":      0.06,  // MiMo-V2-Flash via OpenRouter (pass 3)
-  "kimi":      0.12,  // Kimi K2 via OpenRouter (pass 4)
-  "glm":       0.08,  // GLM-5 via OpenRouter (pass 5 + Agent 4 HECVAT)
-  "gemini":    0.15,  // Gemini 3.1 Pro Preview (Agent 4 guides)
-  "claude":    0.45,  // Claude Opus 4.6 (synthesis + Agent 4 compliance)
+  "kimi":      0.12,  // Kimi K3 via OpenRouter (pass 4)
+  "glm":       0.08,  // GLM-5.2 via OpenRouter (pass 5 + Agent 4 HECVAT)
+  "gemini":    0.15,  // Gemini (unused; Agent 4 guides moved to Claude Sonnet 5)
+  "claude":    0.45,  // Claude Fable 5 (synthesis + Agent 4 compliance/guides via Sonnet 5)
 };
 
 /**

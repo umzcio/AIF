@@ -269,9 +269,9 @@ ${JSON.stringify(priorFindings, null, 2)}`;
   writeFileSync(join(outputDir, "_synthesis_input.txt"), fullSynthesisPrompt);
 
   pLog.info("Running synthesis with Claude Code CLI");
-  emit({ type: "pass_start", agent: agentDef.name, pass: "synthesis", model: "Claude Opus 4.6" });
+  emit({ type: "pass_start", agent: agentDef.name, pass: "synthesis", model: "Claude Fable 5" });
   const synthOnOutput = (lines) => {
-    emit({ type: "pass_log", agent: agentDef.name, pass: "synthesis", model: "Claude Opus 4.6", lines });
+    emit({ type: "pass_log", agent: agentDef.name, pass: "synthesis", model: "Claude Fable 5", lines });
   };
   let synthesisResult = null;
   let synthesized = null;
@@ -294,7 +294,7 @@ ${JSON.stringify(priorFindings, null, 2)}`;
   if (!synthesized) {
     synthesized = deterministicMerge(reports, passKeys);
     synthesisFailed = true;
-    emit({ type: "pass_failed", agent: agentDef.name, pass: "synthesis", model: "Claude Opus 4.6",
+    emit({ type: "pass_failed", agent: agentDef.name, pass: "synthesis", model: "Claude Fable 5",
       error: "Synthesis unavailable — deterministic merge used", errorCategory: "synthesis_fallback" });
   }
 
@@ -316,9 +316,9 @@ ${JSON.stringify(priorFindings, null, 2)}`;
       pLog.info("Running stack-specific deep dive", {
         checklists: stackChecklists.split("###").length - 1,
       });
-      emit({ type: "pass_start", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6" });
+      emit({ type: "pass_start", agent: agentDef.name, pass: "stack-check", model: "Claude Fable 5" });
       const stackOnOutput = (lines) => {
-        emit({ type: "pass_log", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6", lines });
+        emit({ type: "pass_log", agent: agentDef.name, pass: "stack-check", model: "Claude Fable 5", lines });
       };
 
       const existingTitles = (synthesized.findings || []).map(f => f.title || "").join("\n- ");
@@ -355,12 +355,12 @@ ${JSON.stringify(priorFindings, null, 2)}`;
           writeFileSync(join(outputDir, "synthesis.json"), JSON.stringify(synthesized, null, 2));
         }
         writeFileSync(join(outputDir, "stack_deep_dive.json"), JSON.stringify(stackData, null, 2));
-        emit({ type: "pass_complete", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6",
+        emit({ type: "pass_complete", agent: agentDef.name, pass: "stack-check", model: "Claude Fable 5",
           elapsed: 0, jsonParsed: !!stackData, outputBytes: stackResult.output?.length || 0 });
       } catch (err) {
         if (signal?.aborted) throw err;
         pLog.warn("Stack deep dive failed (non-fatal)", { error: err.message });
-        emit({ type: "pass_failed", agent: agentDef.name, pass: "stack-check", model: "Claude Opus 4.6",
+        emit({ type: "pass_failed", agent: agentDef.name, pass: "stack-check", model: "Claude Fable 5",
           error: err.message, errorCategory: "stack_deep_dive" });
       }
     } else {
